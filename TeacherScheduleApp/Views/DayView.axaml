@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
+             xmlns:converters="clr-namespace:TeacherScheduleApp.Converters"
+             xmlns:local="clr-namespace:TeacherScheduleApp.Controls"
+             xmlns:behaviors="clr-namespace:TeacherScheduleApp.Behaviors"
+             xmlns:i="clr-namespace:Avalonia.Xaml.Interactivity;assembly=Avalonia.Xaml.Interactivity"
+             x:Class="TeacherScheduleApp.Views.DayView"
+             x:DataType="vm:DayViewModel"
+             Background="White">
+	<UserControl.Resources>
+		<SolidColorBrush x:Key="WorkingBrush" Color="#FFF5F5F5"/>
+		<converters:DayToCanvasLeftConverter x:Key="DayToCanvasLeft"/>
+		<converters:DayToColumnWidthConverter x:Key="DayToColumnWidth"/>
+		<converters:BoolToBrushConverter
+		  x:Key="WorkBrush"
+		  TrueBrush="White"
+		  FalseBrush="#FFEEEEEE"/>
+	</UserControl.Resources>
+	
+	<DockPanel>
+		<StackPanel DockPanel.Dock="Top"
+                Orientation="Horizontal"
+                Background="#ECECEC"
+                Height="50"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Center"
+                Spacing="10"
+                Margin="0,0,0,5">
+      <Button Content="←"
+              Command="{Binding PreviousDayCommand}"
+              Background="Transparent"
+              Foreground="Black"
+              Padding="8,4"
+              FontWeight="Bold"
+              BorderBrush="Transparent"/>
+      <TextBlock Text="{Binding CurrentDate, StringFormat='Den: {0:dd MMM yyyy}'}"
+                 FontSize="16"
+                 Foreground="Black"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 Margin="0"/>
+      <Button Content="→"
+              Command="{Binding NextDayCommand}"
+              Background="Transparent"
+              Foreground="Black"
+              Padding="8,4"
+              FontWeight="Bold"
+              BorderBrush="Transparent"/>
+      <Button Content="Dnes"
+              Command="{Binding TodayCommand}"
+              Background="Transparent"
+              Foreground="Black"
+              Padding="8,4"
+              FontWeight="Bold"
+              BorderBrush="Transparent"/>
+    </StackPanel>
+
+		<ScrollViewer DockPanel.Dock="Bottom" VerticalScrollBarVisibility="Auto" Background="White">
+			<Grid>
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="60"/>
+					<ColumnDefinition Width="*"/>
+				</Grid.ColumnDefinitions>
+
+				<ItemsControl ItemsSource="{Binding Hours}" Grid.Column="0">
+					<ItemsControl.ItemsPanel>
+						<ItemsPanelTemplate>
+							<UniformGrid Rows="24" Columns="1"/>
+						</ItemsPanelTemplate>
+					</ItemsControl.ItemsPanel>
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<Border BorderBrush="#DDDDDD" BorderThickness="0,0,1,1">
+								<TextBlock Text="{Binding}" Foreground="Black"
+										   HorizontalAlignment="Right" VerticalAlignment="Center"
+										   Margin="0,0,5,0"/>
+							</Border>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+
+				<Grid Grid.Column="1" Background="White">
+					<ItemsControl ItemsSource="{Binding GridCells}">
+						<ItemsControl.ItemsPanel>
+							<ItemsPanelTemplate>
+								<UniformGrid Rows="24" Columns="1"/>
+							</ItemsPanelTemplate>
+						</ItemsControl.ItemsPanel>
+						<ItemsControl.ItemTemplate>
+							<DataTemplate>
+								<Border
+								  Background="{Binding IsWorkingHour, Converter={StaticResource WorkBrush}}"
+								  BorderBrush="#DDDDDD"
+								  BorderThickness="0,0,1,1"/>
+							</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+				
+					<local:CalendarPanel x:Name="CalendarCanvas"
+										 DaysCount="1"
+										 HoursCount="24"
+										 Background="Transparent">
+						<i:Interaction.Behaviors>
+							<behaviors:AttachCalendarPanelBehavior/>
+						</i:Interaction.Behaviors>
+					</local:CalendarPanel>
+				</Grid>
+			</Grid>
+		</ScrollViewer>
+	</DockPanel>
+</UserControl>

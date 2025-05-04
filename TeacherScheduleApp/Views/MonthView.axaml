@@ -1,0 +1,148 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
+             xmlns:converters="clr-namespace:TeacherScheduleApp.Converters"
+             xmlns:behaviors="clr-namespace:TeacherScheduleApp.Behaviors"
+             xmlns:i="clr-namespace:Avalonia.Xaml.Interactivity;assembly=Avalonia.Xaml.Interactivity"
+             xmlns:local="clr-namespace:TeacherScheduleApp.Controls"
+             x:Class="TeacherScheduleApp.Views.MonthView"
+             x:DataType="vm:MonthViewModel"
+             Background="White">
+
+	<UserControl.Resources>
+		<SolidColorBrush x:Key="WeekendBackgroundBrush" Color="#EEEEEE" />
+		<SolidColorBrush x:Key="NormalBackgroundBrush" Color="White" />
+		<SolidColorBrush x:Key="HolidayForegroundBrush" Color="Red" />
+		<SolidColorBrush x:Key="NormalForegroundBrush" Color="Black" />
+		<converters:EventBrushConverter x:Key="EventBrushConverter"/>
+		<converters:BoolToBrushConverter x:Key="WeekendBackgroundConverter"
+										 TrueBrush="{StaticResource WeekendBackgroundBrush}"
+										 FalseBrush="{StaticResource NormalBackgroundBrush}" />
+		<converters:BoolToBrushConverter x:Key="HolidayForegroundConverter"
+										 TrueBrush="{StaticResource HolidayForegroundBrush}"
+										 FalseBrush="{StaticResource NormalForegroundBrush}" />
+
+		<DataTemplate x:Key="DayCellTemplate" DataType="{x:Type vm:MonthViewModel+MonthDayInfo}">
+			<Border BorderBrush="#DDDDDD" BorderThickness="1" Padding="5"
+					Background="{Binding DayBackground}">
+				<i:Interaction.Behaviors>
+					<behaviors:DayCellClickBehavior/>
+				</i:Interaction.Behaviors>
+				<StackPanel Orientation="Vertical" Spacing="4">
+					<TextBlock Text="{Binding DayNumber}"
+							   Foreground="{Binding DayNumberForeground}"
+							   FontWeight="Bold"
+							   HorizontalAlignment="Right"/>
+					<ScrollViewer VerticalScrollBarVisibility="Auto"
+											 MaxHeight="60">
+					<ItemsControl ItemsSource="{Binding Events}">
+						<ItemsControl.ItemTemplate>
+							<DataTemplate>
+								<Border BorderBrush="{Binding Converter={StaticResource EventBrushConverter}}"
+										BorderThickness="1"
+										CornerRadius="4"
+										Background="White"
+										Padding="4"
+										Margin="2">
+									<StackPanel Orientation="Horizontal" Spacing="6">
+										<i:Interaction.Behaviors>
+											<behaviors:EventClickBehavior/>
+										</i:Interaction.Behaviors>
+										<Ellipse Width="8"
+												 Height="8"
+												 Fill="{Binding Converter={StaticResource EventBrushConverter}}"
+												 VerticalAlignment="Center"/>
+
+										<StackPanel Orientation="Vertical" Spacing="2">
+											<TextBlock>
+												<TextBlock.Text>
+													<MultiBinding StringFormat="{}{0:HH:mm} {1}">
+														<Binding Path="StartTime"/>
+														<Binding Path="Title"/>
+													</MultiBinding>
+												</TextBlock.Text>
+												<TextBlock.FontWeight>Bold</TextBlock.FontWeight>
+												<TextBlock.Foreground>Black</TextBlock.Foreground>
+												<TextBlock.TextWrapping>Wrap</TextBlock.TextWrapping>
+											</TextBlock>	
+										</StackPanel>
+									</StackPanel>
+
+									<ToolTip.Tip>
+										<MultiBinding StringFormat="{}{0} {1}">
+											<Binding Path="Title"/>
+											<Binding Path="Description"/>
+										</MultiBinding>
+									</ToolTip.Tip>			
+								</Border>						
+							</DataTemplate>
+						</ItemsControl.ItemTemplate>
+					</ItemsControl>
+					</ScrollViewer>			
+				</StackPanel>
+			</Border>
+		</DataTemplate>
+	</UserControl.Resources>
+
+	<Grid RowDefinitions="Auto, Auto, *">
+
+		<StackPanel Grid.Row="0"
+			   Orientation="Horizontal"
+			   Background="#ECECEC"
+			   Height="50"
+			   HorizontalAlignment="Center"
+			   VerticalAlignment="Center"
+			   Spacing="10"
+			   Margin="0,0,0,5">
+			<Button Content="←"
+					Command="{Binding PreviousMonthCommand}"
+					Background="Transparent"
+					Foreground="Black"
+					Padding="8,4"
+					FontWeight="Bold"
+					BorderBrush="Transparent"/>
+			<TextBlock Text="{Binding CurrentMonth, StringFormat='{}{0:MMMM yyyy}'}"
+					   FontSize="16"
+					   Foreground="Black"
+					   HorizontalAlignment="Center"
+					   VerticalAlignment="Center"
+					   Margin="0"/>
+			<Button Content="→"
+					Command="{Binding NextMonthCommand}"
+					Background="Transparent"
+					Foreground="Black"
+					Padding="8,4"
+					FontWeight="Bold"
+					BorderBrush="Transparent"/>
+			<Button Content="Dnes"
+					Command="{Binding TodayCommand}"
+					Background="Transparent"
+					Foreground="Black"
+					Padding="8,4"
+					FontWeight="Bold"
+					BorderBrush="Transparent"/>
+		</StackPanel>
+
+		<UniformGrid Rows="1" Columns="7" Grid.Row="1"
+					 Background="#ECECEC"
+					 Height="40">
+			<TextBlock Text="Po" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<TextBlock Text="Út" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<TextBlock Text="St" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<TextBlock Text="Čt" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<TextBlock Text="Pá" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<TextBlock Text="So" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<TextBlock Text="Ne" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+		</UniformGrid>
+
+		<ItemsControl Grid.Row="2"
+					  ItemsSource="{Binding Days}"
+					  ItemTemplate="{StaticResource DayCellTemplate}">
+			<ItemsControl.ItemsPanel>
+				<ItemsPanelTemplate>
+					<UniformGrid Rows="6" Columns="7"/>
+				</ItemsPanelTemplate>
+			</ItemsControl.ItemsPanel>
+		</ItemsControl>
+	</Grid>
+</UserControl>

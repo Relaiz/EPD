@@ -1,0 +1,2 @@
+D:\Program Files\Git\Diplom\Diplom\TeacherScheduleApp\bin\Release\net8.0\win-x64\publish\TeacherScheduleApp.pdb
+D:\Program Files\Git\Diplom\Diplom\TeacherScheduleApp\bin\Release\net8.0\win-x64\publish\TeacherScheduleApp.exe

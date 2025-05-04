@@ -1,0 +1,161 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
+        xmlns:converters="clr-namespace:TeacherScheduleApp.Converters"
+        xmlns:behaviors="clr-namespace:TeacherScheduleApp.Behaviors"
+        xmlns:i="clr-namespace:Avalonia.Xaml.Interactivity;assembly=Avalonia.Xaml.Interactivity"
+        x:Class="TeacherScheduleApp.Views.CreateEventDialog"
+        x:DataType="vm:CreateEventDialogViewModel"
+        Title="Nová událost"
+        Background="WhiteSmoke"
+        MinWidth="600"
+        MinHeight="500"
+        Width="750"
+        Height="550">
+
+	<Window.Resources>
+		<ResourceDictionary>
+			<converters:DateTimeToDateTimeOffsetConverter x:Key="DateTimeToDateTimeOffsetConverter" />
+		</ResourceDictionary>
+	</Window.Resources>
+
+	<i:Interaction.Behaviors>
+		<behaviors:ShowValidationMessageBehavior/>
+		<behaviors:CloseDialogBehavior/>
+		<behaviors:ConfirmDeleteBehavior/>
+	</i:Interaction.Behaviors>
+
+	<Grid Margin="20">
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="*"/>
+		</Grid.RowDefinitions>
+
+		<TextBlock Grid.Row="0"
+				   Text="Nová událost"
+				   FontSize="24"
+				   FontWeight="Bold"
+				   Margin="0,0,0,15"/>
+
+		<StackPanel Grid.Row="1" Margin="0,0,0,10">
+			<TextBlock Text="Název" FontWeight="Bold" Margin="0,0,0,5"/>
+			<TextBox Text="{Binding Title}"/>
+		</StackPanel>
+
+		<StackPanel Grid.Row="2" Margin="0,0,0,10">
+			<TextBlock Text="Popis" FontWeight="Bold" Margin="0,0,0,5"/>
+			<TextBox Text="{Binding Description}"
+					 AcceptsReturn="True"
+					 Height="80"/>
+		</StackPanel>
+
+		<StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,10">
+			<CheckBox Content="Celý den"
+					  IsVisible="{Binding ShowAllDay}"
+					  IsChecked="{Binding AllDay}"
+					  Foreground="Black"/>
+		</StackPanel>
+
+		<Border Grid.Row="4"
+				Margin="0,0,0,10"
+				BorderBrush="#CCCCCC"
+				BorderThickness="1"
+				Background="#F8F8F8"
+				CornerRadius="4"
+				Padding="10">
+			<Grid>
+				<Grid.RowDefinitions>
+					<RowDefinition Height="Auto"/>
+					<RowDefinition Height="Auto"/>
+				</Grid.RowDefinitions>
+
+				<Grid Grid.Row="0" Margin="0,0,0,20">
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+					<TextBlock Grid.Row="0"
+							   Text="Začátek:"
+							   FontWeight="Bold"
+							   Margin="0,0,0,5"/>
+					<Grid Grid.Row="1">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="*"/>
+						</Grid.ColumnDefinitions>
+						<DatePicker Grid.Column="0"
+									SelectedDate="{Binding StartDate, Converter={StaticResource DateTimeToDateTimeOffsetConverter}}"/>
+						<TimePicker Grid.Column="1"
+									Margin="10,0,0,0"
+									SelectedTime="{Binding StartTime}"
+									ClockIdentifier="24HourClock"/>
+					</Grid>
+				</Grid>
+
+				<Grid Grid.Row="1">
+					<Grid.RowDefinitions>
+						<RowDefinition Height="Auto"/>
+						<RowDefinition Height="Auto"/>
+					</Grid.RowDefinitions>
+					<TextBlock Grid.Row="0"
+							   Text="Konec:"
+							   FontWeight="Bold"
+							   Margin="0,0,0,5"/>
+					<Grid Grid.Row="1">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="*"/>
+						</Grid.ColumnDefinitions>
+						<DatePicker Grid.Column="0"
+									SelectedDate="{Binding EndDate, Converter={StaticResource DateTimeToDateTimeOffsetConverter}}"/>
+						<TimePicker Grid.Column="1"
+									Margin="10,0,0,0"
+									SelectedTime="{Binding EndTime}"
+									ClockIdentifier="24HourClock"/>
+					</Grid>
+				</Grid>
+			</Grid>
+		</Border>
+
+		<StackPanel Grid.Row="5"
+					Orientation="Horizontal"
+					Spacing="10"
+					Margin="0,0,0,20">
+			<TextBlock Text="Typ události:" FontWeight="Bold" VerticalAlignment="Center"/>
+			<ComboBox ItemsSource="{Binding LocalizedEventTypes}"
+					  SelectedItem="{Binding SelectedEventTypePair}"
+					  Width="150">
+				<ComboBox.ItemTemplate>
+					<DataTemplate>
+						<TextBlock Text="{Binding Value}"/>
+					</DataTemplate>
+				</ComboBox.ItemTemplate>
+			</ComboBox>
+		</StackPanel>
+
+		<StackPanel Grid.Row="6"
+					Orientation="Horizontal"
+					HorizontalAlignment="Center"
+					Spacing="20">
+			<Button Content="Zrušit"
+					Command="{Binding CancelCommand}"
+					Background="IndianRed"
+					Foreground="White"/>
+			<Button Content="Vytvořit"
+					Command="{Binding CreateCommand}"
+					Background="LightGreen"
+					Foreground="Black"/>
+			<Button Content="Odstranit"
+					Command="{Binding DeleteCommand}"
+					IsVisible="{Binding IsExisting}"
+					Background="OrangeRed"
+					Foreground="White"/>
+		</StackPanel>
+	</Grid>
+</Window>

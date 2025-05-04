@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
+        x:Class="TeacherScheduleApp.Views.PdfPreviewWindow"
+        x:DataType="vm:PdfPreviewViewModel"
+        Title="PDF Preview" Width="1200" Height="800">
+	<DockPanel>
+
+		<StackPanel DockPanel.Dock="Top"
+					Orientation="Horizontal"
+					Spacing="8"
+					Margin="8">
+			<ComboBox ItemsSource="{Binding AvailableMonths}"
+					  SelectedItem="{Binding SelectedMonth}"
+					  Width="120"/>
+			<Button Content="Save PDF"
+					Command="{Binding SavePdf}"/>
+		</StackPanel>
+
+		<ScrollViewer VerticalScrollBarVisibility="Auto">
+			<Image Source="{Binding CurrentPage}"
+				   Stretch="Uniform"
+				   Margin="12"/>
+		</ScrollViewer>
+
+	</DockPanel>
+</Window>

@@ -1,0 +1,163 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
+    xmlns:converters="clr-namespace:TeacherScheduleApp.Converters"
+    xmlns:local="clr-namespace:TeacherScheduleApp.Controls"
+    xmlns:behaviors="clr-namespace:TeacherScheduleApp.Behaviors"
+    xmlns:i="clr-namespace:Avalonia.Xaml.Interactivity;assembly=Avalonia.Xaml.Interactivity"
+    x:Class="TeacherScheduleApp.Views.WeekView"
+    x:DataType="vm:WeekViewModel"
+    Background="White"
+    UseLayoutRounding="True">
+
+	<UserControl.Resources>
+		<converters:BoolToBrushConverter x:Key="TodayBackgroundConverter"
+										 TrueBrush="#FFE0E0E0"
+										 FalseBrush="Transparent"/>
+	</UserControl.Resources>
+
+	<Grid>
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="Auto"/>
+			<RowDefinition Height="*"/>
+		</Grid.RowDefinitions>
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="60"/>
+			<ColumnDefinition Width="*"/>
+			<ColumnDefinition Width="*"/>
+			<ColumnDefinition Width="*"/>
+			<ColumnDefinition Width="*"/>
+			<ColumnDefinition Width="*"/>
+			<ColumnDefinition Width="*"/>
+			<ColumnDefinition Width="*"/>
+		</Grid.ColumnDefinitions>
+
+		<Border Grid.Row="0" Grid.ColumnSpan="8" Background="Transparent" Padding="0,0,0,5">
+			<StackPanel Orientation="Horizontal"
+						Background="#ECECEC"
+						Height="50"
+						HorizontalAlignment="Center"
+						VerticalAlignment="Center"
+						Spacing="10">
+				<Button Content="←"
+						Command="{Binding PreviousWeekCommand}"
+						Background="Transparent"
+						Foreground="Black"
+						Padding="8,4"
+						FontWeight="Bold"
+						BorderBrush="Transparent"/>
+				<Button Content="Dnes"
+						Command="{Binding TodayCommand}"
+						Background="Transparent"
+						Foreground="Black"
+						Padding="8,4"
+						FontWeight="Bold"
+						BorderBrush="Transparent"/>
+				<Button Content="→"
+						Command="{Binding NextWeekCommand}"
+						Background="Transparent"
+						Foreground="Black"
+						Padding="8,4"
+						FontWeight="Bold"
+						BorderBrush="Transparent"/>
+			</StackPanel>
+		</Border>
+
+
+		<Border Grid.Row="1" Grid.Column="0"/>
+		<ItemsControl ItemsSource="{Binding WeekDays}"
+					  Grid.Row="1"
+					  Grid.Column="1"
+					  Grid.ColumnSpan="7"
+					  HorizontalAlignment="Stretch">
+			<ItemsControl.ItemsPanel>
+				<ItemsPanelTemplate>
+					<UniformGrid Columns="7" Rows="1"/>
+				</ItemsPanelTemplate>
+			</ItemsControl.ItemsPanel>
+			<ItemsControl.ItemTemplate>
+				<DataTemplate>
+					<Border BorderBrush="#DDDDDD"
+							BorderThickness="1"
+							Padding="5"
+							Background="{Binding IsToday, Converter={StaticResource TodayBackgroundConverter}}">
+						<StackPanel Orientation="Vertical"
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center"
+									Margin="5">
+							<TextBlock Text="{Binding DayName}"
+									   FontWeight="Bold"/>
+							<TextBlock Text="{Binding Date, StringFormat='{}{0:dd MMM}'}"/>
+						</StackPanel>
+					</Border>
+				</DataTemplate>
+			</ItemsControl.ItemTemplate>
+		</ItemsControl>
+
+		<ScrollViewer Grid.Row="2"
+					  Grid.Column="0"
+					  Grid.ColumnSpan="8"
+					  VerticalScrollBarVisibility="Auto"
+					  HorizontalScrollBarVisibility="Disabled">
+			<Grid UseLayoutRounding="True"
+				  Background="White">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="60"/>
+					<ColumnDefinition Width="*"/>
+				</Grid.ColumnDefinitions>
+
+				<ItemsControl Grid.Column="0"
+							  ItemsSource="{Binding Hours}">
+					<ItemsControl.ItemsPanel>
+						<ItemsPanelTemplate>
+							<UniformGrid Rows="24" Columns="1"/>
+						</ItemsPanelTemplate>
+					</ItemsControl.ItemsPanel>
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<Border BorderBrush="#DDDDDD"
+									BorderThickness="1"
+									Height="80"
+									Padding="2">
+								<TextBlock Text="{Binding}"
+										   HorizontalAlignment="Right"
+										   VerticalAlignment="Center"/>
+							</Border>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+
+				<Grid Grid.Column="1"
+					  MinHeight="1920"
+					  UseLayoutRounding="True">
+					<ItemsControl ItemsSource="{Binding GridCells}">
+						<ItemsControl.ItemsPanel>
+							<ItemsPanelTemplate>
+								<UniformGrid Rows="24" Columns="7"/>
+							</ItemsPanelTemplate>
+						</ItemsControl.ItemsPanel>
+						<ItemsControl.ItemTemplate>
+							<DataTemplate>
+								<Border BorderBrush="#DDDDDD"
+										BorderThickness="0,0,1,1"/>
+							</DataTemplate>
+						</ItemsControl.ItemTemplate>
+					</ItemsControl>
+					<local:CalendarPanel
+						x:Name="CalendarCanvas"
+						ZIndex="1"
+						DataContext="{Binding}"
+						DaysCount="7"
+						HoursCount="24"
+						Background="Transparent">
+						<i:Interaction.Behaviors>
+							<behaviors:AttachCalendarPanelBehavior/>
+						</i:Interaction.Behaviors>
+					</local:CalendarPanel>
+				</Grid>
+			</Grid>
+		</ScrollViewer>
+	</Grid>
+</UserControl>

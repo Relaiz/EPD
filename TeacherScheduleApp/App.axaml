@@ -1,0 +1,32 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TeacherScheduleApp.App"
+			 xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
+             xmlns:views="clr-namespace:TeacherScheduleApp.Views"
+             xmlns:local="clr-namespace:TeacherScheduleApp"
+			 xmlns:converters="clr-namespace:TeacherScheduleApp.Converters"
+			 RequestedThemeVariant="Light">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+	<Application.Styles>
+		<FluentTheme />
+	</Application.Styles>
+	<Application.DataTemplates>
+		<DataTemplate DataType="{x:Type vm:DayViewModel}">
+			<views:DayView />
+		</DataTemplate>
+		<DataTemplate DataType="{x:Type vm:WeekViewModel}">
+			<views:WeekView />
+		</DataTemplate>
+		<DataTemplate DataType="{x:Type vm:MonthViewModel}">
+			<views:MonthView />
+		</DataTemplate>
+		<DataTemplate DataType="{x:Type vm:GlobalUserSettingsViewModel}">
+			<views:GlobalUserSettingsView />
+		</DataTemplate>
+	</Application.DataTemplates>
+	<Application.Resources>
+		<local:ViewLocator x:Key="ViewLocator" />
+		<converters:EnumToBooleanConverter x:Key="EnumToBooleanConverter"/>
+	</Application.Resources>
+</Application>

@@ -1,0 +1,1657 @@
+--- Start RegenerateDailyEventsAsync for 2025-01-01 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-02 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-04 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-05 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-06 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-08 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-09 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-11 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-12 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-13 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-15 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-16 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-18 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-19 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-20 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-21 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-22 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-23 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-25 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-26 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-01-27 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-28 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-29 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-30 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-01-31 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-01 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-02-02 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-02-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-05 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-06 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-08 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-02-09 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-02-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-12 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-13 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-15 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-02-16 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-02-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-18 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-19 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-20 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-21 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-22 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-02-23 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-02-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-25 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-26 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-27 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-02-28 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-01 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-02 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-05 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-06 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-08 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-09 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-12 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-13 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-15 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-16 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-18 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-19 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-20 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-21 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-22 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-23 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-25 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-26 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-27 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-03-28 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+=== BalanceDays START ===
+Day 2025-05-02: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-02: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-05: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-05: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-06: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-06: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-07: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-07: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-09: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-09: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-12: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-12: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-13: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-13: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-14: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-14: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-15: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-15: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-16: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-16: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-19: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-19: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-20: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-20: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-21: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-21: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-22: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-22: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-23: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-23: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-26: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-26: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-27: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-27: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-28: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-28: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-29: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-29: Worked=0,00h, Expected=8,00h, IsFixed=False
+Day 2025-05-30: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-05-30: Worked=0,00h, Expected=8,00h, IsFixed=False
+--- Deficits before balancing ---
+  2025-05-02: Amount=-8,00h
+  2025-05-05: Amount=-8,00h
+  2025-05-06: Amount=-8,00h
+  2025-05-07: Amount=-8,00h
+  2025-05-09: Amount=-8,00h
+  2025-05-12: Amount=-8,00h
+  2025-05-13: Amount=-8,00h
+  2025-05-14: Amount=-8,00h
+  2025-05-15: Amount=-8,00h
+  2025-05-16: Amount=-8,00h
+  2025-05-19: Amount=-8,00h
+  2025-05-20: Amount=-8,00h
+  2025-05-21: Amount=-8,00h
+  2025-05-22: Amount=-8,00h
+  2025-05-23: Amount=-8,00h
+  2025-05-26: Amount=-8,00h
+  2025-05-27: Amount=-8,00h
+  2025-05-28: Amount=-8,00h
+  2025-05-29: Amount=-8,00h
+  2025-05-30: Amount=-8,00h
+--- Excesses before balancing ---
+Balancing deficit day 2025-05-02, need=8,00h
+Balancing deficit day 2025-05-05, need=8,00h
+Balancing deficit day 2025-05-06, need=8,00h
+Balancing deficit day 2025-05-07, need=8,00h
+Balancing deficit day 2025-05-09, need=8,00h
+Balancing deficit day 2025-05-12, need=8,00h
+Balancing deficit day 2025-05-13, need=8,00h
+Balancing deficit day 2025-05-14, need=8,00h
+Balancing deficit day 2025-05-15, need=8,00h
+Balancing deficit day 2025-05-16, need=8,00h
+Balancing deficit day 2025-05-19, need=8,00h
+Balancing deficit day 2025-05-20, need=8,00h
+Balancing deficit day 2025-05-21, need=8,00h
+Balancing deficit day 2025-05-22, need=8,00h
+Balancing deficit day 2025-05-23, need=8,00h
+Balancing deficit day 2025-05-26, need=8,00h
+Balancing deficit day 2025-05-27, need=8,00h
+Balancing deficit day 2025-05-28, need=8,00h
+Balancing deficit day 2025-05-29, need=8,00h
+Balancing deficit day 2025-05-30, need=8,00h
+=== BalanceDays END ===
+--- Start RegenerateDailyEventsAsync for 2025-03-29 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-30 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-03-31 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-01 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-02 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-05 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-06 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-08 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-09 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-12 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-13 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-15 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-16 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-18 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-19 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-20 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-21 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-22 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-23 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-25 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-26 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-27 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-04-28 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-29 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-04-30 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-01 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-02 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-03 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-04 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-05 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-06 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-08 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-09 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-10 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-11 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-12 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-13 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-15 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-16 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-17 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-18 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-19 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-20 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-21 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-22 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-23 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-24 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-25 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-05-26 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-27 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-28 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-29 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-30 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-05-31 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-01 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-02 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-05 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-06 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-07 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-08 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-09 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-12 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-13 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-14 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-15 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-16 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-18 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-19 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-20 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-21 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-22 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-23 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-25 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-26 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-27 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-06-28 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-29 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-06-30 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-01 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-02 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-05 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-07-06 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-07-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-08 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-09 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-12 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-07-13 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-07-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-15 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-16 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-18 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-19 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-07-20 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-07-21 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-22 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-23 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-25 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-26 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-07-27 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-07-28 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-29 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-30 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-07-31 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-01 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-02 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-03 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-05 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-06 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-08 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-09 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-10 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-12 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-13 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-15 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-16 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-17 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-18 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-19 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-20 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-21 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-22 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-23 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-24 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-25 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-26 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-27 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-28 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-29 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:30:00, lunch=12:30:00-13:00:00, departure=17:00:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-08-30 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-08-31 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-01 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-02 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-05 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-06 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-07 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-08 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-09 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-12 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-13 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-14 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-15 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-16 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-18 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-19 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-20 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-21 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-22 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-23 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-25 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-26 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-27 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-28 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-09-29 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-09-30 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-01 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-02 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-04 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-05 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-06 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-08 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-09 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-11 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-12 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-13 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-15 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-16 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-18 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-19 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-20 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-21 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-22 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-23 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-25 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-26 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-27 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-28 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-10-29 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-30 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-10-31 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-01 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-02 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-05 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-06 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-07 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-08 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-09 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-12 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-13 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-14 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-15 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-16 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-17 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-18 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-19 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-20 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-21 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-22 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-23 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-24 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-25 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-26 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-27 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-28 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-11-29 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-11-30 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-01 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-02 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-03 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-04 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-05 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-06 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-07 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-08 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-09 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-10 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-11 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-12 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-13 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-14 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-15 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-16 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-17 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-18 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-19 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-20 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-21 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-22 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-23 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-24 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-25 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-26 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-27 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-28 ---
+  Skip: weekend or holiday
+--- Start RegenerateDailyEventsAsync for 2025-12-29 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-30 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+--- Start RegenerateDailyEventsAsync for 2025-12-31 ---
+  Existing auto-generated events: 0
+  Configured intervals: arrival=08:00:00, lunch=12:00:00-12:30:00, departure=16:30:00, dailyNorm=8,5h
+  Merged intervals count: 0
+  No manual lessons → create 3 basic autos
+=== BalanceDays START ===
+Day 2025-02-03: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-03: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-04: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-04: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-05: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-05: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-06: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-06: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-07: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-07: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-10: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-10: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-11: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-11: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-12: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-12: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-13: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-13: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-14: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-14: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-17: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-17: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-18: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-18: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-19: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-19: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-20: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-20: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-21: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-21: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-24: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-24: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-25: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-25: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-26: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-26: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-27: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-27: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-02-28: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-02-28: Worked=8,00h, Expected=8,00h, IsFixed=False
+--- Deficits before balancing ---
+--- Excesses before balancing ---
+=== BalanceDays END ===
+=== BalanceDays START ===
+Day 2025-03-03: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-03: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-04: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-04: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-05: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-05: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-06: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-06: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-07: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-07: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-10: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-10: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-11: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-11: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-12: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-12: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-13: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-13: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-14: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-14: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-17: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-17: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-18: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-18: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-19: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-19: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-20: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-20: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-21: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-21: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-24: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-24: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-25: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-25: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-26: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-26: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-27: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-27: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-28: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-28: Worked=8,00h, Expected=8,00h, IsFixed=False
+Day 2025-03-31: using GLOBAL settings 08:30-17:00, lunch 12:30-13:00
+Day 2025-03-31: Worked=8,00h, Expected=8,00h, IsFixed=False
+--- Deficits before balancing ---
+--- Excesses before balancing ---
+=== BalanceDays END ===
