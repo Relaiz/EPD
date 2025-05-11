@@ -11,22 +11,30 @@ Pro náhled PDF je potřeba Ghostscript (na Linuxu i Windows).
 Spuštění na Linuxu (Ubuntu)
 
 Pro Ubuntu 18.04 a novější proveďte následující kroky:
+Alternativa: Pokud máte ve složce soubor setup-ubuntu.sh, můžete ho spustit a automaticky nainstalovat všechny závislosti:
+
+sudo chmod +x setup-ubuntu.sh
+sudo ./setup-ubuntu.sh
 
 Aktualizujte seznam balíčků:
 Spusťte v terminálu sudo apt update.
 
 Nainstalujte základní nástroje:
-Zadejte sudo apt install -y apt-transport-https ca-certificates gnupg lsb-release wget curl.
+Zadejte
+sudo apt install -y apt-transport-https ca-certificates gnupg lsb-release wget curl.
 
 Přidejte Microsoft .NET repozitář:
-Zjistěte verzi Ubuntu příkazem grep '^VERSION_ID=' /etc/os-release | cut -d '"' -f2 a poté stáhněte a nainstalujte balíček repozitáře:
+Zjistěte verzi Ubuntu příkazem 
+
+grep '^VERSION_ID=' /etc/os-release | cut -d '"' -f2 a poté stáhněte a nainstalujte balíček repozitáře:
 
 wget -q "https://packages.microsoft.com/config/ubuntu/${dist_ver}/packages-microsoft-prod.deb" -O /tmp/ms-prod.deb
 
 sudo dpkg -i /tmp/ms-prod.deb && rm /tmp/ms-prod.deb
 
 Nainstalujte .NET 8.0 SDK:
-Aktualizujte znovu (sudo apt update) a spusťte sudo apt install -y dotnet-sdk-8.0.
+Aktualizujte znovu (sudo apt update) a spusťte
+sudo apt install -y dotnet-sdk-8.0.
 
 Nainstalujte nativní knihovny pro Avalonia, PDF, databázi:
 sudo apt install -y \
