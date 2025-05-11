@@ -14,6 +14,7 @@ Pro Ubuntu 18.04 a novější proveďte následující kroky:
 Alternativa: Pokud máte ve složce soubor setup-ubuntu.sh, můžete ho spustit a automaticky nainstalovat všechny závislosti:
 
 sudo chmod +x setup-ubuntu.sh
+sed -i 's/\r$//' setup-ubuntu.sh
 sudo ./setup-ubuntu.sh
 
 Aktualizujte seznam balíčků:
