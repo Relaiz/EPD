@@ -2,7 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using System.Threading.Tasks;
-using System.Reactive.Linq;  // важно для Subscribe
+using System.Reactive.Linq;
 using TeacherScheduleApp.ViewModels;
 using TeacherScheduleApp.Models;
 using System.Reactive;

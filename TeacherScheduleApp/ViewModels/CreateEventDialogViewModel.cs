@@ -98,7 +98,19 @@ namespace TeacherScheduleApp.ViewModels
             get => _eventType;
             set => this.RaiseAndSetIfChanged(ref _eventType, value);
         }
+        private string _dialogTitle;
+        public string DialogTitle
+        {
+            get => _dialogTitle;
+            private set => this.RaiseAndSetIfChanged(ref _dialogTitle, value);
+        }
 
+        private string _primaryButtonText;
+        public string PrimaryButtonText
+        {
+            get => _primaryButtonText;
+            private set => this.RaiseAndSetIfChanged(ref _primaryButtonText, value);
+        }
         public IEnumerable<EventType> EventTypes => Enum.GetValues(typeof(EventType)).Cast<EventType>();
         public IEnumerable<KeyValuePair<EventType, string>> LocalizedEventTypes =>
             Enum.GetValues(typeof(EventType))
@@ -249,9 +261,14 @@ namespace TeacherScheduleApp.ViewModels
             {
                 await RequestClose.Handle(null);
             });
+            this.WhenAnyValue(vm => vm.Id).Select(id => id != 0).Subscribe(isExisting => UpdateTitles(isExisting));
         }
 
-  
+        private void UpdateTitles(bool isExisting)
+        {
+            DialogTitle = isExisting ? "Upravit událost" : "Nová událost";
+            PrimaryButtonText = isExisting ? "Upravit" : "Vytvořit";
+        }
         private (TimeSpan arr, TimeSpan dep, TimeSpan lunchStart, TimeSpan lunchEnd)
         GetDaySpans(GlobalSettings g, UserSettings u, DayOfWeek wd)
         {

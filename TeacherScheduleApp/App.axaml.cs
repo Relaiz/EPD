@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using System;
 using TeacherScheduleApp.Helpers;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 
 namespace TeacherScheduleApp;
@@ -28,6 +29,8 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
         Settings.License = LicenseType.Community;
         RxApp.MainThreadScheduler = AvaloniaScheduler.Instance;
+        CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("cs-CZ");
+        CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo("cs-CZ");
         InitializeDatabase();
     }
 

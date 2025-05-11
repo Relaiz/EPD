@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -91,16 +92,15 @@ namespace TeacherScheduleApp.ViewModels
 
             var (year, month) = Parse(SelectedMonth);
             _eventService.BalanceEventsForMonth(year, month);
-            var events = _eventService.GetEventsForMonth(new DateTime(year, month, 1));
-
-            var pdfBytes = _pdfService.GenerateMonthReport(
-                year, month, events             
-            );
+            var events = _eventService.GetEventsForMonth(new DateTime(year, month, 1));        
+            var pdfBytes = _pdfService.GenerateMonthReport(year, month, events);
             var images = _pdfService.RenderPdfPages(pdfBytes);
             foreach (var img in images)
                 Pages.Add(img);
+
             PageIndex = 0;
         }
+
 
         private static (int year, int month) Parse(string s)
         {

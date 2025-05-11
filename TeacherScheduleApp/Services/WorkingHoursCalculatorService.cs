@@ -17,7 +17,8 @@ namespace TeacherScheduleApp.Services
         {
             if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
                 return 0;
-
+            if (HolidayHelper.IsCzechHoliday(date))
+                return 0;
             var sem = GlobalSettingsService.GetSemesterForDate(date);
             var global = GlobalSettingsService.LoadGlobalSettings(sem)
                          ?? GlobalSettingsService.GetDefaultSettings(sem);
@@ -64,19 +65,18 @@ namespace TeacherScheduleApp.Services
                 HolidayHelper.IsCzechHoliday(date))
                 return 0;
 
-            var actual = allEvents
-                .Where(e => e.StartTime.Date == date.Date)
-                .Sum(CountedHours);
-
+            var workEvents = allEvents.Where(e => e.EventType is EventType.Work or EventType.BusinessTrip).ToList();
+            var merged = MergeIntervals(workEvents);
+            var totalWorked = merged.Sum(iv => (iv.end - iv.start).TotalHours);
             var expected = GetExpectedHours(date);
-            return Math.Min(actual, expected);
+            return Math.Min(totalWorked, expected);
         }
 
         /// <summary>
         /// Vypočítá týdenní statistiky (fakt vs. norma vs. přesčas vs. neodprac.)
         /// </summary>
         public (double actual, double expected, double overtime, double undertime)
-          CalculateWeeklyStats(DateTime anyDate, IEnumerable<Event> allEvents)
+        CalculateWeeklyStats(DateTime anyDate, IEnumerable<Event> allEvents)
         {
             var date = anyDate.Date;
             var delta = ((int)date.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
@@ -111,33 +111,6 @@ namespace TeacherScheduleApp.Services
         }
 
         /// <summary>
-        /// Vypočítá měsíční souhrn hodin (fakt a norma)
-        /// </summary>
-        public (double actual, double norm) CalculateMonthlySummary(
-           int year, int month, IEnumerable<Event> allEvents)
-        {
-            int daysInMonth = DateTime.DaysInMonth(year, month);
-            double actualSum = 0, normSum = 0;
-
-            for (int d = 1; d <= daysInMonth; d++)
-            {
-                var day = new DateTime(year, month, d);
-                var expected = GetExpectedHours(day);
-                if (expected <= 0)
-                    continue;
-
-                var actual = allEvents
-                    .Where(e => e.StartTime.Date == day)
-                    .Sum(CountedHours);
-
-                actualSum += Math.Min(actual, expected);
-                normSum += expected;
-            }
-
-            return (actualSum, normSum);
-        }
-
-        /// <summary>
         /// Vypočítá měsíčně přeřazené hodiny (redistribuce přebytku a deficitu)
         /// </summary>
         public double CalculateMonthlyRedistributedHours(int year, int month, IEnumerable<Event> allEvents)
@@ -168,6 +141,29 @@ namespace TeacherScheduleApp.Services
             double redistributed = Math.Min(totalExcess, totalDeficit);
 
             return sumClamped + redistributed;
+        }
+        private List<(DateTime start, DateTime end)> MergeIntervals(IEnumerable<Event> events)
+        {
+            var intervals = events
+                .Select(e => (e.StartTime, e.EndTime))
+                .OrderBy(iv => iv.StartTime)
+                .ToList();
+
+            var merged = new List<(DateTime s, DateTime e)>();
+            foreach (var (s, e) in intervals)
+            {
+                if (merged.Count == 0 || merged.Last().e < s)
+                {
+                    merged.Add((s, e));
+                }
+                else
+                {
+                    var last = merged[^1];
+                    merged[^1] = (last.s, last.e > e ? last.e : e);
+                }
+            }
+
+            return merged;
         }
     }
 }

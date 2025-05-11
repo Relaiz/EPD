@@ -43,7 +43,11 @@ namespace TeacherScheduleApp.ViewModels
             MessageBus.Current
                 .Listen<AutoEventsGeneratedMessage>()
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(_ => RebuildAll());
+                .Subscribe(_ =>
+                {
+                    SaveDaySettingsFromEvents();
+                    RebuildAll();
+                });
 
             MessageBus.Current
                 .Listen<UserSettingsChangedMessage>()
@@ -282,7 +286,9 @@ namespace TeacherScheduleApp.ViewModels
         /// <summary>Uloží uživatelské nastavení dne</summary>
         private void SaveDaySettingsFromEvents()
         {
-            var evs = _eventService.GetEventsForDay(CurrentDate).Where(e => !e.IsDeleted).ToList();
+            var evs = _eventService.GetEventsForDay(CurrentDate)
+                                  .Where(e => !e.IsDeleted)
+                                  .ToList();
             if (!evs.Any())
             {
                 var sem = GlobalSettingsService.GetSemesterForDate(CurrentDate);
@@ -300,7 +306,8 @@ namespace TeacherScheduleApp.ViewModels
             var departure = work.Max(e => e.EndTime).TimeOfDay;
 
             var lunches = evs.Where(e => e.EventType == EventType.Lunch)
-                            .OrderBy(e => e.StartTime).ToList();
+                             .OrderBy(e => e.StartTime)
+                             .ToList();
             TimeSpan ls, le;
             if (lunches.Any())
             {
@@ -314,15 +321,15 @@ namespace TeacherScheduleApp.ViewModels
                              ?? GlobalSettingsService.GetDefaultSettings(sem);
                 var user = SettingsService.GetUserSettingsForDate(CurrentDate);
                 (var defA, var defD, ls, le) = user != null
-                    ? (user.ArrivalTime, user.DepartureTime, user.LunchStart, user.LunchEnd)
-                    : PdfService.GetWeekdayDefaults(global, CurrentDate.DayOfWeek);
+                  ? (user.ArrivalTime, user.DepartureTime, user.LunchStart, user.LunchEnd)
+                  : PdfService.GetWeekdayDefaults(global, CurrentDate.DayOfWeek);
             }
 
-            const double paid = 8.0;
-            var lunchDur = (le - ls).TotalHours;
-            var required = paid + lunchDur;
-            var span = (departure - arrival).TotalHours;
-            if (span < required)
+            const double paidHours = 8.0;
+            double lunchDur = (le - ls).TotalHours;
+            double required = paidHours + lunchDur;
+            double actualSpan = (departure - arrival).TotalHours;
+            if (actualSpan < required)
                 departure = arrival + TimeSpan.FromHours(required);
 
             SettingsService.SaveUserSettingsForDate(CurrentDate, arrival, departure, ls, le);

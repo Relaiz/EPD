@@ -160,7 +160,10 @@ namespace TeacherScheduleApp.Services
                                    var dayStart = us?.ArrivalTime ?? def.arrival;
                                    var dayEnd = us?.DepartureTime ?? def.departure;
                                    var dayEvents = eventsByDay.GetValueOrDefault(d) ?? new List<Event>();
-
+                                   bool hasUserLunch = us is not null && us.LunchEnd > us.LunchStart;
+                                   var lunchStart = hasUserLunch ? us.LunchStart : def.lunchStart;
+                                   var lunchEnd = hasUserLunch ? us.LunchEnd : def.lunchEnd;
+                                   var lunchDur = lunchEnd - lunchStart;
                                    var special = dayEvents
                                       .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch)
                                       .FirstOrDefault();
@@ -206,7 +209,7 @@ namespace TeacherScheduleApp.Services
 
                                        table.Cell().Border(1).Text($"{d}.");
                                        table.Cell().Border(1).Text(
-                                           startSpec == TimeSpan.Zero ? "" : startSpec.ToString(@"hh\:mm\:ss"));
+                                       startSpec == TimeSpan.Zero ? "" : startSpec.ToString(@"hh\:mm\:ss"));
                                        table.Cell().Border(1).Text("");
                                        table.Cell().Border(1).Text("");
                                        table.Cell().Border(1).Text("");
@@ -219,26 +222,26 @@ namespace TeacherScheduleApp.Services
                                        table.Cell().Border(1).Text(noteSpec);
                                        continue;
                                    }
-
-                                   var workPeriods = dayEvents
+                                   var workIntervals = dayEvents
                                        .Where(e => e.EventType == EventType.Work)
-                                       .Select(e => e.EndTime - e.StartTime)
-                                       .Aggregate(TimeSpan.Zero, (a, b) => a + b);
+                                       .Select(e => (Start: e.StartTime, End: e.EndTime))
+                                       .OrderBy(x => x.Start)
+                                       .ToList();
+                                   var mergedWork = MergeIntervals(workIntervals);
 
                                    var lunches = dayEvents
                                        .Where(e => e.EventType == EventType.Lunch)
                                        .OrderBy(e => e.StartTime)
                                        .ToList();
+                                   var realLunch = lunches
+                                        .Select(e => e.EndTime - e.StartTime)
+                                        .Aggregate(TimeSpan.Zero, (a, b) => a + b);
 
-                                   var totalLunch = lunches
-                                       .Select(e => e.EndTime - e.StartTime)
-                                       .Aggregate(TimeSpan.Zero, (a, b) => a + b);
+                                   var defaultLunch = (us?.LunchEnd - us?.LunchStart)
+                                                      ?? (def.lunchEnd - def.lunchStart);
+                                   var totalLunch = realLunch > TimeSpan.Zero ? realLunch : defaultLunch;
 
-                                   var worked = workPeriods > TimeSpan.Zero
-                                       ? workPeriods
-                                       : (dayEnd - dayStart) - totalLunch;
-
-                                   var note = dayEvents
+                                   var worked = mergedWork.Aggregate(TimeSpan.Zero, (sum, seg) => sum + (seg.end - seg.start));                                   var note = dayEvents
                                        .FirstOrDefault(e => e.EventType is not EventType.Work and not EventType.Lunch)
                                        ?.EventType switch
                                    {
@@ -427,6 +430,22 @@ namespace TeacherScheduleApp.Services
                                         TimeSpan.ParseExact(g.FridayLunchEnd, fmt, null)),
                 _ => (TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero)
             };
+        }
+         private List<(DateTime start, DateTime end)> MergeIntervals(List<(DateTime start, DateTime end)> intervals)
+        {
+            var sorted = intervals.OrderBy(x => x.start).ToList();
+            var merged = new List<(DateTime start, DateTime end)>();
+            foreach (var seg in sorted)
+            {
+                if (merged.Count == 0 || merged[^1].end < seg.start)
+                    merged.Add(seg);
+                else
+                    merged[^1] = (
+                        merged[^1].start,
+                        merged[^1].end > seg.end ? merged[^1].end : seg.end
+                    );
+            }
+            return merged;
         }
     }
 }

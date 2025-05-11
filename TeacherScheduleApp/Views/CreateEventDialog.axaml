@@ -6,7 +6,7 @@
         xmlns:i="clr-namespace:Avalonia.Xaml.Interactivity;assembly=Avalonia.Xaml.Interactivity"
         x:Class="TeacherScheduleApp.Views.CreateEventDialog"
         x:DataType="vm:CreateEventDialogViewModel"
-        Title="Nová událost"
+        Title="{Binding DialogTitle}"
         Background="WhiteSmoke"
         MinWidth="600"
         MinHeight="500"
@@ -38,7 +38,7 @@
 		</Grid.RowDefinitions>
 
 		<TextBlock Grid.Row="0"
-				   Text="Nová událost"
+				   Text="{Binding DialogTitle}"
 				   FontSize="24"
 				   FontWeight="Bold"
 				   Margin="0,0,0,15"/>
@@ -147,7 +147,7 @@
 					Command="{Binding CancelCommand}"
 					Background="IndianRed"
 					Foreground="White"/>
-			<Button Content="Vytvořit"
+			<Button Content="{Binding PrimaryButtonText}"
 					Command="{Binding CreateCommand}"
 					Background="LightGreen"
 					Foreground="Black"/>

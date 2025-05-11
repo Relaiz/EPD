@@ -310,3 +310,4 @@ D:\Program Files\Git\Diplom\Diplom\TeacherScheduleApp\bin\Debug\net8.0\runtimes\
 D:\Program Files\Git\Diplom\Diplom\TeacherScheduleApp\obj\Debug\net8.0\TeacherS.61FDF8A3.Up2Date
 D:\Program Files\Git\Diplom\Diplom\TeacherScheduleApp\obj\Debug\net8.0\TeacherScheduleApp.genruntimeconfig.cache
 D:\Program Files\Git\Diplom\Diplom\TeacherScheduleApp\obj\Debug\net8.0\ref\TeacherScheduleApp.dll
+D:\Program Files\Git\Diplom\Diplom\TeacherScheduleApp\bin\Debug\net8.0\Microsoft.Extensions.Logging.Debug.dll

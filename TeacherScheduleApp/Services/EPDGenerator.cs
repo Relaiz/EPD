@@ -126,26 +126,16 @@ namespace TeacherScheduleApp.Services
                     }
                 }
             }
-            var manualDates = manualEvents
-        .Select(e => e.StartTime.Date)
-        .Distinct()
-        .ToList();
-
-            
+            var manualDates = manualEvents.Select(e => e.StartTime.Date).Distinct().ToList();           
             int year = manualDates.FirstOrDefault().Year;
             var yearStart = new DateTime(year, 1, 1);
             var yearEnd = new DateTime(year, 12, 31);
-
-            var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision);
-
-         
+            var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision);        
             foreach (var day in manualDates)
             {
                 await autoGen.RegenerateDailyEventsAsync(day);
                 AdjustUserSettingsForDay(day);
-            }
-
-       
+            }     
             var allDays = Enumerable
                 .Range(0, (yearEnd - yearStart).Days + 1)
                 .Select(offset => yearStart.AddDays(offset));
@@ -237,15 +227,14 @@ namespace TeacherScheduleApp.Services
                 .ToList();
 
             if (!workEvs.Any())
-                return; 
+                return;
 
-            
-            var arrival = workEvs.Min(e => e.StartTime.TimeOfDay);
 
-        
-            var departure = arrival + TimeSpan.FromHours(8);
+            var merged = MergeIntervals(workEvs);
+            var arrival = merged.First().start.TimeOfDay;
+            var departure = merged.Last().end.TimeOfDay;
 
-           
+
             var lunchEvs = evs
                 .Where(e => e.EventType == EventType.Lunch)
                 .OrderBy(e => e.StartTime)
@@ -269,6 +258,29 @@ namespace TeacherScheduleApp.Services
             }
 
             SettingsService.SaveUserSettingsForDate(day, arrival, departure, lunchStart, lunchEnd);
+        }
+        private List<(DateTime start, DateTime end)> MergeIntervals(IEnumerable<Event> events)
+        {
+            var intervals = events
+                .Select(e => (e.StartTime, e.EndTime))
+                .OrderBy(iv => iv.StartTime)
+                .ToList();
+
+            var merged = new List<(DateTime s, DateTime e)>();
+            foreach (var (s, e) in intervals)
+            {
+                if (merged.Count == 0 || merged.Last().e < s)
+                {
+                    merged.Add((s, e));
+                }
+                else
+                {
+                    var last = merged[^1];
+                    merged[^1] = (last.s, last.e > e ? last.e : e);
+                }
+            }
+
+            return merged;
         }
     }
 }

@@ -3,7 +3,7 @@
         xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
         x:Class="TeacherScheduleApp.Views.PdfPreviewWindow"
         x:DataType="vm:PdfPreviewViewModel"
-        Title="PDF Preview" Width="1200" Height="800">
+        Title="Ukázka PDF" Width="1200" Height="800">
 	<DockPanel>
 
 		<StackPanel DockPanel.Dock="Top"
@@ -13,7 +13,7 @@
 			<ComboBox ItemsSource="{Binding AvailableMonths}"
 					  SelectedItem="{Binding SelectedMonth}"
 					  Width="120"/>
-			<Button Content="Save PDF"
+			<Button Content="Uložit PDF"
 					Command="{Binding SavePdf}"/>
 		</StackPanel>
 

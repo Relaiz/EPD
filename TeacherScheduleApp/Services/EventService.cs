@@ -1,6 +1,10 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using Avalonia.Controls.Shapes;
 using Microsoft.EntityFrameworkCore;
 using TeacherScheduleApp.Data;
 using TeacherScheduleApp.Helpers;
@@ -167,7 +171,6 @@ namespace TeacherScheduleApp.Services
         public void BalanceEventsForMonth(int year, int month)
         {
             var allEvents = GetEventsForMonth(new DateTime(year, month, 1)).ToList();
-
             var eventsByDay = allEvents
                 .GroupBy(e => e.StartTime.Day)
                 .ToDictionary(g => g.Key, g => g.ToList());
@@ -193,28 +196,34 @@ namespace TeacherScheduleApp.Services
 
             foreach (var stat in stats.Where(s => !s.IsFixed))
             {
-                var works = stat.Events
-                    .Where(e => e.EventType == EventType.Work)
+                var allWorks = stat.Events
+                    .Where(e => e.EventType != EventType.Lunch)
                     .OrderBy(e => e.StartTime)
                     .ToList();
-                var lunches = stat.Events
+                var allLunches = stat.Events
                     .Where(e => e.EventType == EventType.Lunch)
                     .OrderBy(e => e.StartTime)
                     .ToList();
 
-                if (works.Any())
+                if (allWorks.Any())
                 {
-                    var newArr = works.First().StartTime.TimeOfDay;
-                    var newDep = works.Last().EndTime.TimeOfDay;
-                    var newLs = lunches.FirstOrDefault()?.StartTime.TimeOfDay ?? TimeSpan.Zero;
-                    var newLe = lunches.FirstOrDefault()?.EndTime.TimeOfDay ?? TimeSpan.Zero;
+                    var arr = allWorks.First().StartTime.TimeOfDay;
+                    var lastWorkEnd = allWorks.Last().EndTime.TimeOfDay;
+                    var lunchStart = allLunches.FirstOrDefault()?.StartTime.TimeOfDay ?? TimeSpan.Zero;
+                    var lunchEnd = allLunches.FirstOrDefault()?.EndTime.TimeOfDay ?? TimeSpan.Zero;
+                    var dep = lastWorkEnd;
+                    if (allLunches.Any() && lunchEnd > dep)
+                    {
+                        dep = lunchEnd;
+                    }
 
-                    SettingsService.SaveUserSettingsForDate(
-                        stat.Date, newArr, newDep, newLs, newLe);
+                    SettingsService.SaveUserSettingsForDate(stat.Date, arr, dep, lunchStart, lunchEnd);
                 }
 
                 foreach (var ev in stat.Events)
+                {
                     UpdateEvent(ev);
+                }
             }
         }
 
@@ -239,7 +248,8 @@ namespace TeacherScheduleApp.Services
         {
             public DateTime Date;
             public List<Event> Events;
-            public double Worked;    
+            public double Worked;
+            public double Expected;
             public bool IsFixed;   
         }
         private bool IsFullSpecialDay(DayStat stat, GlobalSettings g)
@@ -266,15 +276,21 @@ namespace TeacherScheduleApp.Services
         private void BalanceDays(List<DayStat> days)
         {
             var sem = GlobalSettingsService.GetSemesterForDate(DateTime.Today);
-            var g = GlobalSettingsService.LoadGlobalSettings(sem)
-                   ?? GlobalSettingsService.GetDefaultSettings(sem);
-            var baselineInfo = new Dictionary<DateTime, (TimeSpan arr, TimeSpan dep, TimeSpan ls, TimeSpan le)>();
+            var glob = GlobalSettingsService.LoadGlobalSettings(sem)
+                       ?? GlobalSettingsService.GetDefaultSettings(sem);
+
+            TimeSpan globalStart = TimeSpan.Parse(glob.GlobalStartTime, CultureInfo.InvariantCulture);
+            TimeSpan globalEnd = TimeSpan.Parse(glob.GlobalEndTime, CultureInfo.InvariantCulture);
+        
+            var ( _,  _,   lunchStartMon,  lunchEndMon)=PdfService.GetWeekdayDefaults(glob, DayOfWeek.Monday);
+
+            double baseDayLength = (globalEnd - globalStart).TotalHours;
+            double baseLunchLength = (lunchEndMon - lunchStartMon).TotalHours;
 
             foreach (var stat in days)
             {
                 var us = SettingsService.GetUserSettingsForDate(stat.Date);
                 TimeSpan arr, dep, ls, le;
-
                 if (us != null)
                 {
                     arr = us.ArrivalTime;
@@ -284,84 +300,176 @@ namespace TeacherScheduleApp.Services
                 }
                 else
                 {
-                    (arr, dep, ls, le) = PdfService.GetWeekdayDefaults(g, stat.Date.DayOfWeek);
-                    
+                  (  arr,  dep,  ls,  le )= PdfService.GetWeekdayDefaults(glob, stat.Date.DayOfWeek);
                 }
 
-                baselineInfo[stat.Date] = (arr, dep, ls, le);
+                var special = stat.Events
+                    .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch)
+                    .Select(e => (e.StartTime, e.EndTime));
+                var specialMerged = MergeIntervals(special);
+                double specialHours = specialMerged.Sum(iv => (iv.end - iv.start).TotalHours);
 
-                if (IsFullSpecialDay(stat, g))
-                {
-                    stat.IsFixed = true;
-                    var only = stat.Events.First(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch);
-                    stat.Worked = (only.EndTime - only.StartTime).TotalHours;
-                }
-                else
-                {
-                    stat.IsFixed = false;
-                    stat.Worked = stat.Events
-                        .Where(e => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip)
-                        .Sum(e => (e.EndTime - e.StartTime).TotalHours);
-                }
+                stat.Expected = Math.Max(0, baseDayLength - baseLunchLength - specialHours);
 
-                var expected = (dep - arr - (le - ls)).TotalHours;
+                DateTime workWindowStart = stat.Date + arr;
+                DateTime workWindowEnd = stat.Date + dep;
+                var workIntervals = stat.Events
+                    .Where(e => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip)
+                    .Select(e => (
+                        Start: e.StartTime < workWindowStart ? workWindowStart : e.StartTime,
+                        End: e.EndTime > workWindowEnd ? workWindowEnd : e.EndTime));
+                var mergedWork = MergeIntervals(workIntervals);
+                stat.Worked = mergedWork.Sum(iv => (iv.end - iv.start).TotalHours);
+
             }
 
-            var items = days
-             .Where(d => !d.IsFixed)
-             .Select(d =>
-             {
-                 var (gArr, gDep, gLs, gLe) =
-                     PdfService.GetWeekdayDefaults(g, d.Date.DayOfWeek);
-                 var globalExpected = (gDep - gArr - (gLe - gLs)).TotalHours;
-                 return new BalanceItem
-                 {
-                     Stat = d,
-                     Amount = d.Worked - globalExpected
-                 };
-             })
-             .ToList();
-
+            var items = days.Where(d => !d.IsFixed)
+                              .Select(d => new BalanceItem { Stat = d, Amount = d.Worked - d.Expected })
+                              .ToList();
             var deficits = items.Where(x => x.Amount < 0).ToList();
             var excesses = items.Where(x => x.Amount > 0).ToList();
             foreach (var def in deficits)
             {
                 double need = -def.Amount;
-
-                foreach (var ex in excesses.Where(e => e.Amount > 0))
+                foreach (var ex in excesses.Where(x => x.Amount > 0))
                 {
                     double take = Math.Min(ex.Amount, need);
                     if (take <= 0) continue;
-                    var delta = TimeSpan.FromHours(take);
+                    TimeSpan delta = TimeSpan.FromHours(take);
 
-                    // donor
-                    var lastEx = ex.Stat.Events
-                                 .Where(e => e.EventType == EventType.Work)
-                                 .OrderByDescending(e => e.EndTime)
-                                 .FirstOrDefault();
-                    if (lastEx != null)
+                    var donor = ex.Stat.Events
+                        .Where(e => e.EventType == EventType.Work)
+                        .OrderByDescending(e => e.EndTime)
+                        .FirstOrDefault();
+                    if (donor != null)
                     {
-                        var oldEnd = lastEx.EndTime;
-                        lastEx.EndTime -= delta;
+                        DateTime minEnd = donor.StartTime;
+                        donor.EndTime = Max(donor.EndTime - delta, minEnd);
                     }
 
-                    // recipient
-                    var lastDef = def.Stat.Events
-                                  .Where(e => e.EventType == EventType.Work)
-                                  .OrderByDescending(e => e.EndTime)
-                                  .FirstOrDefault();
-                    if (lastDef != null)
+                    var gap = FindGap(def.Stat, take, globalStart, globalEnd);
+                    var rec = def.Stat.Events
+                        .Where(e => e.EventType == EventType.Work)
+                        .OrderByDescending(e => e.EndTime)
+                        .FirstOrDefault();
+                    if (rec == null)
                     {
-                        var oldEnd = lastDef.EndTime;
-                        lastDef.EndTime += delta;
-                       
+                        rec = new Event
+                        {
+                            Title = "Přenos z jiného dne",
+                            EventType = EventType.Work,
+                            StartTime = gap.start,
+                            EndTime = gap.end,
+                            IsAutoGenerated = true,
+                            AutoGeneratedForDate = def.Stat.Date
+                        };
+                        CreateEvent(rec);
+                        def.Stat.Events.Add(rec);
+                        TimeSpan stdLunchLen = lunchEndMon - lunchStartMon; 
+                        var occupied = def.Stat.Events
+                            .Where(e => e.EventType != EventType.Lunch)
+                            .Select(e => (e.StartTime, e.EndTime))
+                            .OrderBy(iv => iv.StartTime)
+                            .ToList();
+
+                        DateTime cursor = def.Stat.Date + globalStart;
+                        DateTime windowEnd = def.Stat.Date + globalEnd;
+                        (DateTime ls, DateTime le) lunchSlot = (default, default);
+
+                        foreach (var iv in occupied)
+                        {
+                            if ((iv.StartTime - cursor) >= stdLunchLen)
+                            {
+                                lunchSlot = (cursor, cursor + stdLunchLen);
+                                break;
+                            }
+                            if (iv.EndTime > cursor)
+                                cursor = iv.EndTime;
+                        }
+                        if (lunchSlot == (default, default)
+                            && windowEnd - cursor >= stdLunchLen)
+                        {
+                            lunchSlot = (cursor, cursor + stdLunchLen);
+                        }
+
+                        if (lunchSlot != (default, default))
+                        {
+                            var evLunch = GetEventsForDay(def.Stat.Date);
+                            var lunchExists = evLunch.Where(e => e.EventType == EventType.Lunch
+                                       && e.StartTime == e.EndTime).Select(e => (e.Id)).ToList();
+                            foreach (var item in lunchExists)
+                            {
+                                DeleteEvent(item);
+                            }
+                            var lunch = new Event
+                            {
+                                Title = "Oběd (auto)",
+                                EventType = EventType.Lunch,
+                                StartTime = lunchSlot.ls,
+                                EndTime = lunchSlot.le,
+                                IsAutoGenerated = true,
+                                AutoGeneratedForDate = def.Stat.Date
+                            };
+                            CreateEvent(lunch);
+                            def.Stat.Events.Add(lunch);
+                        }
+                    }
+                    else
+                    {
+                        DateTime maxEnd = def.Stat.Date + globalEnd;
+                        var oldEnd = rec.EndTime;
+                        rec.EndTime = Min(rec.EndTime + delta, maxEnd);
                     }
 
                     ex.Amount -= take;
-                    need -= take;                  
+                    need -= take;
                     if (need <= 0) break;
                 }
             }
+        }
+        static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
+        static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
+        private List<(DateTime start, DateTime end)> MergeIntervals(IEnumerable<(DateTime start, DateTime end)> intervals)
+        {
+            var sorted = intervals.OrderBy(x => x.start).ToList();
+            var merged = new List<(DateTime start, DateTime end)>();
+            foreach (var seg in sorted)
+            {
+                if (!merged.Any() || merged.Last().end < seg.start)
+                    merged.Add(seg);
+                else
+                    merged[^1] = (
+                        merged.Last().start,
+                        merged.Last().end > seg.end ? merged.Last().end : seg.end
+                    );
+            }
+            return merged;
+        }
+
+        private (DateTime start, DateTime end) FindGap(DayStat stat, double hours,TimeSpan globalStart, TimeSpan globalEnd)
+        {
+            var occupied = stat.Events
+                .Select(e => (e.StartTime, e.EndTime))
+                .OrderBy(iv => iv.StartTime)
+                .ToList();
+
+            DateTime cursor = stat.Date + globalStart;
+            DateTime windowEnd = stat.Date + globalEnd;
+
+            foreach (var iv in occupied)
+            {
+                if ((iv.StartTime - cursor).TotalHours >= hours)
+                    return (cursor, cursor.AddHours(hours));
+
+                if (iv.EndTime > cursor)
+                    cursor = iv.EndTime;
+            }
+
+            if ((windowEnd - cursor).TotalHours >= hours)
+                return (cursor, cursor.AddHours(hours));
+
+            throw new InvalidOperationException(
+                $"Žádné volné místo na {hours:F2}h v {stat.Date:yyyy-MM-dd}");
         }
     }
 }
