@@ -45,7 +45,7 @@ sudo apt install -y \
 
 Klonování repozitáře a spuštění aplikace:
 
-git clone [https://github.com/vas-repozitar/TeacherScheduleApp.git](https://github.com/Relaiz/EPD.git)
+git clone [https://github.com/Relaiz/EPD.git](https://github.com/Relaiz/EPD.git)
 
 cd TeacherScheduleApp
 
@@ -78,7 +78,7 @@ Případně ručně stáhněte ze: https://www.ghostscript.com/download.html
 
 Klonujte repozitář:
 
-git clone [https://github.com/vas-repozitar/TeacherScheduleApp.git](https://github.com/Relaiz/EPD.git)
+git clone [https://github.com/Relaiz/EPD.git](https://github.com/Relaiz/EPD.git)
 cd TeacherScheduleApp
 
 Sestavte a spusťte aplikaci:
