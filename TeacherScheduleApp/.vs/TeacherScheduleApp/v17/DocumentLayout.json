@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\diplom\\diplom\\teacherscheduleapp\\services\\epdgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:services\\epdgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\diplom\\diplom\\teacherscheduleapp\\views\\pdfpreviewwindow.axaml||{6D5344A2-2FCD-49DE-A09D-6A14FD1B1224}",
       "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:views\\pdfpreviewwindow.axaml||{6D5344A2-2FCD-49DE-A09D-6A14FD1B1224}"
     },
@@ -61,10 +65,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\diplom\\diplom\\teacherscheduleapp\\views\\dayview.axaml||{6D5344A2-2FCD-49DE-A09D-6A14FD1B1224}",
       "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:views\\dayview.axaml||{6D5344A2-2FCD-49DE-A09D-6A14FD1B1224}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\diplom\\diplom\\teacherscheduleapp\\services\\epdgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:services\\epdgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\diplom\\diplom\\teacherscheduleapp\\views\\createeventdialog.axaml||{6D5344A2-2FCD-49DE-A09D-6A14FD1B1224}",
@@ -285,11 +285,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 233,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 6,
               "Title": "PdfService.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Services\\PdfService.cs",
               "RelativeDocumentMoniker": "Services\\PdfService.cs",
@@ -315,7 +315,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "PdfPreviewWindow.axaml",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Views\\PdfPreviewWindow.axaml",
               "RelativeDocumentMoniker": "Views\\PdfPreviewWindow.axaml",
@@ -327,7 +327,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
+              "Title": "EPDGenerator.cs",
+              "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Services\\EPDGenerator.cs",
+              "RelativeDocumentMoniker": "Services\\EPDGenerator.cs",
+              "ToolTip": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Services\\EPDGenerator.cs",
+              "RelativeToolTip": "Services\\EPDGenerator.cs",
+              "ViewState": "AQIAAKkAAAAAAAAAAAAiwBgBAAAUAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-16T17:26:00.322Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
               "Title": "MainWindow.axaml",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Views\\MainWindow.axaml",
               "RelativeDocumentMoniker": "Views\\MainWindow.axaml",
@@ -339,7 +352,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "TeacherScheduleApp.csproj",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\TeacherScheduleApp.csproj",
               "RelativeDocumentMoniker": "TeacherScheduleApp.csproj",
@@ -352,7 +365,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 4,
               "Title": "AutomaticEventsGeneratorService.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Services\\AutomaticEventsGeneratorService.cs",
               "RelativeDocumentMoniker": "Services\\AutomaticEventsGeneratorService.cs",
@@ -365,7 +378,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "EventService.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Services\\EventService.cs",
               "RelativeDocumentMoniker": "Services\\EventService.cs",
@@ -378,7 +391,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 7,
               "Title": "WorkingHoursCalculatorService.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Services\\WorkingHoursCalculatorService.cs",
               "RelativeDocumentMoniker": "Services\\WorkingHoursCalculatorService.cs",
@@ -391,7 +404,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 8,
               "Title": "MainWindowViewModel.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\ViewModels\\MainWindowViewModel.cs",
               "RelativeDocumentMoniker": "ViewModels\\MainWindowViewModel.cs",
@@ -404,7 +417,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 9,
               "Title": "Program.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Program.cs",
               "RelativeDocumentMoniker": "Program.cs",
@@ -417,7 +430,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 10,
               "Title": "DayViewModel.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\ViewModels\\DayViewModel.cs",
               "RelativeDocumentMoniker": "ViewModels\\DayViewModel.cs",
@@ -430,7 +443,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 11,
               "Title": "CreateEventDialogViewModel.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\ViewModels\\CreateEventDialogViewModel.cs",
               "RelativeDocumentMoniker": "ViewModels\\CreateEventDialogViewModel.cs",
@@ -443,7 +456,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 12,
               "Title": "PdfPreviewViewModel.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\ViewModels\\PdfPreviewViewModel.cs",
               "RelativeDocumentMoniker": "ViewModels\\PdfPreviewViewModel.cs",
@@ -456,7 +469,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 13,
               "Title": "WeekView.axaml",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Views\\WeekView.axaml",
               "RelativeDocumentMoniker": "Views\\WeekView.axaml",
@@ -468,7 +481,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 14,
               "Title": "MonthView.axaml",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Views\\MonthView.axaml",
               "RelativeDocumentMoniker": "Views\\MonthView.axaml",
@@ -480,7 +493,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 15,
               "Title": "DayView.axaml",
               "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Views\\DayView.axaml",
               "RelativeDocumentMoniker": "Views\\DayView.axaml",
@@ -488,19 +501,6 @@
               "RelativeToolTip": "Views\\DayView.axaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
               "WhenOpened": "2025-04-07T19:57:25.138Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 15,
-              "Title": "EPDGenerator.cs",
-              "DocumentMoniker": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Services\\EPDGenerator.cs",
-              "RelativeDocumentMoniker": "Services\\EPDGenerator.cs",
-              "ToolTip": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\Services\\EPDGenerator.cs",
-              "RelativeToolTip": "Services\\EPDGenerator.cs",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAAPkAAAANAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-03-16T17:26:00.322Z",
               "EditorCaption": ""
             },
             {

@@ -1,10 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using ReactiveUI;
+using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using TeacherScheduleApp.Helpers;
 using TeacherScheduleApp.Messages;
@@ -30,7 +32,10 @@ namespace TeacherScheduleApp.Services
             var manualEvents = new List<Event>();
             var years = new HashSet<int>();
 
-            var lines = File.ReadAllLines(teacherScheduleCsvPath);
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+            var lines = File.ReadAllLines(teacherScheduleCsvPath,
+                Encoding.GetEncoding("windows-1250"));
             if (lines.Length > 1)
             {
                 for (int i = 1; i < lines.Length; i++)
