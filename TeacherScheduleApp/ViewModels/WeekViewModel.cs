@@ -67,9 +67,9 @@ namespace TeacherScheduleApp.ViewModels
 
             FillWeekDays();
             MessageBus.Current
-     .Listen<AutoEventsGeneratedMessage>()
-     .ObserveOn(RxApp.MainThreadScheduler)   
-     .Subscribe(_ => LoadEvents()); 
+              .Listen<AutoEventsGeneratedMessage>()
+              .ObserveOn(RxApp.MainThreadScheduler)   
+              .Subscribe(_ => LoadEvents()); 
             PreviousWeekCommand = ReactiveCommand.Create(() =>
             {
                 StartOfWeek = StartOfWeek.AddDays(-7);
@@ -105,6 +105,15 @@ namespace TeacherScheduleApp.ViewModels
                 LoadEvents();
                
             });
+            MessageBus.Current
+              .Listen<UserSettingsChangedMessage>()
+              .ObserveOn(RxApp.MainThreadScheduler)
+              .Subscribe(_ => LoadEvents());
+
+            MessageBus.Current
+              .Listen<AutoEventsGeneratedMessage>()
+              .ObserveOn(RxApp.MainThreadScheduler)
+              .Subscribe(_ => LoadEvents());
         }
 
         public async void OnEmptySpaceClicked(int dayIndex, double hour)
@@ -172,7 +181,10 @@ namespace TeacherScheduleApp.ViewModels
                         MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                     }
                     LoadEvents();
+                    MessageBus.Current.SendMessage(new UserSettingsChangedMessage(resultEvent.StartTime.Date));
+                    MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                 }
+                
             }
             finally
             {
@@ -232,7 +244,10 @@ namespace TeacherScheduleApp.ViewModels
                         MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                     }
                     LoadEvents();
+                    MessageBus.Current.SendMessage(new UserSettingsChangedMessage(updatedEvent.StartTime.Date));
+                    MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                 }
+                
             }
             finally
             {

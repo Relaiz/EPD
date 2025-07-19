@@ -7,6 +7,10 @@ using MsBox.Avalonia;
 using MsBox.Avalonia.Dto;
 using MsBox.Avalonia.Enums;
 using TeacherScheduleApp.ViewModels;
+using MsBox.Avalonia.Models;
+using System.Globalization;
+using System.Threading;
+
 
 namespace TeacherScheduleApp.Behaviors
 {
@@ -25,6 +29,8 @@ namespace TeacherScheduleApp.Behaviors
             {
                 vm.ShowCollisionMessage.RegisterHandler(async interaction =>
                 {
+                    Thread.CurrentThread.CurrentUICulture = new CultureInfo("cs-CZ");
+                   
                     var msgBox = MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
                     {
                         ButtonDefinitions = ButtonEnum.YesNo,

@@ -16,6 +16,7 @@ using TeacherScheduleApp.Helpers;
 using static TeacherScheduleApp.Models.GlobalSettings;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using Microsoft.VisualBasic;
 
 namespace TeacherScheduleApp.Services
 {
@@ -30,13 +31,17 @@ namespace TeacherScheduleApp.Services
         public byte[] GenerateMonthReport(int year, int month, IEnumerable<Event> events)
         {
             var sem = GlobalSettingsService.GetSemesterForDate(new DateTime(year, month, 1));
-            var gl = GlobalSettingsService.LoadGlobalSettings(sem)
-                      ?? GlobalSettingsService.GetDefaultSettings(sem);
+            var gl = GlobalSettingsService.LoadGlobalSettings(year, sem)
+                      ?? GlobalSettingsService.GetDefaultSettings(year, sem);
 
             const string tfmt = @"hh\:mm";
             var stdStart = TimeSpan.ParseExact(gl.GlobalStartTime, tfmt, CultureInfo.InvariantCulture);
             var stdEnd = TimeSpan.ParseExact(gl.GlobalEndTime, tfmt, CultureInfo.InvariantCulture);
-            var stdDaily = (stdEnd - stdStart).TotalHours;
+            var totalLunch = events
+           .Where(e => e.EventType == EventType.Lunch)
+           .Select(e => (e.EndTime - e.StartTime).TotalHours)
+            .First();
+            var stdDaily = (stdEnd - stdStart).TotalHours - totalLunch;
 
             int daysInMonth = DateTime.DaysInMonth(year, month);
             var eventsByDay = events
@@ -47,12 +52,13 @@ namespace TeacherScheduleApp.Services
            .Where(e => e.EventType == EventType.Lunch)
            .Select(e => (e.EndTime - e.StartTime).TotalHours)
             .Sum();
+            
             int workDays = Enumerable.Range(1, daysInMonth)
                 .Select(d => new DateTime(year, month, d))
                 .Count(dt => dt.DayOfWeek is not DayOfWeek.Saturday
                           && dt.DayOfWeek is not DayOfWeek.Sunday
                           && !HolidayHelper.IsCzechHoliday(dt));
-            var monthQuota = (workDays * stdDaily)- totalLunchMonthly;
+            var monthQuota = (workDays * stdDaily);
 
             TimeSpan totalWorked = TimeSpan.Zero,
                      totalOver = TimeSpan.Zero,
@@ -67,30 +73,59 @@ namespace TeacherScheduleApp.Services
                     page.Margin(10);
                     page.DefaultTextStyle(x => x.FontSize(9));
 
-                    page.Header().Row(r =>
+                    page.Header().Column(h =>
                     {
-                        r.RelativeColumn().Column(c =>
-                        {
-                            c.Item()
-                             .Text("Evidence pracovní doby, včetně přestávek v práci a práce přesčas")
-                             .FontSize(12).SemiBold().AlignCenter();
+                        h.Item().Container().PaddingBottom(6)
+                         .Text("Evidence pracovní doby, včetně přestávek v práci a práce přesčas")
+                         .FontSize(12)
+                         .SemiBold()
+                         .AlignCenter()
+                         ;
 
-                            c.Item().Row(rr =>
+                        h.Item().Row(r =>
+                        {
+                            // Левая: fakulta, jméno, útvar
+                            r.RelativeColumn(1).Column(c =>
                             {
-                                rr.ConstantColumn(80).Text($"jméno:\n{gl.EmployeeName}");
-                                rr.ConstantColumn(80).Text($"útvar:\n{gl.Department}");
-                                rr.ConstantColumn(200).Column(cc =>
-                                {
-                                    cc.Item().Text($"pracovní doba: {gl.GlobalStartTime}–{gl.GlobalEndTime} hod.");
-                                    cc.Item().Text($"docházka za měsíc: {new DateTime(year, month, 1):MMMM yyyy}");
-                                });
-                            });
-                        });
+                                c.Item().Container().PaddingBottom(2).Text("Fakulta elektrotechniky a informatiky")
+                                     .FontSize(9)
+                                     .AlignLeft()
+                                     ;
 
-                        r.ConstantColumn(100).Border(1).Padding(4).Column(q =>
-                        {
-                            q.Item().Text("Fond prac. doby:").Bold();
-                            q.Item().Text($"{monthQuota:F0} hodin");
+                                c.Item().Container().PaddingBottom(2).Text($"jméno: {gl.EmployeeName}")
+                                     .FontSize(9)
+                                     .AlignLeft()
+                                    ;
+
+                                c.Item().Text($"útvar: {gl.Department}")
+                                     .FontSize(9)
+                                     .AlignLeft();
+                            });
+
+                            r.RelativeColumn(1).Column(c =>
+                            {
+                                c.Item().Container().PaddingBottom(1)
+                                      .Text($"pracovní doba: {gl.GlobalStartTime}–{gl.GlobalEndTime} hod.")
+                                     .FontSize(9)
+                                     .AlignLeft()
+                                     ;
+
+                                c.Item().Text($"docházka za měsíc: {new DateTime(year, month, 1):MMMM yyyy}")
+                                     .FontSize(9)
+                                     .AlignLeft();
+                            });
+
+                            r.ConstantColumn(100).Container().Border(1).Padding(4).Column(q =>
+                            {
+                                q.Item().Text("Fond prac. doby:")
+                                     .Bold()
+                                     .FontSize(9)
+                                     .AlignLeft();
+
+                                q.Item().Text($"{monthQuota:F0} hodin")
+                                     .FontSize(9)
+                                     .AlignLeft();
+                            });
                         });
                     });
                     const float pageMargin = 10f;
@@ -181,7 +216,7 @@ namespace TeacherScheduleApp.Services
                                                dur = TimeSpan.FromHours(stdDaily);
                                            workedSpec = dur;
                                            overSpec = TimeSpan.FromHours(Math.Max(0, workedSpec.TotalHours - stdDaily));
-                                           underSpec = TimeSpan.FromHours(Math.Max(0, stdDaily - workedSpec.TotalHours));
+                                           underSpec = TimeSpan.FromHours(Math.Max(0, stdDaily));
                                        }
                                        else
                                        {
@@ -228,7 +263,7 @@ namespace TeacherScheduleApp.Services
                                        .OrderBy(x => x.Start)
                                        .ToList();
                                    var mergedWork = MergeIntervals(workIntervals);
-
+                                   var workedRaw = mergedWork.Aggregate(TimeSpan.Zero, (sum, seg) => sum + (seg.end - seg.start));
                                    var lunches = dayEvents
                                        .Where(e => e.EventType == EventType.Lunch)
                                        .OrderBy(e => e.StartTime)
@@ -239,6 +274,9 @@ namespace TeacherScheduleApp.Services
 
                                    var defaultLunch = (us?.LunchEnd - us?.LunchStart)
                                                       ?? (def.lunchEnd - def.lunchStart);
+                                   var netWorked = workedRaw;
+                                   if (netWorked < TimeSpan.Zero)
+                                       netWorked = TimeSpan.Zero;
                                    var totalLunch = realLunch > TimeSpan.Zero ? realLunch : defaultLunch;
 
                                    var worked = mergedWork.Aggregate(TimeSpan.Zero, (sum, seg) => sum + (seg.end - seg.start));                                   var note = dayEvents
@@ -255,11 +293,11 @@ namespace TeacherScheduleApp.Services
                                        _ => ""
                                    };
 
-                                   var over = TimeSpan.FromHours(Math.Max(0, worked.TotalHours - stdDaily));
-                                   var underHours = stdDaily - worked.TotalHours - totalLunch.TotalHours;
-                                   var under = TimeSpan.FromHours(Math.Max(0, underHours));
+                                   var stdDailyTs = TimeSpan.FromHours(stdDaily);
+                                   var over = netWorked > stdDailyTs ? netWorked - stdDailyTs : TimeSpan.Zero;
+                                   var under = netWorked < stdDailyTs ? stdDailyTs - netWorked  : TimeSpan.Zero;
 
-                                   totalWorked += worked;
+                                   totalWorked += netWorked;
                                    totalOver += over;
                                    totalUnder += under;
                                    table.Cell().Border(1).Text($"{d}.");

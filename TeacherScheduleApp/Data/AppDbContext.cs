@@ -38,8 +38,15 @@ namespace TeacherScheduleApp.Data
                        v => DateTime.ParseExact(v, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
                    );
             modelBuilder.Entity<Event>()
-                    .Property(e => e.StartTime)
-                    .HasConversion(dateTimeConverter);
+              .HasOne<Event>() 
+              .WithMany()
+              .HasForeignKey(e => e.ParentEventId)
+              .IsRequired(false)
+              .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Event>()
+                 .Property(e => e.StartTime)
+                 .HasConversion(dateTimeConverter);
 
             modelBuilder.Entity<Event>()
                 .Property(e => e.EndTime)

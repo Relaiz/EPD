@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -21,7 +23,10 @@ namespace TeacherScheduleApp.ViewModels
         private readonly CompositeDisposable _disposables = new();
         private readonly EventService _eventService;
         private GlobalSettings _originalSettings;
+        public int ActiveYear { get => _activeYear; set { this.RaiseAndSetIfChanged(ref _activeYear, value); LoadFor(ActiveYear, ActiveSemester); } }
+        private int _activeYear;
 
+        public ObservableCollection<int> AvailableYears { get; } = new ObservableCollection<int>(Enumerable.Range(DateTime.Today.Year - 2, 5));
         public Interaction<string, bool> ShowCollisionMessage { get; } = new Interaction<string, bool>();
 
         private SemesterType _activeSemester;
@@ -32,11 +37,10 @@ namespace TeacherScheduleApp.ViewModels
             {
                 if (_activeSemester == value) return;
 
-                GlobalSettingsService
-                    .SaveGlobalSettings(_activeSemester, CurrentSettings);
+                GlobalSettingsService.SaveGlobalSettingsAsync(_activeYear,_activeSemester, CurrentSettings);
 
                 _activeSemester = value;
-                LoadSettingsFor(ActiveSemester);
+                LoadFor(ActiveYear, ActiveSemester);
                 this.RaisePropertyChanged(nameof(ActiveSemester));
                 this.RaisePropertyChanged(nameof(CurrentSemesterDisplay));
             }
@@ -59,8 +63,11 @@ namespace TeacherScheduleApp.ViewModels
         public GlobalUserSettingsViewModel()
         {
             _eventService = new EventService();
-            var loaded = GlobalSettingsService.LoadGlobalSettings(ActiveSemester);
-            CurrentSettings = loaded ?? GlobalSettingsService.GetDefaultSettings(ActiveSemester);
+            ActiveYear = DateTime.Today.Year;
+            ActiveSemester = SemesterType.Winter;
+            var loaded = GlobalSettingsService.LoadGlobalSettings(ActiveYear,ActiveSemester);
+            CurrentSettings = loaded ?? GlobalSettingsService.GetDefaultSettings(ActiveYear,ActiveSemester);
+
             ShowCollisionMessage.RegisterHandler(async inter =>
             {
                 var mb = new MessageBoxStandardParams
@@ -95,8 +102,8 @@ namespace TeacherScheduleApp.ViewModels
                 IsBusy = true;
                 try
                 {
-                    GlobalSettingsService
-                        .SaveGlobalSettings(ActiveSemester, CurrentSettings);
+                   await GlobalSettingsService
+                        .SaveGlobalSettingsAsync(ActiveYear,ActiveSemester, CurrentSettings);
                     var generator = new AutomaticEventsGeneratorService(
                         _eventService,
                         prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask());
@@ -113,15 +120,16 @@ namespace TeacherScheduleApp.ViewModels
                 .Listen<GlobalSettingsChangedMessage>()
                 .Where(msg => msg.Semester == ActiveSemester)
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(_ => LoadSettingsFor(ActiveSemester))
+                .Subscribe(_ => LoadFor(ActiveYear,ActiveSemester))
                 .DisposeWith(_disposables);
+            this.WhenAnyValue(x => x.ActiveYear, x => x.ActiveSemester)
+            .Subscribe(tuple => LoadFor(tuple.Item1, tuple.Item2));
         }
 
-        private void LoadSettingsFor(SemesterType sem)
+        private void LoadFor(int year, SemesterType sem)
         {
-            var loaded = GlobalSettingsService.LoadGlobalSettings(sem);
-            CurrentSettings = loaded ?? GlobalSettingsService.GetDefaultSettings(sem);
-            _originalSettings = CurrentSettings.Clone();
+            CurrentSettings = GlobalSettingsService.LoadGlobalSettings(year, sem)
+                              ?? GlobalSettingsService.GetDefaultSettings(year, sem);
         }
 
         private bool ValidateSettings()

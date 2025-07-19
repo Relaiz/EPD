@@ -20,8 +20,8 @@ namespace TeacherScheduleApp.Services
             if (HolidayHelper.IsCzechHoliday(date))
                 return 0;
             var sem = GlobalSettingsService.GetSemesterForDate(date);
-            var global = GlobalSettingsService.LoadGlobalSettings(sem)
-                         ?? GlobalSettingsService.GetDefaultSettings(sem);
+            var global = GlobalSettingsService.LoadGlobalSettings(date.Year,sem)
+                         ?? GlobalSettingsService.GetDefaultSettings(date.Year, sem);
 
             var (defArr, defDep, defLunchStart, defLunchEnd)
                 = PdfService.GetWeekdayDefaults(global, date.DayOfWeek);

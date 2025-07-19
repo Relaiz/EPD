@@ -1,5 +1,7 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Linq;
+using System.Threading.Tasks;
 using TeacherScheduleApp.Data;
 using TeacherScheduleApp.Models;
 using static TeacherScheduleApp.Models.GlobalSettings;
@@ -8,158 +10,64 @@ namespace TeacherScheduleApp.Services
 {
     public static class GlobalSettingsService
     {
-        public static void SaveGlobalSettings(string globalStartTime, string globalEndTime)
-        {
-            using var db = new AppDbContext();        
-            var record = db.GlobalSettings.FirstOrDefault(r => r.Id == 1);
-            if (record == null)
-            {
-                record = new GlobalSettings
-                {
-                    Id = 1,
-                    GlobalStartTime = globalStartTime,
-                    GlobalEndTime = globalEndTime
-                };
-                db.GlobalSettings.Add(record);
-            }
-            else
-            {
-                record.GlobalStartTime = globalStartTime;
-                record.GlobalEndTime = globalEndTime;
-            }
-            db.SaveChanges();
-        }
-
-        public static void SaveGlobalSettings(GlobalSettings.SemesterType semester, GlobalSettings settings)
+        public static async Task SaveGlobalSettingsAsync(int year, SemesterType semester, GlobalSettings settings)
         {
             using var db = new AppDbContext();
-            var record = db.GlobalSettings.FirstOrDefault(s => s.Semester == semester);
+            db.ChangeTracker.AutoDetectChangesEnabled = false;
+            var record = await db.GlobalSettings
+                .FirstOrDefaultAsync(s => s.Year == year && s.Semester == semester);
             if (record == null)
             {
-                record = new GlobalSettings
-                {
-                    Semester = semester,
-                    GlobalStartTime = settings.GlobalStartTime,
-                    GlobalEndTime = settings.GlobalEndTime,
-                    EmployeeName = settings.EmployeeName,
-                    Department = settings.Department,
-                    MondayArrival = settings.MondayArrival,
-                    MondayDeparture = settings.MondayDeparture,
-                    MondayLunchStart = settings.MondayLunchStart,
-                    MondayLunchEnd = settings.MondayLunchEnd,
-
-                    TuesdayArrival = settings.TuesdayArrival,
-                    TuesdayDeparture = settings.TuesdayDeparture,
-                    TuesdayLunchStart = settings.TuesdayLunchStart,
-                    TuesdayLunchEnd = settings.TuesdayLunchEnd,
-
-                    WednesdayArrival = settings.WednesdayArrival,
-                    WednesdayDeparture = settings.WednesdayDeparture,
-                    WednesdayLunchStart = settings.WednesdayLunchStart,
-                    WednesdayLunchEnd = settings.WednesdayLunchEnd,
-
-                    ThursdayArrival = settings.ThursdayArrival,
-                    ThursdayDeparture = settings.ThursdayDeparture,
-                    ThursdayLunchStart = settings.ThursdayLunchStart,
-                    ThursdayLunchEnd = settings.ThursdayLunchEnd,
-
-                    FridayArrival = settings.FridayArrival,
-                    FridayDeparture = settings.FridayDeparture,
-                    FridayLunchStart = settings.FridayLunchStart,
-                    FridayLunchEnd = settings.FridayLunchEnd,
-
-                    MinBreakDuration = settings.MinBreakDuration,
-                    MaxBreakDuration = settings.MaxBreakDuration,
-                    AutoEventNamePreLunch = settings.AutoEventNamePreLunch,
-                    AutoEventNameLunch = settings.AutoEventNameLunch,
-                    AutoEventNamePostLunch = settings.AutoEventNamePostLunch
-                };
+                record = new GlobalSettings { Year = year, Semester = semester };
                 db.GlobalSettings.Add(record);
             }
-            else
-            {
-                record.GlobalStartTime = settings.GlobalStartTime;
-                record.GlobalEndTime = settings.GlobalEndTime;
-                record.EmployeeName = settings.EmployeeName;
-                record.Department = settings.Department;
-                record.MondayArrival = settings.MondayArrival;
-                record.MondayDeparture = settings.MondayDeparture;
-                record.MondayLunchStart = settings.MondayLunchStart;
-                record.MondayLunchEnd = settings.MondayLunchEnd;
-
-                record.TuesdayArrival = settings.TuesdayArrival;
-                record.TuesdayDeparture = settings.TuesdayDeparture;
-                record.TuesdayLunchStart = settings.TuesdayLunchStart;
-                record.TuesdayLunchEnd = settings.TuesdayLunchEnd;
-
-                record.WednesdayArrival = settings.WednesdayArrival;
-                record.WednesdayDeparture = settings.WednesdayDeparture;
-                record.WednesdayLunchStart = settings.WednesdayLunchStart;
-                record.WednesdayLunchEnd = settings.WednesdayLunchEnd;
-
-                record.ThursdayArrival = settings.ThursdayArrival;
-                record.ThursdayDeparture = settings.ThursdayDeparture;
-                record.ThursdayLunchStart = settings.ThursdayLunchStart;
-                record.ThursdayLunchEnd = settings.ThursdayLunchEnd;
-
-                record.FridayArrival = settings.FridayArrival;
-                record.FridayDeparture = settings.FridayDeparture;
-                record.FridayLunchStart = settings.FridayLunchStart;
-                record.FridayLunchEnd = settings.FridayLunchEnd;
-
-                record.MinBreakDuration = settings.MinBreakDuration;
-                record.MaxBreakDuration = settings.MaxBreakDuration;
-                record.AutoEventNamePreLunch = settings.AutoEventNamePreLunch;
-                record.AutoEventNameLunch = settings.AutoEventNameLunch;
-                record.AutoEventNamePostLunch = settings.AutoEventNamePostLunch;
-            }
-            db.SaveChanges();
+            CopyValues(settings, record);
+            await db.SaveChangesAsync();
+            db.ChangeTracker.AutoDetectChangesEnabled = true;
         }
 
-        public static GlobalSettings LoadGlobalSettings(GlobalSettings.SemesterType semester)
+
+        private static void CopyValues(GlobalSettings src, GlobalSettings dst)
+        {
+           
+            dst.GlobalStartTime = src.GlobalStartTime;
+            dst.GlobalEndTime = src.GlobalEndTime;
+            dst.EmployeeName = src.EmployeeName;
+            dst.Department = src.Department;
+            dst.MondayArrival = src.MondayArrival;
+            dst.MondayDeparture = src.MondayDeparture;
+            dst.MondayLunchStart = src.MondayLunchStart;
+            dst.MondayLunchEnd = src.MondayLunchEnd;
+            dst.TuesdayArrival = src.TuesdayArrival;
+            dst.TuesdayDeparture = src.TuesdayDeparture;
+            dst.TuesdayLunchStart = src.TuesdayLunchStart;
+            dst.TuesdayLunchEnd = src.TuesdayLunchEnd;
+            dst.WednesdayArrival = src.WednesdayArrival;
+            dst.WednesdayDeparture = src.WednesdayDeparture;
+            dst.WednesdayLunchStart = src.WednesdayLunchStart;
+            dst.WednesdayLunchEnd = src.WednesdayLunchEnd;
+            dst.ThursdayArrival = src.ThursdayArrival;
+            dst.ThursdayDeparture = src.ThursdayDeparture;
+            dst.ThursdayLunchStart = src.ThursdayLunchStart;
+            dst.ThursdayLunchEnd = src.ThursdayLunchEnd;
+            dst.FridayArrival = src.FridayArrival;
+            dst.FridayDeparture = src.FridayDeparture;
+            dst.FridayLunchStart = src.FridayLunchStart;
+            dst.FridayLunchEnd = src.FridayLunchEnd;
+            dst.MinBreakDuration = src.MinBreakDuration;
+            dst.MaxBreakDuration = src.MaxBreakDuration;
+            dst.AutoEventNamePreLunch = src.AutoEventNamePreLunch;
+            dst.AutoEventNameLunch = src.AutoEventNameLunch;
+            dst.AutoEventNamePostLunch = src.AutoEventNamePostLunch;
+        }
+
+        public static GlobalSettings LoadGlobalSettings(int year, SemesterType semester)
         {
             using var db = new AppDbContext();
-            var record = db.GlobalSettings.FirstOrDefault(s => s.Semester == semester);
-            if (record == null)
-                return null;
-            return new GlobalSettings
-            {
-                GlobalStartTime = record.GlobalStartTime,
-                GlobalEndTime = record.GlobalEndTime,
-                EmployeeName = record.EmployeeName,
-                Department = record.Department,
-                MondayArrival = record.MondayArrival,
-                MondayDeparture = record.MondayDeparture,
-                MondayLunchStart = record.MondayLunchStart,
-                MondayLunchEnd = record.MondayLunchEnd,
-
-                TuesdayArrival = record.TuesdayArrival,
-                TuesdayDeparture = record.TuesdayDeparture,
-                TuesdayLunchStart = record.TuesdayLunchStart,
-                TuesdayLunchEnd = record.TuesdayLunchEnd,
-
-                WednesdayArrival = record.WednesdayArrival,
-                WednesdayDeparture = record.WednesdayDeparture,
-                WednesdayLunchStart = record.WednesdayLunchStart,
-                WednesdayLunchEnd = record.WednesdayLunchEnd,
-
-                ThursdayArrival = record.ThursdayArrival,
-                ThursdayDeparture = record.ThursdayDeparture,
-                ThursdayLunchStart = record.ThursdayLunchStart,
-                ThursdayLunchEnd = record.ThursdayLunchEnd,
-
-                FridayArrival = record.FridayArrival,
-                FridayDeparture = record.FridayDeparture,
-                FridayLunchStart = record.FridayLunchStart,
-                FridayLunchEnd = record.FridayLunchEnd,
-
-                MinBreakDuration = record.MinBreakDuration,
-                MaxBreakDuration = record.MaxBreakDuration,
-                AutoEventNamePreLunch = record.AutoEventNamePreLunch,
-                AutoEventNameLunch = record.AutoEventNameLunch,
-                AutoEventNamePostLunch = record.AutoEventNamePostLunch,
-                Semester = record.Semester
-            };
+            var record = db.GlobalSettings
+                .FirstOrDefault(s => s.Year == year && s.Semester == semester);
+            if (record == null) return null;
+            return record;
         }
         public static SemesterType GetSemesterForDate(DateTime date)
         {
@@ -175,7 +83,7 @@ namespace TeacherScheduleApp.Services
 
             return SemesterType.Winter;
         }
-        public static GlobalSettings GetDefaultSettings(SemesterType sem)
+        public static GlobalSettings GetDefaultSettings(int year,SemesterType sem)
         {
 
             if (sem == SemesterType.Winter)
@@ -183,6 +91,7 @@ namespace TeacherScheduleApp.Services
                 return new GlobalSettings
                 {
                     Semester = SemesterType.Winter,
+                    Year = year,
                     GlobalStartTime = "08:00",
                     GlobalEndTime = "16:30",
                     EmployeeName = "Radek Matoušek",
@@ -212,7 +121,7 @@ namespace TeacherScheduleApp.Services
                     AutoEventNamePreLunch = "Ranní výuka",
                     AutoEventNameLunch = "Oběd",
                     AutoEventNamePostLunch = "Odpolední výuka",
-                };
+                }; 
             }
             else
             {
@@ -220,6 +129,7 @@ namespace TeacherScheduleApp.Services
                 return new GlobalSettings
                 {
                     Semester = SemesterType.Summer,
+                    Year = year,
                     GlobalStartTime = "08:30",
                     GlobalEndTime = "17:00",
                     EmployeeName = "Radek Matoušek",

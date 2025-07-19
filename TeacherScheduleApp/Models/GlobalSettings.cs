@@ -9,6 +9,7 @@
         }
 
         public int Id { get; set; }
+        public int Year { get; set; }
 
         public string GlobalStartTime { get; set; }
         public string GlobalEndTime { get; set; }

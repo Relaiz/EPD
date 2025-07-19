@@ -40,6 +40,34 @@ namespace TeacherScheduleApp.ViewModels
         }
         private readonly PdfPreviewWindow _pdfWindow;
         public ReactiveCommand<Unit, Unit> ShowPdfPreview { get; }
+        private DateTime _calendarDisplayDate;
+        public DateTime CalendarDisplayDate
+        {
+            get => _calendarDisplayDate;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _calendarDisplayDate, value);
+
+                int desiredDay = SelectedMonth?.Day ?? value.Day;
+
+                int daysInMonth = DateTime.DaysInMonth(value.Year, value.Month);
+
+                DateTime target;
+                if (desiredDay <= daysInMonth)
+                {
+                    target = new DateTime(value.Year, value.Month, desiredDay);
+                }
+                else
+                {
+                    var firstOfMonth = new DateTime(value.Year, value.Month, 1);
+                    int offset = ((int)DayOfWeek.Monday - (int)firstOfMonth.DayOfWeek + 7) % 7;
+                    target = firstOfMonth.AddDays(offset);
+                }
+
+                SelectedMonth = target;
+                SelectedDate = target;
+            }
+        }
         private DateTime? _selectedDate;
 
         private DateTime? _selectedWeek;
@@ -185,7 +213,7 @@ namespace TeacherScheduleApp.ViewModels
         public bool IsDayViewVisible { get; set; } = false;
         public bool IsWeekViewVisible { get; set; } = false;
         public bool IsMonthViewVisible { get; set; } = false;
-        private List<Event> _events;
+        private List<Event> _events = new List<Event>();
         private readonly WorkingHoursCalculatorService _hoursCalculator;
         public ReactiveCommand<Unit, Unit> CreateEventCommand { get; }
         public ReactiveCommand<Unit, Unit> ShowDayCommand { get; }
@@ -207,16 +235,17 @@ namespace TeacherScheduleApp.ViewModels
             _selectedDate = DateTime.Now;
             _selectedWeek = DateTime.Now;
             _selectedMonth = DateTime.Now;
+            CalendarDisplayDate = DateTime.Today;
             var pdfSvc = new PdfService();
             var evSvc = new EventService();
             var sem = GlobalSettingsService.GetSemesterForDate(SelectedDate.Value);
 
-            var global = GlobalSettingsService.LoadGlobalSettings(sem);
+            var global = GlobalSettingsService.LoadGlobalSettings(SelectedDate.Value.Year, sem);
 
             if (global == null)
             {
-                global = GlobalSettingsService.GetDefaultSettings(sem);
-                GlobalSettingsService.SaveGlobalSettings(sem, global);
+                global = GlobalSettingsService.GetDefaultSettings(SelectedDate.Value.Year, sem);
+                GlobalSettingsService.SaveGlobalSettingsAsync(SelectedDate.Value.Year, sem, global);
             }
 
             ShowPdfPreview = ReactiveCommand.Create(() =>
@@ -284,7 +313,14 @@ namespace TeacherScheduleApp.ViewModels
                  CurrentViewModel = CurrentViewModel;
              });
             GenerateEPDCommand = ReactiveCommand.CreateFromTask(GenerateEPDAsync);
-
+            MessageBus.Current
+              .Listen<UserSettingsChangedMessage>()
+              .Where(m => SelectedDate.HasValue && m.Date == SelectedDate.Value)
+              .ObserveOn(RxApp.MainThreadScheduler)
+              .Subscribe(m =>
+              {
+                  LoadUserSettingsForDate(m.Date);
+              });
             MessageBus.Current
             .Listen<EpdGeneratedMessage>()
             .ObserveOn(RxApp.MainThreadScheduler)
@@ -309,8 +345,8 @@ namespace TeacherScheduleApp.ViewModels
 
                 var day = SelectedDate.Value.Date;
                 var sem = GlobalSettingsService.GetSemesterForDate(day);
-                var global = GlobalSettingsService.LoadGlobalSettings(sem)
-                             ?? GlobalSettingsService.GetDefaultSettings(sem);
+                var global = GlobalSettingsService.LoadGlobalSettings(day.Year,sem)
+                             ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
                 var user = SettingsService.GetUserSettingsForDate(day);
                 (TimeSpan arr, TimeSpan dep, TimeSpan ls, TimeSpan le) =
                     user != null
@@ -364,6 +400,8 @@ namespace TeacherScheduleApp.ViewModels
                 this.RaisePropertyChanged(nameof(IsDayViewVisible));
                 this.RaisePropertyChanged(nameof(IsWeekViewVisible));
                 this.RaisePropertyChanged(nameof(IsMonthViewVisible));
+                _events = _eventService.LoadEvents();
+                RecalculateWorkingHours();
             });
 
             ShowWeekCommand = ReactiveCommand.Create(() =>
@@ -375,6 +413,8 @@ namespace TeacherScheduleApp.ViewModels
                 this.RaisePropertyChanged(nameof(IsDayViewVisible));
                 this.RaisePropertyChanged(nameof(IsMonthViewVisible));
                 this.RaisePropertyChanged(nameof(IsWeekViewVisible));
+                _events = _eventService.LoadEvents();
+                RecalculateWorkingHours();
 
             });
 
@@ -387,6 +427,8 @@ namespace TeacherScheduleApp.ViewModels
                 this.RaisePropertyChanged(nameof(IsDayViewVisible));
                 this.RaisePropertyChanged(nameof(IsMonthViewVisible));
                 this.RaisePropertyChanged(nameof(IsWeekViewVisible));
+                _events = _eventService.LoadEvents();
+                RecalculateWorkingHours();
             });
             OpenGlobalSettingsCommand = ReactiveCommand.Create(() =>
             {
@@ -437,6 +479,7 @@ namespace TeacherScheduleApp.ViewModels
                 RecalculateWorkingHours();
             });
         }
+       
         public double LunchMinutes
         {
             get
@@ -576,8 +619,8 @@ namespace TeacherScheduleApp.ViewModels
                 return;
             }
             var sem = GlobalSettingsService.GetSemesterForDate(date);
-            var gl = GlobalSettingsService.LoadGlobalSettings(sem)
-                     ?? GlobalSettingsService.GetDefaultSettings(sem);
+            var gl = GlobalSettingsService.LoadGlobalSettings(date.Year,sem)
+                     ?? GlobalSettingsService.GetDefaultSettings(date.Year, sem);
 
             (var defArr, var defDep, var defLunchStart, var defLunchEnd) =
                 PdfService.GetWeekdayDefaults(gl, date.DayOfWeek);

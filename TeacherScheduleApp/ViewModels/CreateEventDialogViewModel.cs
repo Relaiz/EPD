@@ -158,7 +158,7 @@ namespace TeacherScheduleApp.ViewModels
             SelectedEventTypePair = LocalizedEventTypes.First(kvp => kvp.Key == this.EventType);
 
             var sem = GlobalSettingsService.GetSemesterForDate(_startDate);
-            var global = GlobalSettingsService.LoadGlobalSettings(sem);
+            var global = GlobalSettingsService.LoadGlobalSettings(_startDate.Year, sem) ?? GlobalSettingsService.GetDefaultSettings(_startDate.Year, sem);
             var user = SettingsService.GetUserSettingsForDate(_startDate);
 
             var (arr, dep, lunchFrom, lunchTo) = GetDaySpans(global, user, _startDate.DayOfWeek);
@@ -183,7 +183,7 @@ namespace TeacherScheduleApp.ViewModels
                 }
 
                 sem = GlobalSettingsService.GetSemesterForDate(StartDate.Date);
-                global = GlobalSettingsService.LoadGlobalSettings(sem);
+                global = GlobalSettingsService.LoadGlobalSettings(StartDate.Date.Year,sem) ?? GlobalSettingsService.GetDefaultSettings(StartDate.Date.Year, sem);
                 user = SettingsService.GetUserSettingsForDate(StartDate.Date);
                 (arr, dep, lunchFrom, lunchTo) = GetDaySpans(global, user, StartDate.DayOfWeek);
 
@@ -225,7 +225,7 @@ namespace TeacherScheduleApp.ViewModels
                     return null;
 
                 sem = GlobalSettingsService.GetSemesterForDate(StartDate.Date);
-                global = GlobalSettingsService.LoadGlobalSettings(sem);
+                global = GlobalSettingsService.LoadGlobalSettings(StartDate.Date.Year, sem) ?? GlobalSettingsService.GetDefaultSettings(StartDate.Date.Year, sem);
                 user = SettingsService.GetUserSettingsForDate(StartDate.Date);
                 (arr, dep, lunchFrom, lunchTo) = GetDaySpans(global, user, StartDate.DayOfWeek);
 
