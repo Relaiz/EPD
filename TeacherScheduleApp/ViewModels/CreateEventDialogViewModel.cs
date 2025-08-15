@@ -178,7 +178,7 @@ namespace TeacherScheduleApp.ViewModels
             {
                 if (string.IsNullOrWhiteSpace(Title))
                 {
-                    await ShowValidationMessage.Handle("Titul je povinný!");
+                    await ShowValidationMessage.Handle("Název je povinný!");
                     return null;
                 }
 
