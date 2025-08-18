@@ -8,7 +8,7 @@
         x:DataType="vm:CreateEventDialogViewModel"
         Title="{Binding DialogTitle}"
         Background="WhiteSmoke"
-        MinWidth="600"
+        MinWidth="650"
         MinHeight="500"
         Width="750"
         Height="550">
@@ -16,6 +16,7 @@
 	<Window.Resources>
 		<ResourceDictionary>
 			<converters:DateTimeToDateTimeOffsetConverter x:Key="DateTimeToDateTimeOffsetConverter" />
+			<converters:BoolNotConverter x:Key="Not" />
 		</ResourceDictionary>
 	</Window.Resources>
 
@@ -90,9 +91,11 @@
 							<ColumnDefinition Width="*"/>
 						</Grid.ColumnDefinitions>
 						<DatePicker Grid.Column="0"
+									IsEnabled="{Binding AllDay, Converter={StaticResource Not}}"
 									SelectedDate="{Binding StartDate, Converter={StaticResource DateTimeToDateTimeOffsetConverter}}"/>
 						<TimePicker Grid.Column="1"
 									Margin="10,0,0,0"
+									IsEnabled="{Binding AllDay, Converter={StaticResource Not}}"
 									SelectedTime="{Binding StartTime}"
 									ClockIdentifier="24HourClock"/>
 					</Grid>
@@ -113,9 +116,11 @@
 							<ColumnDefinition Width="*"/>
 						</Grid.ColumnDefinitions>
 						<DatePicker Grid.Column="0"
+									IsEnabled="{Binding AllDay, Converter={StaticResource Not}}"
 									SelectedDate="{Binding EndDate, Converter={StaticResource DateTimeToDateTimeOffsetConverter}}"/>
 						<TimePicker Grid.Column="1"
 									Margin="10,0,0,0"
+									IsEnabled="{Binding AllDay, Converter={StaticResource Not}}"
 									SelectedTime="{Binding EndTime}"
 									ClockIdentifier="24HourClock"/>
 					</Grid>

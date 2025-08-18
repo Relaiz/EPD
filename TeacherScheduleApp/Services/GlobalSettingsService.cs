@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TeacherScheduleApp.Data;
@@ -13,7 +14,6 @@ namespace TeacherScheduleApp.Services
         public static async Task SaveGlobalSettingsAsync(int year, SemesterType semester, GlobalSettings settings)
         {
             using var db = new AppDbContext();
-            db.ChangeTracker.AutoDetectChangesEnabled = false;
             var record = await db.GlobalSettings
                 .FirstOrDefaultAsync(s => s.Year == year && s.Semester == semester);
             if (record == null)
@@ -23,7 +23,6 @@ namespace TeacherScheduleApp.Services
             }
             CopyValues(settings, record);
             await db.SaveChangesAsync();
-            db.ChangeTracker.AutoDetectChangesEnabled = true;
         }
 
 
@@ -83,6 +82,20 @@ namespace TeacherScheduleApp.Services
 
             return SemesterType.Winter;
         }
+        public static List<int> GetYearsWithData()
+        {
+            using var db = new AppDbContext();
+            var years =
+                db.GlobalSettings.AsNoTracking().Select(g => g.Year)
+                .Concat(db.Events.AsNoTracking().Where(e => !e.IsDeleted).Select(e => e.StartTime.Year))
+                .Concat(db.Events.AsNoTracking().Where(e => !e.IsDeleted).Select(e => e.EndTime.Year))
+                .Concat(db.UserSettings.AsNoTracking().Select(u => u.Date.Year))
+                .Distinct()
+                .OrderBy(y => y)
+                .ToList();
+
+            return years;
+        }
         public static GlobalSettings GetDefaultSettings(int year,SemesterType sem)
         {
 
@@ -118,9 +131,9 @@ namespace TeacherScheduleApp.Services
                     FridayLunchEnd = "12:30",
                     MinBreakDuration = "00:15",
                     MaxBreakDuration = "01:00",
-                    AutoEventNamePreLunch = "Ranní výuka",
+                    AutoEventNamePreLunch = "Dopolední pracovní doba",
                     AutoEventNameLunch = "Oběd",
-                    AutoEventNamePostLunch = "Odpolední výuka",
+                    AutoEventNamePostLunch = "Odpolední pracovní doba",
                 }; 
             }
             else
@@ -156,9 +169,9 @@ namespace TeacherScheduleApp.Services
                     FridayLunchEnd = "13:00",
                     MinBreakDuration = "00:15",
                     MaxBreakDuration = "01:00",
-                    AutoEventNamePreLunch = "Ranní výuka",
+                    AutoEventNamePreLunch = "Dopolední pracovní doba",
                     AutoEventNameLunch = "Oběd",
-                    AutoEventNamePostLunch = "Odpolední výuka",
+                    AutoEventNamePostLunch = "Odpolední pracovní doba",
                 };
             }
 

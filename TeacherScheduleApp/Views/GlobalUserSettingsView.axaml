@@ -4,319 +4,335 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
-    xmlns:converters="clr-namespace:TeacherScheduleApp.Converters"
     xmlns:i="clr-namespace:Avalonia.Xaml.Interactivity;assembly=Avalonia.Xaml.Interactivity"
     xmlns:beh="clr-namespace:TeacherScheduleApp.Behaviors"
     mc:Ignorable="d"
     x:Class="TeacherScheduleApp.Views.GlobalUserSettingsView"
     x:DataType="vm:GlobalUserSettingsViewModel"
-    d:DesignWidth="800" d:DesignHeight="600">
+    d:DesignWidth="1000" d:DesignHeight="680">
 
-	<Border Padding="20">
-		<ScrollViewer>
-			<StackPanel Spacing="15">
-				<TextBlock Text="Globální nastavení uživatele"
-                           FontSize="20"
-                           FontWeight="Bold"
-                           HorizontalAlignment="Center"/>
-				<TextBlock Text="{Binding CurrentSemesterDisplay}"
-                           FontSize="16"
-                           FontWeight="Bold"
-                           HorizontalAlignment="Center"/>
-				<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="20">
+	<UserControl.Resources>
+		<Thickness x:Key="OuterPadding">16</Thickness>
+		<Thickness x:Key="CardPadding">12</Thickness>
+		<Thickness x:Key="SectionGap">0,12,0,0</Thickness>
+		<Thickness x:Key="RowGap">0,8,0,0</Thickness>
+		<x:Double x:Key="InputWidth">340</x:Double>
+	</UserControl.Resources>
+
+	<Grid RowDefinitions="Auto,*,Auto">
+
+		<Border Grid.Row="0" Background="#F5F5F7" Padding="10,8" BorderBrush="#DDD" BorderThickness="0,0,0,1">
+			<Grid ColumnDefinitions="Auto,10,*,Auto" VerticalAlignment="Center">
+				<Button Content="⟵ Zpět ke kalendáři" Command="{Binding GoBackCommand}" Padding="10,6"/>
+				<TextBlock Grid.Column="2" Text="{Binding HeaderDisplay}" FontSize="18" FontWeight="SemiBold"
+						   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+				<StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
 					<TextBlock Text="Rok:" VerticalAlignment="Center"/>
-					<ComboBox Width="100"
-							  ItemsSource="{Binding AvailableYears}"
-							  SelectedItem="{Binding ActiveYear, Mode=TwoWay}"/>
-				</StackPanel>
-				<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="20">
-					<RadioButton Content="Zimní"
-                                 IsChecked="{Binding ActiveSemester, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Winter}"
-                                 FontSize="14"/>
-					<RadioButton Content="Letní"
-                                 IsChecked="{Binding ActiveSemester, Converter={StaticResource EnumToBooleanConverter}, ConverterParameter=Summer}"
-                                 FontSize="14"/>
-				</StackPanel>
-				<Expander Header="Globální pracovní doba" IsExpanded="True" FontWeight="Bold">
-					<StackPanel Orientation="Horizontal" Spacing="10" Margin="10">
-						<TextBlock Text="Od:" VerticalAlignment="Center" Width="30"/>
-						<TextBox  Text="{Binding CurrentSettings.GlobalStartTime, Mode=TwoWay}"
-                                 Width="80">
-							<i:Interaction.Behaviors>
-								<beh:TimeInputBehavior/>
-							</i:Interaction.Behaviors>
-						</TextBox>
-						<TextBlock Text="do:" VerticalAlignment="Center" Width="30"/>
-						<TextBox  Text="{Binding CurrentSettings.GlobalEndTime,   Mode=TwoWay}"
-                                 Width="80">
-							<i:Interaction.Behaviors>
-								<beh:TimeInputBehavior/>
-							</i:Interaction.Behaviors>
-						</TextBox>
+					<ComboBox Width="100" ItemsSource="{Binding AvailableYears}" SelectedItem="{Binding ActiveYear, Mode=TwoWay}"/>
+					<StackPanel Orientation="Horizontal" Spacing="10" Margin="12,0,0,0">
+						<RadioButton Content="Zimní" IsChecked="{Binding ActiveSemesterIsWinter, Mode=TwoWay}"/>
+						<RadioButton Content="Letní"  IsChecked="{Binding ActiveSemesterIsSummer, Mode=TwoWay}"/>
 					</StackPanel>
-				</Expander>
-				<Expander Header="{Binding CurrentSemesterDisplay}" IsExpanded="True" FontWeight="Bold">
-					<StackPanel Margin="10" Spacing="10">
-						<TabControl Margin="10">
-							<TabItem Header="Pondělí">
-								<StackPanel Spacing="10" Margin="10">
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Příchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.MondayArrival}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Odchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.MondayDeparture}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, začátek:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.MondayLunchStart}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, konec:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.MondayLunchEnd}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
+				</StackPanel>
+			</Grid>
+		</Border>
 
-								</StackPanel>
+		<ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+			<StackPanel Margin="{StaticResource OuterPadding}" Spacing="12">
+
+				<Border BorderBrush="#DDD" BorderThickness="1" Padding="{StaticResource CardPadding}" Background="#FAFAFA">
+					<StackPanel Spacing="8">
+						<TextBlock Text="{Binding WorkTimeHeaderDisplay}" FontWeight="SemiBold"/>
+						<Grid ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto">
+							<TextBlock Grid.Row="0" Grid.Column="0" Text="Od:" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="0" Grid.Column="2"
+									  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.GlobalStartTime, Mode=TwoWay}">
+								<i:Interaction.Behaviors>
+									<beh:TimeInputBehavior/>
+								</i:Interaction.Behaviors>
+							</TextBox>
+
+							<TextBlock Grid.Row="1" Grid.Column="0" Text="Do:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+									  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.GlobalEndTime, Mode=TwoWay}">
+								<i:Interaction.Behaviors>
+									<beh:TimeInputBehavior/>
+								</i:Interaction.Behaviors>
+							</TextBox>
+						</Grid>
+					</StackPanel>
+				</Border>
+
+				<Border BorderBrush="#DDD" BorderThickness="1" Padding="{StaticResource CardPadding}"
+						Background="#FAFAFA" Margin="{StaticResource SectionGap}">
+					<Grid RowDefinitions="Auto,*">
+						<TextBlock Text="{Binding DaysHeaderDisplay}" FontWeight="SemiBold"/>
+						<TabControl Grid.Row="1" Margin="0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+
+							<TabItem Header="Pondělí">
+								<Grid Margin="10" ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+									<TextBlock Grid.Row="0" Grid.Column="0" Text="Příchod:" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="0" Grid.Column="2" Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.MondayArrival}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="1" Grid.Column="0" Text="Odchod:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.MondayDeparture}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="2" Grid.Column="0" Text="Oběd, začátek:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="2" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.MondayLunchStart}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="3" Grid.Column="0" Text="Oběd, konec:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="3" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.MondayLunchEnd}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+								</Grid>
 							</TabItem>
 
 							<TabItem Header="Úterý">
-								<StackPanel Spacing="10" Margin="10">
+								<Grid Margin="10" ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+									<TextBlock Grid.Row="0" Grid.Column="0" Text="Příchod:" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="0" Grid.Column="2" Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.TuesdayArrival}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
 
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Příchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.TuesdayArrival}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
+									<TextBlock Grid.Row="1" Grid.Column="0" Text="Odchod:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.TuesdayDeparture}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
 
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Odchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.TuesdayDeparture}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
+									<TextBlock Grid.Row="2" Grid.Column="0" Text="Oběd, začátek:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="2" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.TuesdayLunchStart}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
 
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, začátek:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.TuesdayLunchStart}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, konec:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.TuesdayLunchEnd}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-
-								</StackPanel>
+									<TextBlock Grid.Row="3" Grid.Column="0" Text="Oběd, konec:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="3" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.TuesdayLunchEnd}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+								</Grid>
 							</TabItem>
 
 							<TabItem Header="Středa">
-								<StackPanel Spacing="10" Margin="10">
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Příchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.WednesdayArrival}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Odchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.WednesdayDeparture}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, začátek:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.WednesdayLunchStart}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, konec:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.WednesdayLunchEnd}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-								</StackPanel>
+								<Grid Margin="10" ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+									<TextBlock Grid.Row="0" Grid.Column="0" Text="Příchod:" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="0" Grid.Column="2" Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.WednesdayArrival}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="1" Grid.Column="0" Text="Odchod:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.WednesdayDeparture}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="2" Grid.Column="0" Text="Oběd, začátek:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="2" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.WednesdayLunchStart}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="3" Grid.Column="0" Text="Oběd, konec:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="3" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.WednesdayLunchEnd}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+								</Grid>
 							</TabItem>
 
 							<TabItem Header="Čtvrtek">
-								<StackPanel Spacing="10" Margin="10">
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Příchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.ThursdayArrival}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Odchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.ThursdayDeparture}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, začátek:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.ThursdayLunchStart}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, konec:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.ThursdayLunchEnd}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-								</StackPanel>
+								<Grid Margin="10" ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+									<TextBlock Grid.Row="0" Grid.Column="0" Text="Příchod:" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="0" Grid.Column="2" Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.ThursdayArrival}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="1" Grid.Column="0" Text="Odchod:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.ThursdayDeparture}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="2" Grid.Column="0" Text="Oběd, začátek:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="2" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.ThursdayLunchStart}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+
+									<TextBlock Grid.Row="3" Grid.Column="0" Text="Oběd, konec:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="3" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.ThursdayLunchEnd}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+								</Grid>
 							</TabItem>
 
 							<TabItem Header="Pátek">
-								<StackPanel Spacing="10" Margin="10">
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Příchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.FridayArrival}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Odchod:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.FridayDeparture}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, začátek:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.FridayLunchStart}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Oběd, konec:" Width="100" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.FridayLunchEnd}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
-								</StackPanel>
-							</TabItem>
-							<TabItem Header="Další nastavení">
-								<StackPanel Spacing="10" Margin="10">
-									<TextBlock Text="Udaje pro PDF" FontWeight="Bold" Margin="0,10,0,0"/>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Jméno:" Width="120" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.EmployeeName}" Width="400">
-										</TextBox>
-									</StackPanel>
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Útvar:" Width="120" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.Department}" Width="400">
-										</TextBox>
-									</StackPanel>
-									<TextBlock Text="Pauzy" FontWeight="Bold"/>
+								<Grid Margin="10" ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+									<TextBlock Grid.Row="0" Grid.Column="0" Text="Příchod:" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="0" Grid.Column="2" Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.FridayArrival}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
 
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Min. délka pauzy:" Width="120" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.MinBreakDuration}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
+									<TextBlock Grid.Row="1" Grid.Column="0" Text="Odchod:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.FridayDeparture}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
 
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Max. délka pauzy:" Width="120" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.MaxBreakDuration}" Width="80">
-											<i:Interaction.Behaviors>
-												<beh:TimeInputBehavior/>
-											</i:Interaction.Behaviors>
-										</TextBox>
-									</StackPanel>
+									<TextBlock Grid.Row="2" Grid.Column="0" Text="Oběd, začátek:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="2" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.FridayLunchStart}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
 
-									<TextBlock Text="Názvy událostí" FontWeight="Bold" Margin="0,10,0,0"/>
-
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Před obědem:" Width="120" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.AutoEventNamePreLunch}" Width="200"/>
-									</StackPanel>
-
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Pro oběd:" Width="120" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.AutoEventNameLunch}" Width="200"/>
-									</StackPanel>
-
-									<StackPanel Orientation="Horizontal" Spacing="5">
-										<TextBlock Text="Po obědě:" Width="120" VerticalAlignment="Center"/>
-										<TextBox Text="{Binding CurrentSettings.AutoEventNamePostLunch}" Width="200"/>
-									</StackPanel>
-								</StackPanel>
+									<TextBlock Grid.Row="3" Grid.Column="0" Text="Oběd, konec:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+									<TextBox  Grid.Row="3" Grid.Column="2" Margin="{StaticResource RowGap}"
+											  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+											  Text="{Binding CurrentSettings.FridayLunchEnd}">
+										<i:Interaction.Behaviors>
+											<beh:TimeInputBehavior/>
+										</i:Interaction.Behaviors>
+									</TextBox>
+								</Grid>
 							</TabItem>
 
 						</TabControl>
-					</StackPanel>
-				</Expander>
+					</Grid>
+				</Border>
 
-				<Button Content="Uložit nastavení"
-                        Command="{Binding SaveCommand}"
-                        Width="200"
-                        HorizontalAlignment="Center"
-                        Margin="0,20,0,0"
-                        Background="#673AB7"
-                        Foreground="White"
-                        BorderBrush="Transparent"
-                        BorderThickness="0"
-                        Padding="10"
-                        FontWeight="Bold"/>
+				<Border BorderBrush="#DDD" BorderThickness="1" Padding="{StaticResource CardPadding}"
+						Background="#FAFAFA" Margin="{StaticResource SectionGap}">
+					<StackPanel Spacing="8">
+						<TextBlock Text="Další nastavení" FontWeight="SemiBold"/>
+
+						<TextBlock Text="Údaje pro PDF" FontWeight="SemiBold"/>
+						<Grid ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto">
+							<TextBlock Grid.Row="0" Grid.Column="0" Text="Jméno:" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="0" Grid.Column="2" Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.EmployeeName}"/>
+
+							<TextBlock Grid.Row="1" Grid.Column="0" Text="Útvar:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+									  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.Department}"/>
+						</Grid>
+
+						<TextBlock Text="Pauzy" FontWeight="SemiBold" Margin="{StaticResource RowGap}"/>
+						<Grid ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto">
+							<TextBlock Grid.Row="0" Grid.Column="0" Text="Min. délka pauzy:" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="0" Grid.Column="2" Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.MinBreakDuration}">
+								<i:Interaction.Behaviors>
+									<beh:TimeInputBehavior/>
+								</i:Interaction.Behaviors>
+							</TextBox>
+
+							<TextBlock Grid.Row="1" Grid.Column="0" Text="Max. délka pauzy:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+									  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.MaxBreakDuration}">
+								<i:Interaction.Behaviors>
+									<beh:TimeInputBehavior/>
+								</i:Interaction.Behaviors>
+							</TextBox>
+						</Grid>
+
+						<TextBlock Text="Názvy událostí" FontWeight="SemiBold" Margin="{StaticResource RowGap}"/>
+						<Grid ColumnDefinitions="Auto,12,Auto" RowDefinitions="Auto,Auto,Auto">
+							<TextBlock Grid.Row="0" Grid.Column="0" Text="Před obědem:" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="0" Grid.Column="2" Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.AutoEventNamePreLunch}"/>
+
+							<TextBlock Grid.Row="1" Grid.Column="0" Text="Pro oběd:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="1" Grid.Column="2" Margin="{StaticResource RowGap}"
+									  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.AutoEventNameLunch}"/>
+
+							<TextBlock Grid.Row="2" Grid.Column="0" Text="Po obědě:" Margin="{StaticResource RowGap}" VerticalAlignment="Center"/>
+							<TextBox  Grid.Row="2" Grid.Column="2" Margin="{StaticResource RowGap}"
+									  Width="{StaticResource InputWidth}" HorizontalAlignment="Left"
+									  Text="{Binding CurrentSettings.AutoEventNamePostLunch}"/>
+						</Grid>
+					</StackPanel>
+				</Border>
 
 			</StackPanel>
 		</ScrollViewer>
-	</Border>
+
+		<StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,12">
+			<Button Content="Uložit nastavení" Command="{Binding SaveCommand}"
+					Padding="12,8" Background="#673AB7" Foreground="White" BorderBrush="Transparent"/>
+		</StackPanel>
+
+	</Grid>
 </UserControl>

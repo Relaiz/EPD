@@ -1,19 +1,15 @@
-﻿    using ReactiveUI;
-    using System;
-    using System.Reactive;
-    using System.Threading.Tasks;
-    using TeacherScheduleApp.Services;
-    using TeacherScheduleApp.Views;
-    using Avalonia.Controls;
-    using System.IO;
+﻿using ReactiveUI;
+using System;
+using System.Reactive;
+using System.Threading.Tasks;
+using TeacherScheduleApp.Services;
+using TeacherScheduleApp.Views;
+using Avalonia.Controls;
+using System.IO;
 using TeacherScheduleApp.Models;
-using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
-using TeacherScheduleApp.Controls;
 using TeacherScheduleApp.Messages;
-using Microsoft.Extensions.Logging;
-using SkiaSharp;
 using System.Reactive.Linq;
 using MsBox.Avalonia.Enums;
 using MsBox.Avalonia;
@@ -21,17 +17,18 @@ using MsBox.Avalonia.Dto;
 using System.Reactive.Threading.Tasks;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia;
-using Splat;
 using TeacherScheduleApp.Helpers;
-using static TeacherScheduleApp.Models.GlobalSettings;
+using static TeacherScheduleApp.Services.EventService;
+using System.Collections.ObjectModel;
+using Avalonia.Controls.Shapes;
+using System.Runtime.Intrinsics.Arm;
 
 namespace TeacherScheduleApp.ViewModels
 {
     public class MainWindowViewModel : ViewModelBase
     {
+        private enum ViewKind { Day, Week, Month }
+        private ViewKind _previousView;
         private ViewModelBase _currentViewModel;
         public ViewModelBase CurrentViewModel
         {
@@ -39,7 +36,20 @@ namespace TeacherScheduleApp.ViewModels
             set => this.RaiseAndSetIfChanged(ref _currentViewModel, value);
         }
         private readonly PdfPreviewWindow _pdfWindow;
-        public ReactiveCommand<Unit, Unit> ShowPdfPreview { get; }
+
+        private bool _isFullSpecialDay;
+        public bool IsFullSpecialDay
+        {
+            get => _isFullSpecialDay;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _isFullSpecialDay, value);
+                this.RaisePropertyChanged(nameof(IsLunchEnabled));
+            }
+        }
+        public bool IsLunchEnabled => !IsFullSpecialDay;
+
+        public ReactiveCommand<Unit, Task> ShowPdfPreview { get; }
         private DateTime _calendarDisplayDate;
         public DateTime CalendarDisplayDate
         {
@@ -204,6 +214,32 @@ namespace TeacherScheduleApp.ViewModels
                 this.RaisePropertyChanged(nameof(DayHours));
             }
         }
+        private CalendarMode _calendarMode = CalendarMode.Month;
+        public CalendarMode CalendarMode
+        {
+            get => _calendarMode;
+            set
+            {
+                var wasYear = _calendarMode == CalendarMode.Year;
+                this.RaiseAndSetIfChanged(ref _calendarMode, value);
+
+               
+                if (wasYear && value == CalendarMode.Month)
+                {                
+                    SelectedMonth = CalendarDisplayDate;
+                    CurrentViewModel = null;
+                    OpenMonthView();
+
+                    IsDayViewVisible = false;
+                    IsWeekViewVisible = false;
+                    IsMonthViewVisible = true;
+                    this.RaisePropertyChanged(nameof(IsDayViewVisible));
+                    this.RaisePropertyChanged(nameof(IsWeekViewVisible));
+                    this.RaisePropertyChanged(nameof(IsMonthViewVisible));
+                    RecalculateWorkingHours();
+                }
+            }
+        }
         private bool _isBusy;
         public bool IsBusy
         {
@@ -224,8 +260,10 @@ namespace TeacherScheduleApp.ViewModels
         public ReactiveCommand<Unit, Unit> SaveUserSettingsCommand { get; }
         public ReactiveCommand<Unit, Unit> OpenGlobalSettingsCommand { get; }
         public Interaction<string,bool> ShowCollisionMessage { get; } = new Interaction<string, bool>();
+        public ReactiveCommand<Unit, Unit> DayTappedCommand { get; }
         public ReactiveCommand<Unit, Unit> RegenerateAllCommand { get; }
         private readonly EventService _eventService;
+        public ObservableCollection<ImportBatchItemViewModel> ImportBatches { get; } = new();
         public MainWindowViewModel()
         {
             _eventService = new EventService();
@@ -248,13 +286,30 @@ namespace TeacherScheduleApp.ViewModels
                 GlobalSettingsService.SaveGlobalSettingsAsync(SelectedDate.Value.Year, sem, global);
             }
 
-            ShowPdfPreview = ReactiveCommand.Create(() =>
+            DayTappedCommand = ReactiveCommand.Create(() =>
             {
-                var win = new TeacherScheduleApp.Views.PdfPreviewWindow
+                if (!SelectedDate.HasValue) return;
+                LoadUserSettingsForDate(SelectedDate.Value);
+                CurrentViewModel = null;
+                OpenDayView();
+
+                IsDayViewVisible = true;
+                IsWeekViewVisible = false;
+                IsMonthViewVisible = false;
+                this.RaisePropertyChanged(nameof(IsDayViewVisible));
+                this.RaisePropertyChanged(nameof(IsWeekViewVisible));
+                this.RaisePropertyChanged(nameof(IsMonthViewVisible));
+                RecalculateWorkingHours();
+            });
+            ShowPdfPreview = ReactiveCommand.Create(async() =>
+            {
+                var owner = Helpers.Helper.GetMainWindow();
+                var win = new PdfPreviewWindow
                 {
-                    DataContext = new PdfPreviewViewModel(pdfSvc, evSvc, SelectedMonth.Value)
+                    DataContext = new PdfPreviewViewModel(pdfSvc, evSvc, SelectedMonth!.Value),
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner
                 };
-                win.Show();
+                await win.ShowDialog(owner);
             });
             RegenerateAllCommand = ReactiveCommand.CreateFromTask(async () =>
             {
@@ -325,6 +380,7 @@ namespace TeacherScheduleApp.ViewModels
             .Listen<EpdGeneratedMessage>()
             .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(_ => {
+                RefreshImportBatches();
                 if (IsDayViewVisible) OpenDayView();
                 else if (IsWeekViewVisible) OpenWeekView();
                 else if (IsMonthViewVisible) OpenMonthView();
@@ -366,7 +422,11 @@ namespace TeacherScheduleApp.ViewModels
                 vm.SelectedEventTypePair = vm.LocalizedEventTypes
                     .First(kvp => kvp.Key == EventType.Work);
 
-                var dlg = new CreateEventDialog { DataContext = vm };
+                var dlg = new CreateEventDialog
+                {
+                    DataContext = vm,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner
+                };
                 var main = Helpers.Helper.GetMainWindow();
                 if (main == null)
                     return;
@@ -386,11 +446,22 @@ namespace TeacherScheduleApp.ViewModels
                 {
                     _eventService.CreateEvent(ev);
                 }
+                var generator = new AutomaticEventsGeneratorService(_eventService,
+                prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask());
+
+                await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(day));
                 MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                 _events = _eventService.LoadEvents();
                 RecalculateWorkingHours();
+                CurrentViewModel = CurrentViewModel;
             });
+            foreach (var b in _eventService.GetImportBatches().OrderByDescending(b => b.RangeStart))
+                ImportBatches.Add(new ImportBatchItemViewModel(b, this));
+
+
+
+
             ShowDayCommand = ReactiveCommand.Create(() =>
             {
                 OpenDayView();
@@ -432,7 +503,23 @@ namespace TeacherScheduleApp.ViewModels
             });
             OpenGlobalSettingsCommand = ReactiveCommand.Create(() =>
             {
-                CurrentViewModel = new GlobalUserSettingsViewModel();             
+                _previousView = IsDayViewVisible ? ViewKind.Day
+                   : IsWeekViewVisible ? ViewKind.Week
+                   : ViewKind.Month;
+                var year = (SelectedMonth ?? DateTime.Today).Year;
+                var sem = GlobalSettingsService.GetSemesterForDate(SelectedDate ?? DateTime.Today);
+                CurrentViewModel = new GlobalUserSettingsViewModel(year, sem, closeRequested: () =>
+                {
+                    switch (_previousView)
+                    {
+                        case ViewKind.Day: OpenDayView(); IsDayViewVisible = true; IsWeekViewVisible = false; IsMonthViewVisible = false; break;
+                        case ViewKind.Week: OpenWeekView(); IsDayViewVisible = false; IsWeekViewVisible = true; IsMonthViewVisible = false; break;
+                        default: OpenMonthView(); IsDayViewVisible = false; IsWeekViewVisible = false; IsMonthViewVisible = true; break;
+                    }
+                    this.RaisePropertyChanged(nameof(IsDayViewVisible));
+                    this.RaisePropertyChanged(nameof(IsWeekViewVisible));
+                    this.RaisePropertyChanged(nameof(IsMonthViewVisible));
+                });
                 IsDayViewVisible = false;
                 IsWeekViewVisible = false;
                 IsMonthViewVisible = false;
@@ -443,9 +530,16 @@ namespace TeacherScheduleApp.ViewModels
             GenerateEPDCommand = ReactiveCommand.CreateFromTask(GenerateEPDAsync);
             SaveUserSettingsCommand = ReactiveCommand.CreateFromTask(async () =>
             {
+
                 if (!SelectedDate.HasValue) return;
                 var date = SelectedDate.Value.Date;
-
+                if (IsFullSpecialDay && TimeSpan.TryParse(ArrivalTime, out var a)
+                     && TimeSpan.TryParse(DepartureTime, out var d))
+                {
+                    SettingsService.SaveUserSettingsForDate(SelectedDate.Value, a, d, TimeSpan.Zero, TimeSpan.Zero);
+                    MessageBus.Current.SendMessage(new UserSettingsChangedMessage(SelectedDate.Value));
+                    return;
+                }
                 if (string.IsNullOrWhiteSpace(ArrivalTime)
                     || string.IsNullOrWhiteSpace(DepartureTime)
                     || string.IsNullOrWhiteSpace(LunchStartTime)
@@ -479,7 +573,6 @@ namespace TeacherScheduleApp.ViewModels
                 RecalculateWorkingHours();
             });
         }
-       
         public double LunchMinutes
         {
             get
@@ -607,34 +700,53 @@ namespace TeacherScheduleApp.ViewModels
         {
             var dayEvents = _eventService.GetEventsForDay(date);
 
-            if (dayEvents.Any(e =>
-                e.AllDay
-                && e.EventType != EventType.Work
-                && e.EventType != EventType.Lunch))
+            var sem = GlobalSettingsService.GetSemesterForDate(date);
+            var gl = GlobalSettingsService.LoadGlobalSettings(date.Year, sem)
+                      ?? GlobalSettingsService.GetDefaultSettings(date.Year, sem);
+            var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, date.DayOfWeek);
+            var us = SettingsService.GetUserSettingsForDate(date); var eight = TimeSpan.FromHours(8);
+            var netNorm = (defDep - defArr) - (defLe - defLs);
+            if (netNorm < TimeSpan.Zero) netNorm = TimeSpan.Zero;
+
+            DateTime dayArr = date.Date + defArr;
+            DateTime dayDep = date.Date + defDep;
+
+            TimeSpan IntersectLen(Event e)
             {
-                ArrivalTime = "00:00";
-                DepartureTime = "00:00";
+                var s = e.StartTime < dayArr ? dayArr : e.StartTime;
+                var ee = e.EndTime > dayDep ? dayDep : e.EndTime;
+                return ee > s ? (ee - s) : TimeSpan.Zero;
+            }
+
+            bool IsSpecial(Event e) => e.EventType != EventType.Work && e.EventType != EventType.Lunch;
+
+            var specials = dayEvents.Where(IsSpecial).ToList();
+
+            bool fullSpecialDay =
+                specials.Any(e => e.AllDay) ||
+                specials.Any(e => IntersectLen(e) >= (e.EventType == EventType.Vacation ? eight : netNorm));
+
+            if (fullSpecialDay)
+            {
+                var sMin = specials.Select(e => e.StartTime < dayArr ? dayArr : e.StartTime).Min();
+                var eMax = specials.Select(e => e.EndTime > dayDep ? dayDep : e.EndTime).Max();
+
+                ArrivalTime = sMin.TimeOfDay.ToString(@"hh\:mm");
+                DepartureTime = eMax.TimeOfDay.ToString(@"hh\:mm");
                 LunchStartTime = "00:00";
                 LunchEndTime = "00:00";
                 return;
             }
-            var sem = GlobalSettingsService.GetSemesterForDate(date);
-            var gl = GlobalSettingsService.LoadGlobalSettings(date.Year,sem)
-                     ?? GlobalSettingsService.GetDefaultSettings(date.Year, sem);
-
-            (var defArr, var defDep, var defLunchStart, var defLunchEnd) =
-                PdfService.GetWeekdayDefaults(gl, date.DayOfWeek);
 
             if (HolidayHelper.IsCzechHoliday(date))
             {
                 ArrivalTime = defArr.ToString(@"hh\:mm");
                 DepartureTime = defDep.ToString(@"hh\:mm");
-                LunchStartTime = defLunchStart.ToString(@"hh\:mm");
-                LunchEndTime = defLunchEnd.ToString(@"hh\:mm");
+                LunchStartTime = defLs.ToString(@"hh\:mm");
+                LunchEndTime = defLe.ToString(@"hh\:mm");
                 return;
             }
 
-            var us = SettingsService.GetUserSettingsForDate(date);
             if (us != null)
             {
                 ArrivalTime = us.ArrivalTime.ToString(@"hh\:mm");
@@ -646,42 +758,11 @@ namespace TeacherScheduleApp.ViewModels
             {
                 ArrivalTime = defArr.ToString(@"hh\:mm");
                 DepartureTime = defDep.ToString(@"hh\:mm");
-                LunchStartTime = defLunchStart.ToString(@"hh\:mm");
-                LunchEndTime = defLunchEnd.ToString(@"hh\:mm");
+                LunchStartTime = defLs.ToString(@"hh\:mm");
+                LunchEndTime = defLe.ToString(@"hh\:mm");
             }
         }
 
-        private void SaveUserSettings()
-        {
-            if (!SelectedDate.HasValue)
-                return;
-
-            if (TimeSpan.TryParse(ArrivalTime, out var arrival) &&
-                TimeSpan.TryParse(DepartureTime, out var departure) &&
-                TimeSpan.TryParse(LunchStartTime, out var lunchStart) &&
-                TimeSpan.TryParse(LunchEndTime, out var lunchEnd))
-            {
-                SettingsService.SaveUserSettingsForDate(
-                    SelectedDate.Value,
-                    arrival,
-                    departure,
-                    lunchStart,
-                    lunchEnd
-                );
-                MessageBus.Current.SendMessage(new UserSettingsChangedMessage((DateTime)SelectedDate));
-                var generator = new AutomaticEventsGeneratorService(
-                 new EventService(),
-                 prompt => (Task<bool>)this.ShowCollisionMessage.Handle(prompt)
-                );
-                Task.Run(async () =>
-                {
-                    
-                    await generator.RegenerateDailyEvents(SelectedDate.Value);
-                });             
-                _events = _eventService.LoadEvents();
-                RecalculateWorkingHours();
-            }
-        }
         private async Task GenerateEPDAsync()
         {
             try
@@ -743,6 +824,46 @@ namespace TeacherScheduleApp.ViewModels
             catch (Exception ex)
             {
                 Console.WriteLine($"Výjimka: {ex.Message}");
+            }
+        }
+        public async Task DeleteImportByIdAsync(ImportBatchItemViewModel item)
+        {
+            var main = Helpers.Helper.GetMainWindow();
+            var box = MsBox.Avalonia.MessageBoxManager.GetMessageBoxStandard(
+                new MsBox.Avalonia.Dto.MessageBoxStandardParams
+                {
+                    ButtonDefinitions = MsBox.Avalonia.Enums.ButtonEnum.YesNo,
+                    Icon = MsBox.Avalonia.Enums.Icon.Question,
+                    ContentHeader = "Smazání načteného rozvrhu",
+                    ContentMessage = $"Smazat načtený rozvrh «{item.Label}» ({item.EventsCount} událostí)?",
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner
+                });
+
+            var res = await box.ShowWindowDialogAsync(main);
+            if (res != MsBox.Avalonia.Enums.ButtonResult.Yes) return;
+
+            _eventService.DeleteEventsByImportId(item.Id);
+
+            RefreshImportBatches();
+
+            var generator = new AutomaticEventsGeneratorService(
+                _eventService,
+                prompt => this.ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask());
+
+            await generator.RegenerateRangeEventsAsync(item.RangeStart, item.RangeEnd);
+
+            _events = _eventService.LoadEvents();
+            RecalculateWorkingHours();
+            CurrentViewModel = CurrentViewModel;
+        }
+
+        public void RefreshImportBatches()
+        {
+            ImportBatches.Clear();
+            foreach (var b in _eventService.GetImportBatches()
+                                           .OrderByDescending(x => x.RangeStart))
+            {
+                ImportBatches.Add(new ImportBatchItemViewModel(b, this));
             }
         }
         private int GetWorkingDaysInMonth(int year, int month)

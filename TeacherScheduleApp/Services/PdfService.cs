@@ -28,6 +28,27 @@ namespace TeacherScheduleApp.Services
 
     public class PdfService : IPdfPreviewService
     {
+        private static readonly HashSet<EventType> SpecialTypes = new()
+        {
+            EventType.DayOff,
+            EventType.Illness,
+            EventType.Vacation,
+            EventType.Ocr,
+            EventType.Doctor,
+            EventType.BusinessTrip,
+            EventType.Holiday
+        };
+        private static string CodeFor(EventType t) => t switch
+        {
+            EventType.Vacation => "D",
+            EventType.Illness => "N",
+            EventType.Ocr => "OČR",
+            EventType.Doctor => "L",
+            EventType.BusinessTrip => "PC",
+            EventType.Holiday => "S",
+            EventType.DayOff => "S",
+            _ => ""
+        };
         public byte[] GenerateMonthReport(int year, int month, IEnumerable<Event> events)
         {
             var sem = GlobalSettingsService.GetSemesterForDate(new DateTime(year, month, 1));
@@ -199,63 +220,54 @@ namespace TeacherScheduleApp.Services
                                    var lunchStart = hasUserLunch ? us.LunchStart : def.lunchStart;
                                    var lunchEnd = hasUserLunch ? us.LunchEnd : def.lunchEnd;
                                    var lunchDur = lunchEnd - lunchStart;
-                                   var special = dayEvents
-                                      .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch)
-                                      .FirstOrDefault();
-                                   if (special != null && dayEvents.Count == 1)
+                                   var stdDailyTs = TimeSpan.FromHours(stdDaily);
+
+                                   var specials = dayEvents.Where(e => SpecialTypes.Contains(e.EventType)).ToList();
+                                   if (specials.Any())
                                    {
-                                       TimeSpan startSpec, endSpec, workedSpec, overSpec, underSpec;
-                                       string noteSpec;
+                                       var mergedSpecial = MergeIntervals(
+                                           specials.Select(e => (e.StartTime, e.EndTime)).ToList());
+                                       var totalSpecial = mergedSpecial.Aggregate(TimeSpan.Zero,
+                                           (acc, iv) => acc + (iv.end - iv.start));
 
-                                       if (special.EventType == EventType.BusinessTrip)
+                                       if (totalSpecial >= stdDailyTs)
                                        {
-                                           startSpec = special.StartTime.TimeOfDay;
-                                           endSpec = special.EndTime.TimeOfDay;
-                                           var dur = endSpec - startSpec;
-                                           if (dur.TotalHours > stdDaily)
-                                               dur = TimeSpan.FromHours(stdDaily);
-                                           workedSpec = dur;
-                                           overSpec = TimeSpan.FromHours(Math.Max(0, workedSpec.TotalHours - stdDaily));
-                                           underSpec = TimeSpan.FromHours(Math.Max(0, stdDaily));
+                                           var businessTrips = specials.Where(e => e.EventType == EventType.BusinessTrip).ToList();
+                                           var mergedBT = MergeIntervals(
+                                               businessTrips.Select(e => (e.StartTime, e.EndTime)).ToList());
+                                           var totalBT = mergedBT.Aggregate(TimeSpan.Zero,
+                                               (acc, iv) => acc + (iv.end - iv.start));
+
+                                           var workedSpec = totalBT > stdDailyTs ? stdDailyTs : totalBT;
+                                           var overSpec = workedSpec > stdDailyTs ? workedSpec - stdDailyTs : TimeSpan.Zero;
+                                           var underSpec = workedSpec < stdDailyTs ? stdDailyTs - workedSpec : TimeSpan.Zero;
+
+                                           totalWorked += workedSpec;
+                                           totalOver += overSpec;
+                                           totalUnder += underSpec;
+
+                                           var noteSpec = string.Join("+",
+                                               specials.Select(s => CodeFor(s.EventType))
+                                                       .Where(s => !string.IsNullOrWhiteSpace(s))
+                                                       .Distinct());
+
+                                           TimeSpan? btStart = mergedBT.Count > 0 ? mergedBT.First().start.TimeOfDay : (TimeSpan?)null;
+                                           TimeSpan? btEnd = mergedBT.Count > 0 ? mergedBT.Last().end.TimeOfDay : (TimeSpan?)null;
+
+                                           table.Cell().Border(1).Text($"{d}.");
+                                           table.Cell().Border(1).Text(btStart.HasValue ? btStart.Value.ToString(@"hh\:mm") : "");
+                                           table.Cell().Border(1).Text(""); // 1. přestávka Od
+                                           table.Cell().Border(1).Text(""); // 1. přestávka Do
+                                           table.Cell().Border(1).Text(""); // 2. přestávka Od
+                                           table.Cell().Border(1).Text(""); // 2. přestávka Do
+                                           table.Cell().Border(1).Text(btEnd.HasValue ? btEnd.Value.ToString(@"hh\:mm") : "");
+                                           table.Cell().Border(1).Text($"{workedSpec:hh\\:mm\\:ss}");
+                                           table.Cell().Border(1).Text($"{overSpec:hh\\:mm\\:ss}");
+                                           table.Cell().Border(1).Text($"{underSpec:hh\\:mm\\:ss}");
+                                           table.Cell().Border(1).Text(noteSpec);
+
+                                           continue;
                                        }
-                                       else
-                                       {
-                                           startSpec = TimeSpan.Zero;
-                                           endSpec = TimeSpan.Zero;
-                                           workedSpec = TimeSpan.Zero;
-                                           overSpec = TimeSpan.Zero;
-                                           underSpec = TimeSpan.FromHours(stdDaily);
-                                       }
-
-                                       noteSpec = special.EventType switch
-                                       {
-                                           EventType.Vacation => "D",
-                                           EventType.Illness => "N",
-                                           EventType.Ocr => "OČR",
-                                           EventType.Doctor => "L",
-                                           EventType.BusinessTrip => "PC",
-                                           EventType.Holiday => "S",
-                                           EventType.DayOff => "S",
-                                           _ => ""
-                                       };
-                                       totalWorked += workedSpec;
-                                       totalOver += overSpec;
-                                       totalUnder += underSpec;
-
-                                       table.Cell().Border(1).Text($"{d}.");
-                                       table.Cell().Border(1).Text(
-                                       startSpec == TimeSpan.Zero ? "" : startSpec.ToString(@"hh\:mm\:ss"));
-                                       table.Cell().Border(1).Text("");
-                                       table.Cell().Border(1).Text("");
-                                       table.Cell().Border(1).Text("");
-                                       table.Cell().Border(1).Text("");
-                                       table.Cell().Border(1).Text(
-                                       endSpec == TimeSpan.Zero ? "" : endSpec.ToString(@"hh\:mm\:ss"));
-                                       table.Cell().Border(1).Text($"{workedSpec:hh\\:mm\\:ss}");
-                                       table.Cell().Border(1).Text($"{overSpec:hh\\:mm\\:ss}");
-                                       table.Cell().Border(1).Text($"{underSpec:hh\\:mm\\:ss}");
-                                       table.Cell().Border(1).Text(noteSpec);
-                                       continue;
                                    }
                                    var workIntervals = dayEvents
                                        .Where(e => e.EventType == EventType.Work)
@@ -293,7 +305,7 @@ namespace TeacherScheduleApp.Services
                                        _ => ""
                                    };
 
-                                   var stdDailyTs = TimeSpan.FromHours(stdDaily);
+       
                                    var over = netWorked > stdDailyTs ? netWorked - stdDailyTs : TimeSpan.Zero;
                                    var under = netWorked < stdDailyTs ? stdDailyTs - netWorked  : TimeSpan.Zero;
 

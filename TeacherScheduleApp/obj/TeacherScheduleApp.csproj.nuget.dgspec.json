@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\TeacherScheduleApp.csproj": {}
+    "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\TeacherScheduleApp.csproj": {}
   },
   "projects": {
-    "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\TeacherScheduleApp.csproj": {
+    "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\TeacherScheduleApp.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\TeacherScheduleApp.csproj",
+        "projectUniqueName": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\TeacherScheduleApp.csproj",
         "projectName": "TeacherScheduleApp",
-        "projectPath": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\TeacherScheduleApp.csproj",
+        "projectPath": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\TeacherScheduleApp.csproj",
         "packagesPath": "C:\\Users\\razbo\\.nuget\\packages\\",
-        "outputPath": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\obj\\",
+        "outputPath": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

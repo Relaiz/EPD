@@ -2,6 +2,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:TeacherScheduleApp.ViewModels"
         xmlns:beh="clr-namespace:TeacherScheduleApp.Behaviors"
+		xmlns:svc="clr-namespace:TeacherScheduleApp.Services"
+		xmlns:core="using:Avalonia.Xaml.Interactions.Core"
         xmlns:i="clr-namespace:Avalonia.Xaml.Interactivity;assembly=Avalonia.Xaml.Interactivity"
         x:Class="TeacherScheduleApp.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -80,7 +82,7 @@
 							Width="200"
                             Command="{Binding CreateEventCommand}"/>
 
-					<Button Content="Generovat EPD"
+					<Button Content="Načíst rozvrh"
                             Padding="10"
                             Background="#FFC107"
                             Foreground="Black"
@@ -99,7 +101,7 @@
 							Width="200"
                             Margin="0,10,0,0">
 					</Button>
-					<Button Content="Načíst rozvrh" Command="{Binding ShowPdfPreview}" Padding="10"
+					<Button Content="EPD náhled" Command="{Binding ShowPdfPreview}" Padding="10"
                             Background="#FFC107"
                             Foreground="Black"
                             FontWeight="Bold"
@@ -110,7 +112,43 @@
 					<Separator Margin="0,10"/>
 					<Calendar SelectedDate="{Binding SelectedDate}"
 							  DisplayDate="{Binding CalendarDisplayDate, Mode=TwoWay}"
-                              Margin="0,0,0,10"/>
+							  DisplayMode="{Binding CalendarMode, Mode=TwoWay}"
+                              Margin="0,0,0,10">
+					   <i:Interaction.Behaviors>
+						   <beh:CalendarDayTapBehavior Command="{Binding DayTappedCommand}" />
+					   </i:Interaction.Behaviors>
+				    </Calendar>
+					<Expander Header="Načtený soubory" IsExpanded="True" Margin="0,10,0,0">
+						<ItemsControl ItemsSource="{Binding ImportBatches}">
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:DataType="vm:ImportBatchItemViewModel">
+									<Border Margin="0,4,0,4" Padding="6" BorderBrush="#DDD" BorderThickness="1">
+										<StackPanel>
+											<TextBlock FontWeight="Bold"
+													   Text="{Binding Label}"
+													   TextTrimming="CharacterEllipsis"
+													   MaxLines="1">
+												<ToolTip.Tip>
+													<TextBlock Text="{Binding Label}" />
+												</ToolTip.Tip>
+											</TextBlock>
+											<StackPanel Orientation="Horizontal" Spacing="6">
+												<TextBlock FontSize="12"
+														   Text="{Binding RangeStart, StringFormat='{}{0:dd.MM.yyyy}'}"/>
+												<TextBlock FontSize="12" Text="→"/>
+												<TextBlock FontSize="12"
+														   Text="{Binding RangeEnd,   StringFormat='{}{0:dd.MM.yyyy}'}"/>
+											</StackPanel>
+											<TextBlock FontSize="12"
+													   Text="{Binding EventsCount, StringFormat='Událostí: {0}'}" />
+											<Button Content="Smazat"
+													Command="{Binding DeleteCommand}" />
+										</StackPanel>
+									</Border>
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+					</Expander>
 					<Expander Header="Rozvrh" IsExpanded="False">
 						<StackPanel Margin="10,5,10,5">
 							<Button Content="Den"
@@ -143,13 +181,15 @@
 							</i:Interaction.Behaviors>
 						</TextBox>
 						<TextBlock Text="Oběd od:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center"/>
-						<TextBox Text="{Binding LunchStartTime}" Width="80" Grid.Row="2" Grid.Column="1" Margin="5,0,0,0">
+						<TextBox Text="{Binding LunchStartTime}" Width="80" Grid.Row="2" Grid.Column="1" Margin="5,0,0,0"
+							IsEnabled="{Binding IsLunchEnabled}">
 							<i:Interaction.Behaviors>
 								<beh:TimeInputBehavior/>
 							</i:Interaction.Behaviors>
 						</TextBox>
 						<TextBlock Text="Oběd do:" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center"/>
-						<TextBox Text="{Binding LunchEndTime}" Width="80" Grid.Row="3" Grid.Column="1" Margin="5,0,0,0">
+						<TextBox Text="{Binding LunchEndTime}" Width="80" Grid.Row="3" Grid.Column="1" Margin="5,0,0,0"
+							IsEnabled="{Binding IsLunchEnabled}">
 							<i:Interaction.Behaviors>
 								<beh:TimeInputBehavior/>
 							</i:Interaction.Behaviors>

@@ -36,6 +36,7 @@ namespace TeacherScheduleApp.Behaviors
                         ButtonDefinitions = ButtonEnum.YesNo,
                         ContentTitle = "Kolize s obědem",
                         ContentMessage = interaction.Input,
+                        WindowStartupLocation = WindowStartupLocation.CenterOwner,
                         Icon = Icon.Warning
                     });
                     var result = await msgBox.ShowWindowDialogAsync(AssociatedObject);

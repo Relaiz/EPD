@@ -9,17 +9,23 @@ using System.Reactive.Linq;
 using System.Collections.Generic;
 using System.Linq;
 using TeacherScheduleApp.Services;
+using System.Threading.Tasks;
 
 namespace TeacherScheduleApp.ViewModels
 {
     public class CreateEventDialogViewModel : ViewModelBase
     {
-        public bool ShowAllDay => !IsExisting || AllDay;
+        public bool ShowAllDay => true;
         private int _id;
         public int Id
         {
             get => _id;
-            set => this.RaiseAndSetIfChanged(ref _id, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _id, value);
+                this.RaisePropertyChanged(nameof(IsExisting));
+                this.RaisePropertyChanged(nameof(ShowAllDay));
+            }
         }
 
         private string _title;
@@ -61,9 +67,17 @@ namespace TeacherScheduleApp.ViewModels
         public bool AllDay
         {
             get => _allDay;
-            set => this.RaiseAndSetIfChanged(ref _allDay, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _allDay, value);
+                this.RaisePropertyChanged(nameof(ShowAllDay));
+            }
         }
-
+        private static readonly TimeSpan FourHours = TimeSpan.FromHours(4);
+        private static readonly TimeSpan EightHours = TimeSpan.FromHours(8);
+        private static readonly TimeSpan SnapEps = TimeSpan.FromMinutes(1);
+        private bool IsVacation(EventType t) => t.ToString().Equals("Vacation", StringComparison.OrdinalIgnoreCase)
+                                             || t.ToString().Equals("Dovolená", StringComparison.OrdinalIgnoreCase);
         private DateTime _arrivalTime;
         public DateTime ArrivalTime
         {
@@ -141,7 +155,7 @@ namespace TeacherScheduleApp.ViewModels
         public Interaction<Event, Unit> RequestClose { get; } = new Interaction<Event, Unit>();
 
         public Interaction<string, Unit> ShowValidationMessage { get; } = new Interaction<string, Unit>();
-     
+
 
         public ReactiveCommand<Unit, Event> CreateCommand { get; }
         public ReactiveCommand<Unit, Unit> CancelCommand { get; }
@@ -167,13 +181,6 @@ namespace TeacherScheduleApp.ViewModels
             LunchStart = _startDate + lunchFrom;
             LunchEnd = _startDate + lunchTo;
 
-            this.WhenAnyValue(vm => vm.EventType)
-                .Subscribe(t =>
-                {
-                    if (t != EventType.Work && t != EventType.Lunch)
-                        AllDay = true;
-                });
-
             CreateCommand = ReactiveCommand.CreateFromTask<Event>(async () =>
             {
                 if (string.IsNullOrWhiteSpace(Title))
@@ -182,8 +189,15 @@ namespace TeacherScheduleApp.ViewModels
                     return null;
                 }
 
+                if (EndDate.Date < StartDate.Date)
+                {
+                    await ShowValidationMessage.Handle("Konec data nesmí být před začátkem.");
+                    return null;
+                }
+
                 sem = GlobalSettingsService.GetSemesterForDate(StartDate.Date);
-                global = GlobalSettingsService.LoadGlobalSettings(StartDate.Date.Year,sem) ?? GlobalSettingsService.GetDefaultSettings(StartDate.Date.Year, sem);
+                global = GlobalSettingsService.LoadGlobalSettings(StartDate.Date.Year, sem)
+                         ?? GlobalSettingsService.GetDefaultSettings(StartDate.Date.Year, sem);
                 user = SettingsService.GetUserSettingsForDate(StartDate.Date);
                 (arr, dep, lunchFrom, lunchTo) = GetDaySpans(global, user, StartDate.DayOfWeek);
 
@@ -202,14 +216,38 @@ namespace TeacherScheduleApp.ViewModels
 
                 if (AllDay)
                 {
-                    ev.StartTime = StartDate.Date + arr;
-                    ev.EndTime = StartDate.Date + dep;
+                    var dayNorm = (dep - arr) - (lunchTo - lunchFrom);
+
+                    if (IsVacation(EventType))
+                    {
+                        ev.StartTime = StartDate.Date + arr;
+                        ev.EndTime = EndDate.Date + (arr + EightHours);
+                    }
+                    else
+                    {
+                        ev.StartTime = StartDate.Date + arr;
+                        ev.EndTime = EndDate.Date + (arr + dayNorm);
+                    }
                 }
                 else
                 {
                     ev.StartTime = StartDate.Date + StartTime;
                     ev.EndTime = EndDate.Date + EndTime;
+
+                    if (IsVacation(EventType))
+                    {
+                        var perDay = EndTime - StartTime;
+                        if (perDay != FourHours && perDay != EightHours)
+                        {
+                            await ShowValidationMessage.Handle("Dovolená může mít pouze délku 4 hodiny nebo 8 hodin za den.");
+                            return null;
+                        }
+                    }
                 }
+
+                var ok = await ValidateSpecialAcrossRangeAsync(
+                    StartDate.Date, EndDate.Date, AllDay, EventType, StartTime, EndTime);
+                if (!ok) return null;
 
                 await RequestClose.Handle(ev);
                 return ev;
@@ -322,6 +360,141 @@ namespace TeacherScheduleApp.ViewModels
             }
 
             return (arr, dep, lunchStart, lunchEnd);
+        }
+
+        private static readonly HashSet<EventType> SpecialTypes = new()
+        {
+            EventType.DayOff, EventType.Illness, EventType.Vacation,
+            EventType.Ocr, EventType.Doctor, EventType.BusinessTrip, EventType.Holiday
+        };
+        private static bool IsSpecial(EventType t) => SpecialTypes.Contains(t);
+
+        private static bool IsWorkingDay(DateTime d)
+            => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
+               && !TeacherScheduleApp.Helpers.HolidayHelper.IsCzechHoliday(d);
+
+        private TimeSpan GetDailyNorm(DateTime date)
+        {
+            var sem = GlobalSettingsService.GetSemesterForDate(date);
+            var g = GlobalSettingsService.LoadGlobalSettings(date.Year, sem)
+                    ?? GlobalSettingsService.GetDefaultSettings(date.Year, sem);
+            var u = SettingsService.GetUserSettingsForDate(date);
+
+            var (arr, dep, ls, le) = GetDaySpans(g, u, date.DayOfWeek);
+            var norm = (dep - arr) - (le - ls);
+            return norm < TimeSpan.Zero ? TimeSpan.Zero : norm;
+        }
+
+        private static bool Intersects(TimeSpan aS, TimeSpan aE, TimeSpan bS, TimeSpan bE)
+            => aS < bE && bS < aE;
+
+        private async Task<bool> ValidateSpecialAcrossRangeAsync(DateTime startDate, DateTime endDate, bool allDay, EventType type, TimeSpan startTod, TimeSpan endTod)
+        {
+            if (!IsSpecial(type)) return true;
+
+            var evSvc = new EventService();
+
+            for (var day = startDate.Date; day <= endDate.Date; day = day.AddDays(1))
+            {
+                if (!IsWorkingDay(day)) continue;
+
+                var sem = GlobalSettingsService.GetSemesterForDate(day);
+                var g = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                            ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+                var u = SettingsService.GetUserSettingsForDate(day);
+                var (arrTod, depTod, lsTod, leTod) = GetDaySpans(g, u, day.DayOfWeek);
+
+                var grossSpan = depTod - arrTod;
+                var netNorm = grossSpan - (leTod - lsTod);
+                if (netNorm < TimeSpan.Zero) netNorm = TimeSpan.Zero;
+
+                var limit = (type == EventType.Vacation) ? EightHours : netNorm;
+
+                var effectiveAllDay = allDay;
+                if (!effectiveAllDay && IsSpecial(type))
+                {
+                    var len = endTod - startTod;
+                    if (type == EventType.Vacation)
+                    {
+                        if (len.Duration() == EightHours)
+                            effectiveAllDay = true;
+                    }
+                    else
+                    {
+                        if ((len - netNorm).Duration() <= SnapEps || len > netNorm)
+                            effectiveAllDay = true;
+                    }
+                }
+
+                TimeSpan pStartTod, pEndTod, proposedLen;
+
+                if (effectiveAllDay)
+                {
+                    if (type == EventType.Vacation)
+                    {
+                        if (grossSpan < EightHours)
+                        {
+                            await ShowValidationMessage.Handle(
+                                $"Pro {day:dd.MM.yyyy} je pracovní rozsah {grossSpan:hh\\:mm}, celodenní dovolená vyžaduje 8:00.");
+                            return false;
+                        }
+                        pStartTod = arrTod;
+                        pEndTod = arrTod + EightHours;
+                        proposedLen = EightHours;
+                    }
+                    else
+                    {
+                        pStartTod = arrTod;
+                        pEndTod = arrTod + netNorm;
+                        proposedLen = netNorm;
+                    }
+                }
+                else
+                {
+                    if (endTod <= startTod)
+                    {
+                        await ShowValidationMessage.Handle($"Neplatný čas {day:dd.MM.yyyy}.");
+                        return false;
+                    }
+                    if (type == EventType.Vacation &&
+                        (endTod - startTod != FourHours && endTod - startTod != EightHours))
+                    {
+                        await ShowValidationMessage.Handle(
+                            "Dovolená může mít pouze délku 4 hodiny nebo 8 hodin za den.");
+                        return false;
+                    }
+                    pStartTod = startTod;
+                    pEndTod = endTod;
+                    proposedLen = pEndTod - pStartTod;
+                }
+
+                var existing = evSvc.GetEventsForDay(day)
+                    .Where(e => IsSpecial(e.EventType) && !e.IsDeleted && !e.IsAutoGenerated)
+                    .Where(e => e.Id != this.Id && e.ParentEventId != this.Id)
+                    .Select(e => (S: e.StartTime.TimeOfDay, E: e.EndTime.TimeOfDay, T: e.EventType))
+                    .ToList();
+
+                if (existing.Any(x => x.T == EventType.Vacation))
+                    limit = EightHours;
+
+                if (existing.Any(iv => Intersects(iv.S, iv.E, pStartTod, pEndTod)))
+                {
+                    await ShowValidationMessage.Handle(
+                        $"Zvláštní událost se překrývá s jinou na {day:dd.MM.yyyy}.");
+                    return false;
+                }
+
+                var used = TimeSpan.FromTicks(existing.Sum(iv => (iv.E - iv.S).Ticks));
+                if (used + proposedLen > limit)
+                {
+                    var left = limit - used;
+                    if (left < TimeSpan.Zero) left = TimeSpan.Zero;
+                    await ShowValidationMessage.Handle(
+                        $"Pro {day:dd.MM.yyyy} zbývá {left:hh\\:mm} pro zvláštní události (limit {limit:hh\\:mm}).");
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }

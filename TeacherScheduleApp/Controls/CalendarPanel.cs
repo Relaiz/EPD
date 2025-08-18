@@ -42,55 +42,24 @@ namespace TeacherScheduleApp.Controls
             double dayWidth = finalSize.Width / DaysCount;
             double rowHeight = finalSize.Height / HoursCount;
 
-            var byDay = Children
-                .OfType<CalendarEventControl>()
-                .GroupBy(ev => ev.DayIndex);
-
-            foreach (var dayGroup in byDay)
+            foreach (var ev in Children.OfType<CalendarEventControl>())
             {
-                var events = dayGroup.OrderBy(ev => ev.StartHour).ToList();
+                int day = ev.DayIndex;
+                if (day < 0 || day >= DaysCount) continue;
 
-                var colEnd = new List<double>();
-                var assign = new Dictionary<CalendarEventControl, int>();
-                foreach (var ev in events)
-                {
-                    int idx = colEnd.FindIndex(end => end <= ev.StartHour);
-                    if (idx == -1)
-                    {
-                        idx = colEnd.Count;
-                        colEnd.Add(ev.EndHour);
-                    }
-                    else
-                    {
-                        colEnd[idx] = ev.EndHour;
-                    }
-                    assign[ev] = idx;
-                }
+                double leftBase = day * dayWidth;
 
-                int totalCols = colEnd.Count;
-                double colMaxWidth = dayWidth / totalCols;
+                int cols = Math.Max(1, ev.OverlapCount);
+                int colIdx = Math.Min(Math.Max(0, ev.OverlapIndex), cols - 1);
 
-                var columnWidths = new double[totalCols];
-                foreach (var ev in events)
-                {
-                    int col = assign[ev];
-                    double natural = ev.DesiredSize.Width + 8;               
-                    columnWidths[col] = Math.Max(columnWidths[col], Math.Min(natural, colMaxWidth));
-                }
-                var columnOffsets = new double[totalCols];
-                columnOffsets[0] = dayGroup.Key * dayWidth;
-                for (int i = 1; i < totalCols; i++)
-                    columnOffsets[i] = columnOffsets[i - 1] + columnWidths[i - 1];
+                double colWidth = dayWidth / cols;
 
-                foreach (var ev in events)
-                {
-                    int col = assign[ev];
-                    double left = columnOffsets[col];
-                    double top = ev.StartHour * rowHeight;
-                    double width = columnWidths[col];
-                    double height = (ev.EndHour - ev.StartHour) * rowHeight;
-                    ev.Arrange(new Rect(left, top, width, height));
-                }
+                double left = leftBase + colIdx * colWidth;
+                double top = ev.StartHour * rowHeight;
+                double width = colWidth - 4;
+                double height = (ev.EndHour - ev.StartHour) * rowHeight;
+
+                ev.Arrange(new Rect(left, top, width, height));
             }
 
             return finalSize;

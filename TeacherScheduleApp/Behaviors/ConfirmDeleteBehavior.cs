@@ -45,6 +45,7 @@ namespace TeacherScheduleApp.Behaviors
                     ButtonDefinitions = ButtonEnum.YesNo,
                     ContentTitle = "Potvrdit Smazání",
                     ContentMessage = interaction.Input,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
                     Icon = Icon.Warning
                 });
                 var result = await msgBox.ShowAsync();

@@ -46,6 +46,7 @@ namespace TeacherScheduleApp.Behaviors
                     ButtonDefinitions = ButtonEnum.Ok,
                     ContentTitle = "Chyba Validace",
                     ContentMessage = interaction.Input,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner,
                     Icon = Icon.Warning
                 });
                 await msgBox.ShowAsync();

@@ -23,14 +23,14 @@ namespace TeacherScheduleApp.ViewModels
             set => this.RaiseAndSetIfChanged(ref _currentMonth, value);
         }
 
-        public ObservableCollection<MonthDayInfo> Days { get; } = new ObservableCollection<MonthDayInfo>();
+        public ObservableCollection<MonthDayInfo> Days { get; } = new();
 
         public ReactiveCommand<Unit, Unit> PreviousMonthCommand { get; }
         public ReactiveCommand<Unit, Unit> NextMonthCommand { get; }
         public ReactiveCommand<Unit, Unit> TodayCommand { get; }
 
         private bool _isDialogOpen;
-        private Action<DateTime> _onDateChanged;
+        private readonly Action<DateTime> _onDateChanged;
 
         private DateTime _currentDate;
         public DateTime CurrentDate
@@ -52,6 +52,7 @@ namespace TeacherScheduleApp.ViewModels
                 FillDays();
                 LoadEvents();
             });
+
             NextMonthCommand = ReactiveCommand.Create(() =>
             {
                 CurrentMonth = CurrentMonth.AddMonths(1);
@@ -59,70 +60,60 @@ namespace TeacherScheduleApp.ViewModels
                 FillDays();
                 LoadEvents();
             });
+
             TodayCommand = ReactiveCommand.Create(() =>
             {
-                CurrentDate = CurrentMonth;
-                CurrentMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+                CurrentDate = DateTime.Today;
+                CurrentMonth = new DateTime(CurrentDate.Year, CurrentDate.Month, 1);
                 _onDateChanged?.Invoke(CurrentMonth);
                 FillDays();
                 LoadEvents();
             });
+
+            // обновляем сетку по сообщениям
+            MessageBus.Current
+                .Listen<UserSettingsChangedMessage>()
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(_ => { FillDays(); LoadEvents(); });
+
             MessageBus.Current
                 .Listen<AutoEventsGeneratedMessage>()
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(_ => LoadEvents());
+                .Subscribe(_ => { FillDays(); LoadEvents(); });
+
             FillDays();
             LoadEvents();
-            MessageBus.Current
-              .Listen<UserSettingsChangedMessage>()
-              .ObserveOn(RxApp.MainThreadScheduler)
-              .Subscribe(_ =>
-              {
-                  FillDays();
-                  LoadEvents();
-              });
-
-            MessageBus.Current
-              .Listen<AutoEventsGeneratedMessage>()
-              .ObserveOn(RxApp.MainThreadScheduler)
-              .Subscribe(_ =>
-              {
-                  FillDays();
-                  LoadEvents();
-              });
         }
 
         public void FillDays()
         {
             Days.Clear();
+
             var firstDay = CurrentMonth;
             int offset = (int)firstDay.DayOfWeek;
-            if (offset == 0)
-                offset = 7;
+            if (offset == 0) offset = 7; // понедельник-первый
             var startDate = firstDay.AddDays(-(offset - 1));
 
             for (int i = 0; i < 42; i++)
             {
                 var date = startDate.AddDays(i);
-                bool isCurrent = (date.Month == CurrentMonth.Month);
-
                 Days.Add(new MonthDayInfo
                 {
                     Date = date,
-                    IsCurrentMonth = isCurrent,
-                    IsWeekend = (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday),
+                    IsCurrentMonth = (date.Month == CurrentMonth.Month),
+                    IsWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday,
                     IsHoliday = HolidayHelper.IsCzechHoliday(date),
                     HasEvent = false
-                    
                 });
             }
         }
 
         public void LoadEvents()
         {
-            var startOfMonth = CurrentMonth;
-            var endOfMonth = startOfMonth.AddMonths(1);
-            var events = _eventService.GetEventsForRange(startOfMonth, endOfMonth);
+            var gridStart = Days.First().Date.Date;
+            var gridEndExclusive = Days.Last().Date.AddDays(1).Date;
+
+            var events = _eventService.GetEventsForRange(gridStart, gridEndExclusive);
 
             foreach (var day in Days)
             {
@@ -130,48 +121,72 @@ namespace TeacherScheduleApp.ViewModels
                 day.HasEvent = false;
             }
 
-            foreach (var ev in events)
+            foreach (var ev in events.Where(e => !e.IsDeleted))
             {
-                foreach (var day in Days)
+                foreach (var cell in Days)
                 {
-                    if (ev.StartTime.Date <= day.Date && ev.EndTime.Date >= day.Date && !ev.IsDeleted)
+                    if (cell.IsWeekend) continue;
+                    if (ev.StartTime.Date <= cell.Date && ev.EndTime.Date >= cell.Date)
                     {
-                        day.Events.Add(ev);
-                        day.HasEvent = true;
+                        cell.Events.Add(ev);
+                        cell.HasEvent = true;
                     }
                 }
             }
+
+            foreach (var cell in Days)
+            {
+                var specials = cell.Events
+                    .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch)
+                    .Select(e => (e.StartTime, e.EndTime))
+                    .ToList();
+
+                foreach (var e in cell.Events)
+                {
+                    bool isSpecial = e.EventType != EventType.Work && e.EventType != EventType.Lunch;
+                    e.IsInactive = !isSpecial && specials.Any(sp => e.StartTime < sp.EndTime && sp.StartTime < e.EndTime);
+                }
+            }
         }
+
         public async void OnEmptySpaceClicked(MonthDayInfo dayInfo)
         {
-            if (_isDialogOpen)
-                return;
+            if (_isDialogOpen) return;
             _isDialogOpen = true;
             try
             {
-                var mainWindow = Helpers.Helper.GetMainWindow();
-                if (mainWindow == null)
-                    return;
+                var main = Helpers.Helper.GetMainWindow();
+                if (main == null) return;
 
-                var dialog = new Views.CreateEventDialog();
-                var dialogVm = new CreateEventDialogViewModel(dayInfo.Date);
-                dialog.DataContext = dialogVm;
+                var dlg = new Views.CreateEventDialog();
+                var vm = new CreateEventDialogViewModel(dayInfo.Date);
+                dlg.DataContext = vm;
 
-                var resultEvent = await dialog.ShowDialog<Event>(mainWindow);
-                if (resultEvent != null)
+                var ev = await dlg.ShowDialog<Event>(main);
+                if (ev == null) return;
+
+                if (ev.IsDeleted)
                 {
-                    if (resultEvent.Id != 0)
-                    {
-                        resultEvent.IsAutoGenerated = false;
-                        _eventService.UpdateEvent(resultEvent);
-                    }
-                    else
-                        _eventService.CreateEvent(resultEvent);
-                    LoadEvents();
-                    MessageBus.Current.SendMessage(new UserSettingsChangedMessage(resultEvent.StartTime.Date));
-                    MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
+                    _eventService.DeleteEvent(ev.Id);
+                    await new AutomaticEventsGeneratorService(_eventService, _ => System.Threading.Tasks.Task.FromResult(true))
+                        .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
                 }
-                
+                else if (ev.Id != 0)
+                {
+                    _eventService.UpdateEvent(ev);
+                    await new AutomaticEventsGeneratorService(_eventService, _ => System.Threading.Tasks.Task.FromResult(true))
+                        .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
+                }
+                else
+                {
+                    _eventService.CreateEvent(ev);
+                    await new AutomaticEventsGeneratorService(_eventService, _ => System.Threading.Tasks.Task.FromResult(true))
+                        .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
+                }
+
+                MessageBus.Current.SendMessage(new UserSettingsChangedMessage(ev.StartTime.Date));
+                MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
+                LoadEvents();
             }
             finally
             {
@@ -181,18 +196,17 @@ namespace TeacherScheduleApp.ViewModels
 
         public async void OnEventClicked(Event ev)
         {
-            if (_isDialogOpen)
-                return;
+            if (_isDialogOpen) return;
             _isDialogOpen = true;
             try
             {
-                var mainWindow = Helpers.Helper.GetMainWindow();
-                if (mainWindow == null)
-                    return;
+                var main = Helpers.Helper.GetMainWindow();
+                if (main == null) return;
 
-                var dialog = new Views.CreateEventDialog();
-                dialog.Closed += (_, __) => { _isDialogOpen = false; };
+                var oldStart = ev.StartTime.Date;
+                var oldEnd = ev.EndTime.Date;
 
+                var dlg = new Views.CreateEventDialog();
                 var vm = new CreateEventDialogViewModel(ev.StartTime)
                 {
                     Id = ev.Id,
@@ -209,22 +223,35 @@ namespace TeacherScheduleApp.ViewModels
                     LunchStart = ev.LunchStart,
                     LunchEnd = ev.LunchEnd
                 };
-                vm.SelectedEventTypePair = vm.LocalizedEventTypes
-                           .First(kvp => kvp.Key == ev.EventType);
+                vm.SelectedEventTypePair = vm.LocalizedEventTypes.First(kvp => kvp.Key == ev.EventType);
+                dlg.DataContext = vm;
 
-                dialog.DataContext = vm;
-                var updatedEvent = await dialog.ShowDialog<Event>(mainWindow);
-                if (updatedEvent != null)
+                var updated = await dlg.ShowDialog<Event>(main);
+                if (updated == null) return;
+
+                var generator = new AutomaticEventsGeneratorService(_eventService, _ => System.Threading.Tasks.Task.FromResult(true));
+
+                if (updated.IsDeleted)
                 {
-                    if (updatedEvent.IsDeleted)
-                        _eventService.DeleteEvent(updatedEvent.Id);
-                    else
-                        updatedEvent.IsAutoGenerated = false;
-                        _eventService.UpdateEvent(updatedEvent);
-                    LoadEvents();
-                    MessageBus.Current.SendMessage(new UserSettingsChangedMessage(updatedEvent.StartTime.Date));
-                    MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
+                    _eventService.DeleteEvent(updated.Id);
+                    await generator.RegenerateRangeEventsAsync(oldStart, oldEnd);
                 }
+                else if (updated.Id != 0)
+                {
+                    _eventService.UpdateEvent(updated);
+                    var from = oldStart < updated.StartTime.Date ? oldStart : updated.StartTime.Date;
+                    var to = oldEnd > updated.EndTime.Date ? oldEnd : updated.EndTime.Date;
+                    await generator.RegenerateRangeEventsAsync(from, to);
+                }
+                else
+                {
+                    _eventService.CreateEvent(updated);
+                    await generator.RegenerateRangeEventsAsync(updated.StartTime.Date, updated.EndTime.Date);
+                }
+
+                MessageBus.Current.SendMessage(new UserSettingsChangedMessage((updated ?? ev).StartTime.Date));
+                MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
+                LoadEvents();
             }
             finally
             {
@@ -242,20 +269,16 @@ namespace TeacherScheduleApp.ViewModels
             public int DayNumber => Date.Day;
             public bool IsToday => Date.Date == DateTime.Today;
 
-            public ObservableCollection<Event> Events { get; } = new ObservableCollection<Event>();
+            public ObservableCollection<Event> Events { get; } = new();
 
             public IBrush DayBackground
             {
                 get
                 {
-                    if (IsToday)
-                        return Brushes.LightGray;
-                    else if (!IsCurrentMonth)
-                        return Brushes.DarkGray;
-                    else if (IsWeekend)
-                         return new SolidColorBrush(Color.Parse("#EEEEEE"));
-                    else
-                        return Brushes.White;
+                    if (IsToday) return Brushes.LightGray;
+                    if (!IsCurrentMonth) return Brushes.DarkGray;
+                    if (IsWeekend) return new SolidColorBrush(Color.Parse("#EEEEEE"));
+                    return Brushes.White;
                 }
             }
 
@@ -263,12 +286,9 @@ namespace TeacherScheduleApp.ViewModels
             {
                 get
                 {
-                    if (!IsCurrentMonth)
-                        return Brushes.Gray;
-                    else if (IsHoliday)
-                        return Brushes.Red;
-                    else
-                        return Brushes.Black;
+                    if (!IsCurrentMonth) return Brushes.Gray;
+                    if (IsHoliday) return Brushes.Red;
+                    return Brushes.Black;
                 }
             }
         }

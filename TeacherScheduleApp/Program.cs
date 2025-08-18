@@ -14,15 +14,10 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        try
-        {
+        
             using var db = new AppDbContext();
             db.Database.Migrate();
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Migration failed: {ex}");
-        }
+       
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }

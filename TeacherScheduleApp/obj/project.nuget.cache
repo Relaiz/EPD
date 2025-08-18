@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "CB6kM4NIX5o=",
+  "dgSpecHash": "tc9KHJjzM7s=",
   "success": true,
-  "projectFilePath": "D:\\Program Files\\Git\\Diplom\\Diplom\\TeacherScheduleApp\\TeacherScheduleApp.csproj",
+  "projectFilePath": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\TeacherScheduleApp.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\razbo\\.nuget\\packages\\avalonia\\11.2.4\\avalonia.11.2.4.nupkg.sha512",
     "C:\\Users\\razbo\\.nuget\\packages\\avalonia.angle.windows.natives\\2.1.22045.20230930\\avalonia.angle.windows.natives.2.1.22045.20230930.nupkg.sha512",

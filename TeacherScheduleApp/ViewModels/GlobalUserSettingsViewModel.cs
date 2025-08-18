@@ -23,12 +23,29 @@ namespace TeacherScheduleApp.ViewModels
         private readonly CompositeDisposable _disposables = new();
         private readonly EventService _eventService;
         private GlobalSettings _originalSettings;
+        private readonly Action _closeRequested;
+
+        public string HeaderDisplay => $"Rok {ActiveYear} · {CurrentSemesterDisplay}";
+        public string DaysHeaderDisplay => $"Pracovní doba · {CurrentSemesterDisplay}";
+
+        public string WorkTimeHeaderDisplay => $"Globální pracovní doba · {CurrentSemesterDisplay}";
+
+        public bool ActiveSemesterIsWinter
+        {
+            get => ActiveSemester == SemesterType.Winter;
+            set { if (value) ActiveSemester = SemesterType.Winter; }
+        }
+        public bool ActiveSemesterIsSummer
+        {
+            get => ActiveSemester == SemesterType.Summer;
+            set { if (value) ActiveSemester = SemesterType.Summer; }
+        }
+
         public int ActiveYear { get => _activeYear; set { this.RaiseAndSetIfChanged(ref _activeYear, value); LoadFor(ActiveYear, ActiveSemester); } }
         private int _activeYear;
 
-        public ObservableCollection<int> AvailableYears { get; } = new ObservableCollection<int>(Enumerable.Range(DateTime.Today.Year - 2, 5));
+        public ObservableCollection<int> AvailableYears { get; } = new();
         public Interaction<string, bool> ShowCollisionMessage { get; } = new Interaction<string, bool>();
-
         private SemesterType _activeSemester;
         public SemesterType ActiveSemester
         {
@@ -36,13 +53,13 @@ namespace TeacherScheduleApp.ViewModels
             set
             {
                 if (_activeSemester == value) return;
-
-                GlobalSettingsService.SaveGlobalSettingsAsync(_activeYear,_activeSemester, CurrentSettings);
-
-                _activeSemester = value;
-                LoadFor(ActiveYear, ActiveSemester);
-                this.RaisePropertyChanged(nameof(ActiveSemester));
+                this.RaiseAndSetIfChanged(ref _activeSemester, value);
                 this.RaisePropertyChanged(nameof(CurrentSemesterDisplay));
+                this.RaisePropertyChanged(nameof(DaysHeaderDisplay));
+                this.RaisePropertyChanged(nameof(WorkTimeHeaderDisplay));
+                this.RaisePropertyChanged(nameof(HeaderDisplay));
+                this.RaisePropertyChanged(nameof(ActiveSemesterIsWinter));
+                this.RaisePropertyChanged(nameof(ActiveSemesterIsSummer));
             }
         }
 
@@ -60,14 +77,20 @@ namespace TeacherScheduleApp.ViewModels
 
         public ReactiveCommand<Unit, Unit> SaveCommand { get; }
 
-        public GlobalUserSettingsViewModel()
+        public GlobalUserSettingsViewModel(int initialYear, SemesterType initialSemester, Action closeRequested)
         {
+            _closeRequested = closeRequested ?? (() => { });
             _eventService = new EventService();
-            ActiveYear = DateTime.Today.Year;
-            ActiveSemester = SemesterType.Winter;
-            var loaded = GlobalSettingsService.LoadGlobalSettings(ActiveYear,ActiveSemester);
-            CurrentSettings = loaded ?? GlobalSettingsService.GetDefaultSettings(ActiveYear,ActiveSemester);
+            ActiveYear = initialYear;
+            ActiveSemester = initialSemester;
+            var years = GlobalSettingsService.GetYearsWithData();
+            if (!years.Contains(initialYear)) years.Add(initialYear);
+            foreach (var y in years.Distinct().OrderBy(y => y))
+                AvailableYears.Add(y);
 
+            var loaded = GlobalSettingsService.LoadGlobalSettings(ActiveYear, ActiveSemester);
+            CurrentSettings = loaded ?? GlobalSettingsService.GetDefaultSettings(ActiveYear, ActiveSemester);
+            GoBackCommand = ReactiveCommand.Create(() => _closeRequested());
             ShowCollisionMessage.RegisterHandler(async inter =>
             {
                 var mb = new MessageBoxStandardParams
@@ -84,38 +107,18 @@ namespace TeacherScheduleApp.ViewModels
                 inter.SetOutput(result == ButtonResult.Yes);
             });
 
-            ActiveSemester = SemesterType.Winter;
-
-            SaveCommand = ReactiveCommand.CreateFromTask(async () =>
+            this.WhenAnyValue(x => x.ActiveYear, x => x.ActiveSemester)
+            .Subscribe(_ =>
             {
-                if (!ValidateSettings())
-                {
-                    await MessageBoxManager.GetMessageBoxStandard(
-                            "Chyba",
-                            "Nastavení nejsou validní. Zkontrolujte časové hodnoty.",
-                            ButtonEnum.Ok,
-                            Icon.Error)
-                        .ShowWindowDialogAsync(Helpers.Helper.GetMainWindow());
-                    return;
-                }
-
-                IsBusy = true;
-                try
-                {
-                   await GlobalSettingsService
-                        .SaveGlobalSettingsAsync(ActiveYear,ActiveSemester, CurrentSettings);
-                    var generator = new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask());
-                    await generator.RegenerateAllAutoEventsForSemester(ActiveSemester);
-                    _originalSettings = CurrentSettings.Clone();
-                    MessageBus.Current.SendMessage(new GlobalSettingsChangedMessage(ActiveSemester));
-                }
-                finally
-                {
-                    IsBusy = false;
-                }
-            }).DisposeWith(_disposables);
+                LoadFor(ActiveYear, ActiveSemester);
+                this.RaisePropertyChanged(nameof(HeaderDisplay));
+                this.RaisePropertyChanged(nameof(DaysHeaderDisplay));
+                this.RaisePropertyChanged(nameof(WorkTimeHeaderDisplay));
+                this.RaisePropertyChanged(nameof(ActiveSemesterIsWinter));
+                this.RaisePropertyChanged(nameof(ActiveSemesterIsSummer));
+            })
+            .DisposeWith(_disposables);
+            SaveCommand = ReactiveCommand.CreateFromTask(SaveAsync).DisposeWith(_disposables);
             MessageBus.Current
                 .Listen<GlobalSettingsChangedMessage>()
                 .Where(msg => msg.Semester == ActiveSemester)
@@ -131,6 +134,7 @@ namespace TeacherScheduleApp.ViewModels
             CurrentSettings = GlobalSettingsService.LoadGlobalSettings(year, sem)
                               ?? GlobalSettingsService.GetDefaultSettings(year, sem);
         }
+        public ReactiveCommand<Unit, Unit> GoBackCommand { get; }
 
         private bool ValidateSettings()
         {
@@ -183,6 +187,49 @@ namespace TeacherScheduleApp.ViewModels
         public void Dispose()
         {
             _disposables.Dispose();
+        }
+        private async Task SaveAsync()
+        {
+            if (!ValidateSettings())
+            {
+                await MessageBoxManager.GetMessageBoxStandard(
+                    "Chyba",
+                    "Nastavení nejsou validní. Zkontrolujte časové hodnoty.",
+                    ButtonEnum.Ok,
+                    Icon.Error).ShowWindowDialogAsync(Helpers.Helper.GetMainWindow());
+                return;
+            }
+
+            IsBusy = true;
+            try
+            {
+                await GlobalSettingsService.SaveGlobalSettingsAsync(ActiveYear, ActiveSemester, CurrentSettings);
+
+                var (from, to) = GetSemesterRange(ActiveYear, ActiveSemester);
+                var generator = new AutomaticEventsGeneratorService(_eventService,
+                    prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask());
+
+                await generator.RegenerateRangeEventsAsync(from, to);
+
+                MessageBus.Current.SendMessage(new GlobalSettingsChangedMessage(ActiveSemester));
+            }
+            finally { IsBusy = false; }
+        }
+
+        private static (DateTime from, DateTime to) GetSemesterRange(int year, SemesterType sem)
+        {
+            if (sem == SemesterType.Winter)
+            {
+                var from = new DateTime(year, 9, 1);
+                var to = new DateTime(year + 1, 2, 10);
+                return (from, to);
+            }
+            else
+            {
+                var from = new DateTime(year, 2, 10);
+                var to = new DateTime(year, 8, 31);
+                return (from, to);
+            }
         }
     }
 }
