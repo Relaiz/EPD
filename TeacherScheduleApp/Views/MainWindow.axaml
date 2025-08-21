@@ -201,21 +201,14 @@
                             Height="40" Margin="0,10,0,0"/>
 					</Grid>
 					<Separator Margin="0,10"/>
-					<StackPanel>
-						<StackPanel Orientation="Horizontal" IsVisible="{Binding IsDayViewVisible}">
-							<TextBlock Text="Pracovní doba (Den): " FontWeight="Bold" />
-							<TextBlock Text="{Binding DayDisplay}"/>
-						</StackPanel>
-						<StackPanel Orientation="Horizontal" IsVisible="{Binding IsWeekViewVisible}">
-							<TextBlock Text="Pracovní doba (Týden): " FontWeight="Bold"/>
-							<TextBlock Text="{Binding WeekDisplay}"/>
-						</StackPanel>
-						<StackPanel Orientation="Horizontal" IsVisible="{Binding IsMonthViewVisible}" >
-							<TextBlock Text="Pracovní doba (Měsíc): " FontWeight="Bold"/>
-							<TextBlock Text="{Binding MonthDisplay}"/>
-						</StackPanel>
-					</StackPanel>
-
+					<Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
+						<TextBlock Text="Pracovní doba (Den): " FontWeight="Bold" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" IsVisible="{Binding IsDayViewVisible}"/>
+					    <TextBlock Text="{Binding DayDisplay}" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" IsVisible="{Binding IsDayViewVisible}"/>
+						<TextBlock Text="Pracovní doba (Týden): " Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" FontWeight="Bold" IsVisible="{Binding IsWeekViewVisible}"/>
+						<TextBlock Text="{Binding WeekDisplay}" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" IsVisible="{Binding IsWeekViewVisible}"/>
+						<TextBlock Text="Pracovní doba (Měsíc): " Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" FontWeight="Bold"  IsVisible="{Binding IsMonthViewVisible}"/>
+						<TextBlock Text="{Binding MonthDisplay}" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"  IsVisible="{Binding IsMonthViewVisible}"/>
+					</Grid>
 				</StackPanel>
 			</ScrollViewer>
 		</Border>

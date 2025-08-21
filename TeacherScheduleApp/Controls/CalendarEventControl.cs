@@ -45,7 +45,7 @@ namespace TeacherScheduleApp.Controls
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(4),
                 Padding = new Thickness(4),
-                Margin = new Thickness(2),
+                Margin = new Thickness(2, 2, 2, 0),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
 

@@ -38,153 +38,82 @@ namespace TeacherScheduleApp.Services
                 if (parts.Length < 45) continue;
                 if (!DateTime.TryParse(parts[43], out var from)) continue;
                 if (!DateTime.TryParse(parts[44], out var to)) continue;
-
-                importStart = importStart < from ? importStart : from.Date;
-                importEnd = importEnd > to ? importEnd : to.Date;
+                importStart = (from.Date < importStart) ? from.Date : importStart;
+                importEnd = (to.Date > importEnd) ? to.Date : importEnd;
             }
+            if (importStart <= importEnd)
+                await _eventService.BulkSoftDeleteImportedInRangeAsync(importStart, importEnd);
             var batchId = Guid.NewGuid().ToString("N");
             var batchName = Path.GetFileName(teacherScheduleCsvPath);
-            if (importStart <= importEnd)
+            var manualEvents = new List<Event>(); ;
+            for (int i = 1; i < lines.Length; i++)
             {
-                var oldImported = _eventService
-                    .GetEventsForRange(importStart, importEnd.AddDays(1))
-                    .Where(e => !string.IsNullOrEmpty(e.ImportBatchId))
-                    .ToList();
+                var p = lines[i].Split(';').Select(s => s.Trim('"')).ToArray();
+                if (p.Length < 36) continue;
 
-                foreach (var ev in oldImported)
-                    _eventService.DeleteEvent(ev.Id);
-            }
+                if (!DateTime.TryParse(p[42], out var baseDate) && !DateTime.TryParse(p[43], out baseDate)) continue;
+                if (!DateTime.TryParse(p[43], out var dateFrom)) continue;
+                if (!DateTime.TryParse(p[44], out var dateTo)) continue;
+                if (!int.TryParse(p[32], out var weekFrom)) continue;
+                if (!int.TryParse(p[33], out var weekTo)) continue;
 
-            var manualEvents = new List<Event>();
-            var years = new HashSet<int>();
-            if (lines.Length > 1)
-            {
-                for (int i = 1; i < lines.Length; i++)
+                var parity = p[35].Length > 0 ? char.ToUpperInvariant(p[35][0]) : 'K';
+                if (!TimeSpan.TryParse(p[30], out var t0)) continue;
+                if (!TimeSpan.TryParse(p[31], out var t1)) continue;
+
+                var title = $"{p[3]} {p[20]}".Trim();
+                var description = $"{p[15]} {p[16]}".Trim();
+                var targetDow = baseDate.DayOfWeek;
+
+                for (var dt = dateFrom.Date; dt <= dateTo.Date; dt = dt.AddDays(1))
                 {
-                    var parts = lines[i]
-                        .Split(';')
-                        .Select(p => p.Trim('\"'))
-                        .ToArray();
+                    if (dt.DayOfWeek != targetDow) continue;
+                    int isoWeek = CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(dt, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+                    if (isoWeek < weekFrom || isoWeek > weekTo) continue;
 
-                    if (parts.Length < 36)
-                        continue;
-
-                   
-                    if (!DateTime.TryParse(parts[42], out var baseDate) &&
-                        !DateTime.TryParse(parts[43], out baseDate))
-                        continue;
-
-                   
-                    if (!DateTime.TryParse(parts[43], out var datumOd)) continue;
-                    if (!DateTime.TryParse(parts[44], out var datumDo)) continue;
-
-                    
-                    if (!int.TryParse(parts[32], out var weekFrom)) continue;
-                    if (!int.TryParse(parts[33], out var weekTo)) continue;
-
-                  
-                    var parity = parts[35].Length > 0
-                        ? char.ToUpperInvariant(parts[35][0])
-                        : 'K';
-
-                    
-                    if (!TimeSpan.TryParse(parts[30], out var spanStart)) continue;
-                    if (!TimeSpan.TryParse(parts[31], out var spanEnd)) continue;
-
-                  
-                    var title = $"{parts[3]} {parts[20]}".Trim();
-                    var description = $"{parts[15]} {parts[16]}".Trim();
-
-                    
-                    var targetDow = baseDate.DayOfWeek;
-
-                   
-                    for (var dt = datumOd.Date; dt <= datumDo.Date; dt = dt.AddDays(1))
+                    switch (parity)
                     {
-                        if (dt.DayOfWeek != targetDow)
-                            continue;
-
-                        
-                        int isoWeek = CultureInfo
-                            .CurrentCulture
-                            .Calendar
-                            .GetWeekOfYear(dt,
-                                           CalendarWeekRule.FirstFourDayWeek,
-                                           DayOfWeek.Monday);
-
-                        
-                        if (isoWeek < weekFrom || isoWeek > weekTo)
-                            continue;
-
-                       
-                        switch (parity)
-                        {
-                            case 'L': 
-                                if (isoWeek % 2 == 0) continue;
-                                break;
-                            case 'S': 
-                                if (isoWeek % 2 != 0) continue;
-                                break;
-                            case 'J': 
-                                if (((isoWeek - weekFrom) % 2) == 0) continue;
-                                break;
-                            case 'K':
-                            default:
-                                break;
-                        }
-
-                        var ev = new Event
-                        {
-                            Title = title,
-                            Description = description,
-                            StartTime = dt + spanStart,
-                            EndTime = dt + spanEnd,
-                            EventType = EventType.Work,
-                            AllDay = false,
-                            IsAutoGenerated = false,
-                            ImportBatchId = batchId,
-                            ImportLabel = batchName
-                        };
-
-                        _eventService.CreateEvent(ev);
-                        manualEvents.Add(ev);
-                        years.Add(ev.StartTime.Year);
-
-                      
+                        case 'L': if (isoWeek % 2 == 0) continue; break; 
+                        case 'S': if (isoWeek % 2 != 0) continue; break; 
+                        case 'J': if (((isoWeek - weekFrom) % 2) == 0) continue; break; 
+                        case 'K':
+                        default: break;
                     }
+
+                    manualEvents.Add(new Event
+                    {
+                        Title = title,
+                        Description = description,
+                        StartTime = dt + t0,
+                        EndTime = dt + t1,
+                        EventType = EventType.Work,
+                        AllDay = false,
+                        IsAutoGenerated = false,
+                        ImportBatchId = batchId,
+                        ImportLabel = batchName
+                    });
                 }
             }
-            var manualDates = manualEvents.Select(e => e.StartTime.Date).Distinct().ToList();           
-            int year = manualDates.FirstOrDefault().Year;
-            var yearStart = new DateTime(year, 1, 1);
-            var yearEnd = new DateTime(year, 12, 31);
-            var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision);        
-            foreach (var day in manualDates)
+
+            if (manualEvents.Count > 0)
+                _eventService.CreateEventsBulk(manualEvents);
+
+            var days = manualEvents.Select(e => e.StartTime.Date).Distinct().OrderBy(d => d).ToList();
+            var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision);
+
+            foreach (var day in days)
             {
                 await autoGen.RegenerateDailyEventsAsync(day);
                 AdjustUserSettingsForDay(day);
                 await _eventService.TrimOvertimeByAutoBlocksAsync(day);
-
-            }
-            var allDays = Enumerable
-                .Range(0, (yearEnd - yearStart).Days + 1)
-                .Select(offset => yearStart.AddDays(offset));
-
-            foreach (var day in allDays.Except(manualDates))
-            {
-                await autoGen.RegenerateDailyEventsAsync(day);
-                AdjustUserSettingsForDay(day);
-                await _eventService.TrimOvertimeByAutoBlocksAsync(day);
-
             }
 
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
             MessageBus.Current.SendMessage(new EpdGeneratedMessage());
-
             return manualEvents;
         }
 
-      
+
         private IEnumerable<TeacherLesson> LoadTeacherSchedule(string csvPath)
         {
             var lessons = new List<TeacherLesson>();

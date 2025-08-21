@@ -116,5 +116,45 @@ namespace TeacherScheduleApp.Services
             }
             return (w, e, o, u);
         }
+        public (double worked, double expected, double over, double under) WeeklyMetricsForMonthSlice(DateTime anyDate, int month, IEnumerable<Event> all)
+        {
+            int delta = ((int)anyDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            var weekStart = anyDate.Date.AddDays(-delta);
+
+            double w = 0, e = 0, o = 0, u = 0;
+
+            for (int i = 0; i < 7; i++)
+            {
+                var d = weekStart.AddDays(i);
+                if (d.Month != month) continue;              
+                if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+                if (HolidayHelper.IsCzechHoliday(d)) continue;
+
+                var m = DailyMetrics(d, all);       
+                w += m.worked;
+                e += m.expected;
+                o += m.over;
+                u += m.under;
+            }
+
+            return (w, e, o, u);
+        }
+
+        public Dictionary<int, (double worked, double expected, double over, double under)>
+        WeeklyMetricsByMonth(DateTime anyDate, IEnumerable<Event> all)
+        {
+            int delta = ((int)anyDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            var weekStart = anyDate.Date.AddDays(-delta);
+
+            var monthsInWeek = Enumerable.Range(0, 7)
+                .Select(i => weekStart.AddDays(i).Month)
+                .Distinct();
+
+            var dict = new Dictionary<int, (double worked, double expected, double over, double under)>();
+            foreach (var m in monthsInWeek)
+                dict[m] = WeeklyMetricsForMonthSlice(anyDate, m, all);
+
+            return dict;
+        }
     }
 }

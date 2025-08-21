@@ -627,7 +627,7 @@ namespace TeacherScheduleApp.ViewModels
                 var generator = new AutomaticEventsGeneratorService(
                     _eventService,
                     prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask());
-                await generator.RegenerateDailyEventsAsync(date);
+                await generator.RegenerateDailyEventsAsync(date, preserveUserSettings: true);
                 MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                 _events = _eventService.LoadEvents();
                 RecalculateWorkingHours();
@@ -679,18 +679,31 @@ namespace TeacherScheduleApp.ViewModels
         {
             get
             {
-                if (!SelectedWeek.HasValue)
-                    return string.Empty;
+                if (!SelectedWeek.HasValue) return string.Empty;
 
                 var weekEvents = _eventService.GetEventsForWeek(SelectedWeek.Value);
-                if (!weekEvents.Any())
-                    return string.Empty;
+                if (!weekEvents.Any()) return string.Empty;
 
-                var week = _hoursCalculator.WeeklyMetrics(SelectedWeek.Value, weekEvents);
-                var actual = week.worked;
-                var expected = week.expected;
+                var byMonth = _hoursCalculator.WeeklyMetricsByMonth(SelectedWeek.Value, weekEvents);
 
-                return $"{actual:F1} / {expected:F0}";
+                if (byMonth.Count == 1)
+                {
+                    var only = byMonth.First().Value;
+                    return $"{only.worked:F1} / {only.expected:F0}";
+                }
+
+                var parts = byMonth
+                    .OrderBy(kv => kv.Key) 
+                    .Select(kv =>
+                    {
+                        var m = kv.Key;
+                        var v = kv.Value;
+                        var monthName = new DateTime(SelectedWeek.Value.Year, m, 1)
+                                            .ToString("MMMM", System.Globalization.CultureInfo.CurrentCulture);
+                        return $"{monthName}: {v.worked:F1} / {v.expected:F0}";
+                    });
+
+                return string.Join(" | ", parts);
             }
         }
 
@@ -880,7 +893,7 @@ namespace TeacherScheduleApp.ViewModels
                      .Handle(prompt)          
                      .FirstAsync()            
                      .ToTask()                
-);
+                );
                 var events = await epdGenerator.GenerateEPDEventsAsync(teacherScheduleCsvPath);
 
                 if (events != null && events.Count > 0)
@@ -913,15 +926,8 @@ namespace TeacherScheduleApp.ViewModels
             var res = await box.ShowWindowDialogAsync(main);
             if (res != MsBox.Avalonia.Enums.ButtonResult.Yes) return;
 
-            _eventService.DeleteEventsByImportId(item.Id);
-
+            await _eventService.DeleteEventsByImportIdFastAsync(item.Id);
             RefreshImportBatches();
-
-            var generator = new AutomaticEventsGeneratorService(
-                _eventService,
-                prompt => this.ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask());
-
-            await generator.RegenerateRangeEventsAsync(item.RangeStart, item.RangeEnd);
 
             _events = _eventService.LoadEvents();
             RecalculateWorkingHours();

@@ -70,7 +70,7 @@ namespace TeacherScheduleApp.Services
             });
         }
 
-        public async Task RegenerateDailyEventsAsync(DateTime date)
+        public async Task RegenerateDailyEventsAsync(DateTime date, bool preserveUserSettings = false)
         {
             var day = date.Date;
             var dayStart = day;
@@ -153,11 +153,9 @@ namespace TeacherScheduleApp.Services
             bool userWantsLunch = user == null ? true : user.LunchStart != user.LunchEnd;
             bool canCreateAutoLunch = manualLunch == null && userWantsLunch;
 
-            bool hasValidLunch = lunchEnd > lunchStart && (lunchEnd - lunchStart) >= TimeSpan.FromMinutes(5);
-            bool overlapsManual = manual
-                .Where(l => l.Event.EventType != EventType.Lunch)
-                .Any(l => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, l.S.TimeOfDay, l.E.TimeOfDay));
-            hasValidLunch &= !overlapsManual;
+            bool hasValidLunch = false;
+            bool overlapsManual = false;
+
 
             var specials = manual
                 .Where(x => x.Event.EventType != EventType.Work && x.Event.EventType != EventType.Lunch)
@@ -189,7 +187,9 @@ namespace TeacherScheduleApp.Services
                 return;
             }
 
-            var overlapping = manual.Where(l => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, l.S.TimeOfDay, l.E.TimeOfDay)).ToList();
+            var overlapping = manual
+            .Where(l => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, l.S.TimeOfDay, l.E.TimeOfDay))
+            .ToList();
             bool lunchCollision = overlapping.Any();
 
             if (lunchCollision)
@@ -217,21 +217,32 @@ namespace TeacherScheduleApp.Services
             }
 
             var std = lunchEnd - lunchStart;
-            while (manual.Where(m => m.Event.EventType != EventType.Lunch)
-                         .Any(m => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, m.S.TimeOfDay, m.E.TimeOfDay)))
+            while (manual.Where(m => m.Event.EventType != EventType.Lunch).Any(m => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, m.S.TimeOfDay, m.E.TimeOfDay)))
             {
                 var lastEnd = manual.Where(m => m.Event.EventType != EventType.Lunch)
                                     .Where(m => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, m.S.TimeOfDay, m.E.TimeOfDay))
                                     .Max(m => m.E.TimeOfDay);
+
                 lunchStart = day + lastEnd;
                 lunchEnd = lunchStart + std;
                 if (lunchEnd > departure) break;
             }
+            if (lunchStart < arrival) lunchStart = arrival;
+            if (lunchEnd > departure) lunchEnd = departure;
+            overlapsManual = manual
+            .Where(l => l.Event.EventType != EventType.Lunch)
+            .Any(l => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, l.S.TimeOfDay, l.E.TimeOfDay));
+
+            hasValidLunch =
+                lunchEnd > lunchStart &&
+                (lunchEnd - lunchStart) >= TimeSpan.FromMinutes(5) &&
+                !overlapsManual &&
+                !specials.Any(sp => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, sp.S.TimeOfDay, sp.E.TimeOfDay));
+
 
             var newEvents = new List<Event>();
 
-            if (canCreateAutoLunch && hasValidLunch &&
-                !specials.Any(sp => Overlaps(lunchStart.TimeOfDay, lunchEnd.TimeOfDay, sp.S.TimeOfDay, sp.E.TimeOfDay)))
+            if (canCreateAutoLunch && hasValidLunch)
             {
                 newEvents.Add(new Event
                 {
@@ -291,7 +302,8 @@ namespace TeacherScheduleApp.Services
             foreach (var ev in newEvents.Where(x => (x.EndTime - x.StartTime) > TimeSpan.FromMinutes(1)))
                 _eventService.CreateAutoEvent(ev);
 
-            SaveUserSettingsFromEvents(day);
+            if (!preserveUserSettings)
+                SaveUserSettingsFromEvents(day);
         }
 
 

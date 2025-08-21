@@ -54,7 +54,7 @@ namespace TeacherScheduleApp.Controls
 
             double dayWidth = width / days;
             double rowHeight = height / hours;
-
+            static double ExclusiveHeight(double topPx, double bottomPx) => Math.Max(bottomPx - topPx - 1, 1);
             foreach (var bg in Children.OfType<CalendarBackgroundBlock>())
             {
                 int day = bg.DayIndex;
@@ -65,11 +65,13 @@ namespace TeacherScheduleApp.Controls
 
                 double left = day * dayWidth;
                 double top = sh * rowHeight;
-                double h = Math.Max((eh - sh) * rowHeight, 1);
-                double w = Math.Max(dayWidth, 1);
+                double bot = eh * rowHeight;
 
-                left = Math.Clamp(left, 0, Math.Max(0, width - 1));
-                top = Math.Clamp(top, 0, Math.Max(0, height - 1));
+                left = Math.Floor(left);
+                top = Math.Floor(top);
+
+                double h = ExclusiveHeight(top, bot);
+                double w = Math.Max(Math.Floor(dayWidth), 1);
 
                 bg.Arrange(new Rect(left, top, w, h));
             }
@@ -80,22 +82,22 @@ namespace TeacherScheduleApp.Controls
                 if (day < 0 || day >= days) continue;
 
                 double sh = Math.Clamp(ev.StartHour, 0, hours);
-                double eh = Math.Clamp(ev.EndHour, sh + 0.01, hours); // гарантируем > 0
+                double eh = Math.Clamp(ev.EndHour, sh + 0.01, hours);
 
                 double leftBase = day * dayWidth;
 
                 int cols = Math.Max(1, ev.OverlapCount);
                 int colIdx = Math.Clamp(ev.OverlapIndex, 0, cols - 1);
-                double colWidth = dayWidth / cols;
+                double cW = dayWidth / cols;
 
-                double w = Math.Max(colWidth - 4, 1);
                 double top = sh * rowHeight;
-                double h = Math.Max((eh - sh) * rowHeight, 2);
+                double bot = eh * rowHeight;
 
-                double left = leftBase + colIdx * colWidth + Math.Max(0, (colWidth - w) / 2);
+                double left = Math.Floor(leftBase + colIdx * cW);
+                top = Math.Floor(top);
 
-                left = Math.Clamp(left, 0, Math.Max(0, width - w));
-                top = Math.Clamp(top, 0, Math.Max(0, height - h));
+                double w = Math.Max(Math.Floor(cW) - 4, 1);
+                double h = Math.Max(ExclusiveHeight(top, bot), 2);
 
                 ev.Arrange(new Rect(left, top, w, h));
             }
