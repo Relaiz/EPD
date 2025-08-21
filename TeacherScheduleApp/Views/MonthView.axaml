@@ -8,7 +8,6 @@
              x:Class="TeacherScheduleApp.Views.MonthView"
              x:DataType="vm:MonthViewModel"
              Background="White">
-
 	<UserControl.Resources>
 		<SolidColorBrush x:Key="WeekendBackgroundBrush" Color="#EEEEEE" />
 		<SolidColorBrush x:Key="NormalBackgroundBrush" Color="White" />
@@ -84,44 +83,26 @@
 		</DataTemplate>
 	</UserControl.Resources>
 
-	<Grid RowDefinitions="Auto, Auto, *">
+		<Grid RowDefinitions="Auto, Auto, *">
+			<Grid Grid.Row="0" Classes="navbar">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="*"/>
+					<ColumnDefinition Width="Auto"/>
+					<ColumnDefinition Width="*"/>
+				</Grid.ColumnDefinitions>
 
-		<StackPanel Grid.Row="0"
-			   Orientation="Horizontal"
-			   Background="#ECECEC"
-			   Height="50"
-			   HorizontalAlignment="Center"
-			   VerticalAlignment="Center"
-			   Spacing="10"
-			   Margin="0,0,0,5">
-			<Button Content="←"
-					Command="{Binding PreviousMonthCommand}"
-					Background="Transparent"
-					Foreground="Black"
-					Padding="8,4"
-					FontWeight="Bold"
-					BorderBrush="Transparent"/>
-			<TextBlock Text="{Binding CurrentMonth, StringFormat='{}{0:MMMM yyyy}'}"
-					   FontSize="16"
-					   Foreground="Black"
-					   HorizontalAlignment="Center"
-					   VerticalAlignment="Center"
-					   Margin="0"/>
-			<Button Content="→"
-					Command="{Binding NextMonthCommand}"
-					Background="Transparent"
-					Foreground="Black"
-					Padding="8,4"
-					FontWeight="Bold"
-					BorderBrush="Transparent"/>
-			<Button Content="Dnes"
-					Command="{Binding TodayCommand}"
-					Background="Transparent"
-					Foreground="Black"
-					Padding="8,4"
-					FontWeight="Bold"
-					BorderBrush="Transparent"/>
-		</StackPanel>
+				<StackPanel Grid.Column="1"
+							Orientation="Horizontal"
+							Spacing="10"
+							VerticalAlignment="Center"
+							HorizontalAlignment="Center">
+					<Button Classes="nav" Content="←" Command="{Binding PreviousMonthCommand}"/>
+					<TextBlock FontSize="16" Foreground="Black" VerticalAlignment="Center"
+							   Text="{Binding CurrentMonth, StringFormat='{}{0:MMMM yyyy}'}"/>
+					<Button Classes="nav" Content="→" Command="{Binding NextMonthCommand}"/>
+					<Button Classes="nav" Content="Dnes" Command="{Binding TodayCommand}"/>
+				</StackPanel>
+			</Grid>
 
 		<UniformGrid Rows="1" Columns="7" Grid.Row="1"
 					 Background="#ECECEC"

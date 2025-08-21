@@ -37,6 +37,11 @@ namespace TeacherScheduleApp.Data
                        v => v.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
                        v => DateTime.ParseExact(v, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
                    );
+            modelBuilder.Entity<Event>(b =>
+            {
+                b.HasKey(e => e.Id);
+                b.Property(e => e.Id).ValueGeneratedOnAdd();
+            });
             modelBuilder.Entity<Event>()
               .HasOne<Event>() 
               .WithMany()

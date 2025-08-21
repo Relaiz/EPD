@@ -52,14 +52,14 @@ namespace TeacherScheduleApp.ViewModels
                              .Select(e => new DateTime(e.StartTime.Year, e.StartTime.Month, 1))
                              .Distinct()
                              .OrderByDescending(d => d)
-                             .Select(d => d.ToString("yyyy-MM"));
+                             .Select(d => d.ToString("MM-yyyy"));
 
             AvailableMonths = new ObservableCollection<string>(months);
 
             this.WhenAnyValue(vm => vm.SelectedMonth)
-                .Where(s => !string.IsNullOrEmpty(s))
-                .Subscribe(_ => LoadPreview());
-            SelectedMonth = initialMonth.ToString("yyyy-MM");
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Subscribe(async _ => await LoadPreviewAsync());
+            SelectedMonth = initialMonth.ToString("MM-yyyy");
 
             SavePdf = ReactiveCommand.CreateFromTask(async () =>
             {
@@ -72,7 +72,7 @@ namespace TeacherScheduleApp.ViewModels
                 var dlg = new SaveFileDialog
                 {
                     Title = "Uložit PDF",
-                    Filters = { new FileDialogFilter { Name = "PDF", Extensions = { "pdf" } } }
+                    Filters = { new FileDialogFilter { Name = $"EPD_{month:D2}-{year:D4}", Extensions = { "pdf" } } }
                 };
 
                 Window? parent = null;
@@ -85,13 +85,13 @@ namespace TeacherScheduleApp.ViewModels
             });
         }
 
-        private void LoadPreview()
+        private async Task LoadPreviewAsync()
         {
             Pages.Clear();
             PageIndex = 0;
 
             var (year, month) = Parse(SelectedMonth);
-            _eventService.BalanceEventsForMonth(year, month);
+            await _eventService.BalanceEventsForMonthAsync(year, month, AskUserAsync);
             var events = _eventService.GetEventsForMonth(new DateTime(year, month, 1));        
             var pdfBytes = _pdfService.GenerateMonthReport(year, month, events);
             var images = _pdfService.RenderPdfPages(pdfBytes);
@@ -100,16 +100,42 @@ namespace TeacherScheduleApp.ViewModels
 
             PageIndex = 0;
         }
+        private static async Task<bool> AskUserAsync(string message)
+        {
+            var owner =
+                (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?
+                    .Windows?.FirstOrDefault(w => w.IsActive)
+                ?? Helpers.Helper.GetMainWindow();
 
+            var box = MsBox.Avalonia.MessageBoxManager.GetMessageBoxStandard(
+                new MsBox.Avalonia.Dto.MessageBoxStandardParams
+                {
+                    ButtonDefinitions = MsBox.Avalonia.Enums.ButtonEnum.YesNo,
+                    Icon = MsBox.Avalonia.Enums.Icon.Question,
+                    ContentHeader = "Potvrzení přesunu hodin",
+                    ContentMessage = message,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner
+                });
+
+            var res = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                () => box.ShowWindowDialogAsync(owner)
+            ); 
+
+            return res == MsBox.Avalonia.Enums.ButtonResult.Yes;
+        }
 
         private static (int year, int month) Parse(string s)
         {
-            var parts = s.Split('-');
-            if (parts.Length == 2
-                && int.TryParse(parts[0], out var y)
-                && int.TryParse(parts[1], out var m))
+            if (!string.IsNullOrWhiteSpace(s))
             {
-                return (y, m);
+                var parts = s.Split('-');
+                if (parts.Length == 2 &&
+                    int.TryParse(parts[0], out var m) &&
+                    int.TryParse(parts[1], out var y))
+                {
+                    if (m >= 1 && m <= 12)
+                        return (y, m);
+                }
             }
 
             var today = DateTime.Today;

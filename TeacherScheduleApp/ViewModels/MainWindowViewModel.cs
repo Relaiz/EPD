@@ -256,7 +256,6 @@ namespace TeacherScheduleApp.ViewModels
         public ReactiveCommand<Unit, Unit> ShowWeekCommand { get; }
         public ReactiveCommand<Unit, Unit> ShowMonthCommand { get; }
         public ReactiveCommand<Unit, Unit> GenerateEPDCommand { get; }
-        public ReactiveCommand<Unit, Unit> EnsureUserSettingsCommand { get; }
         public ReactiveCommand<Unit, Unit> SaveUserSettingsCommand { get; }
         public ReactiveCommand<Unit, Unit> OpenGlobalSettingsCommand { get; }
         public Interaction<string,bool> ShowCollisionMessage { get; } = new Interaction<string, bool>();
@@ -303,13 +302,47 @@ namespace TeacherScheduleApp.ViewModels
             });
             ShowPdfPreview = ReactiveCommand.Create(async() =>
             {
-                var owner = Helpers.Helper.GetMainWindow();
-                var win = new PdfPreviewWindow
+                try
                 {
-                    DataContext = new PdfPreviewViewModel(pdfSvc, evSvc, SelectedMonth!.Value),
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner
-                };
-                await win.ShowDialog(owner);
+                    var owner = Helper.GetMainWindow();
+
+                    var win = new PdfPreviewWindow
+                    {
+                        DataContext = new PdfPreviewViewModel(
+                            new PdfService(),
+                            new EventService(),
+                            SelectedMonth!.Value),
+                        WindowStartupLocation = WindowStartupLocation.CenterOwner
+                    };
+
+                     win.Show(owner);
+                }
+                catch (PdfRenderException ex)
+                {
+                    var msg = MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+                    {
+                        ContentHeader = "Chyba PDF",
+                        ContentMessage = ex.Message,
+                        ButtonDefinitions = ButtonEnum.Ok,
+                        Icon = Icon.Error,
+                        WindowStartupLocation = WindowStartupLocation.CenterOwner
+                    });
+
+                    await msg.ShowWindowDialogAsync(Helpers.Helper.GetMainWindow());
+                }
+                catch (Exception ex)
+                {
+                    var msg = MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+                    {
+                        ContentHeader = "Neočekávaná chyba",
+                        ContentMessage = ex.Message,
+                        ButtonDefinitions = ButtonEnum.Ok,
+                        Icon = Icon.Error,
+                        WindowStartupLocation = WindowStartupLocation.CenterOwner
+                    });
+
+                    await msg.ShowWindowDialogAsync(Helper.GetMainWindow());
+                }
             });
             RegenerateAllCommand = ReactiveCommand.CreateFromTask(async () =>
             {
@@ -333,7 +366,8 @@ namespace TeacherScheduleApp.ViewModels
             {
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
                 {
-                    var mainWindow = Helpers.Helper.GetMainWindow();
+                    var owner =(Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Windows?.FirstOrDefault(w => w.IsActive)?? Helpers.Helper.GetMainWindow();
+
                     var msgParams = new MessageBoxStandardParams
                     {
                         ButtonDefinitions = ButtonEnum.YesNo,
@@ -342,8 +376,9 @@ namespace TeacherScheduleApp.ViewModels
                         ContentMessage = interaction.Input,
                         WindowStartupLocation = WindowStartupLocation.CenterOwner
                     };
+
                     var msgBox = MessageBoxManager.GetMessageBoxStandard(msgParams);
-                    var result = await msgBox.ShowWindowDialogAsync(mainWindow);
+                    var result = await msgBox.ShowWindowDialogAsync(owner);
                     interaction.SetOutput(result == ButtonResult.Yes);
                 });
             });
@@ -552,6 +587,39 @@ namespace TeacherScheduleApp.ViewModels
                       && TimeSpan.TryParse(LunchStartTime, out var l0)
                       && TimeSpan.TryParse(LunchEndTime, out var l1))
                 {
+                    if (dep <= arr)
+                    {
+                        await MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+                        {
+                            ContentHeader = "Chyba",
+                            ContentMessage = "Odchod nesmí být před (nebo roven) příchodu.",
+                            ButtonDefinitions = ButtonEnum.Ok,
+                            Icon = Icon.Error
+                        }).ShowWindowDialogAsync(Helpers.Helper.GetMainWindow());
+                        return;
+                    }
+                    if (l1 <= l0)
+                    {
+                        await MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+                        {
+                            ContentHeader = "Chyba",
+                            ContentMessage = "Konec oběda nesmí být před (nebo roven) začátku.",
+                            ButtonDefinitions = ButtonEnum.Ok,
+                            Icon = Icon.Error
+                        }).ShowWindowDialogAsync(Helpers.Helper.GetMainWindow());
+                        return;
+                    }
+                    if (l0 < arr || l1 > dep)
+                    {
+                        await MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+                        {
+                            ContentHeader = "Chyba",
+                            ContentMessage = "Oběd musí být uvnitř pracovní doby.",
+                            ButtonDefinitions = ButtonEnum.Ok,
+                            Icon = Icon.Error
+                        }).ShowWindowDialogAsync(Helpers.Helper.GetMainWindow());
+                        return;
+                    }
                     SettingsService.SaveUserSettingsForDate(date, arr, dep, l0, l1);
                 }  
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(date));
@@ -618,8 +686,9 @@ namespace TeacherScheduleApp.ViewModels
                 if (!weekEvents.Any())
                     return string.Empty;
 
-                var (actual, expected, overtime, undertime)
-                    = _hoursCalculator.CalculateWeeklyStats(SelectedWeek.Value, weekEvents);
+                var week = _hoursCalculator.WeeklyMetrics(SelectedWeek.Value, weekEvents);
+                var actual = week.worked;
+                var expected = week.expected;
 
                 return $"{actual:F1} / {expected:F0}";
             }
@@ -682,13 +751,15 @@ namespace TeacherScheduleApp.ViewModels
             DateTime selectedWeek = SelectedWeek.Value;
             DateTime selectedMonth = SelectedMonth.Value;
 
-            DailyHours = _hoursCalculator.CalculateDailyHours(selected, _events);
+            var day = _hoursCalculator.DailyMetrics(selected, _events);
+            DailyHours = day.worked;
 
             DateTime weekStart = selectedWeek.AddDays(-(int)(selectedWeek.DayOfWeek - DayOfWeek.Monday));
-            var (actual, expected, overtime, undertime) = _hoursCalculator.CalculateWeeklyStats(weekStart, _events);
-            WeeklyHours = actual;
+            var week = _hoursCalculator.WeeklyMetrics(weekStart, _events);
+            WeeklyHours = week.worked;
 
-            MonthlyHours = _hoursCalculator.CalculateMonthlyRedistributedHours(SelectedMonth.Value.Year,SelectedMonth.Value.Month,_events);
+            var month = _hoursCalculator.MonthlyMetrics(SelectedMonth.Value.Year, SelectedMonth.Value.Month, _events);
+            MonthlyHours = month.worked - month.over + month.under;
 
             this.RaisePropertyChanged(nameof(DayDisplay));
             this.RaisePropertyChanged(nameof(WeekDisplay));
@@ -735,7 +806,7 @@ namespace TeacherScheduleApp.ViewModels
                 DepartureTime = eMax.TimeOfDay.ToString(@"hh\:mm");
                 LunchStartTime = "00:00";
                 LunchEndTime = "00:00";
-                return;
+                
             }
 
             if (HolidayHelper.IsCzechHoliday(date))

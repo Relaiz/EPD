@@ -15,32 +15,30 @@ build_property.PlatformNeutralAssembly =
 build_property.EnforceExtendedAnalyzerRules = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = TeacherScheduleApp
-build_property.ProjectDir = C:\Users\razboinikov\Documents\GitHub\EPD\EPD\TeacherScheduleApp\
+build_property.ProjectDir = D:\Program Files\Git\EPD\TeacherScheduleApp\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
-build_property.EffectiveAnalysisLevelStyle = 8.0
-build_property.EnableCodeStyleSeverity = 
 
-[C:/Users/razboinikov/Documents/GitHub/EPD/EPD/TeacherScheduleApp/App.axaml]
+[D:/Program Files/Git/EPD/TeacherScheduleApp/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/razboinikov/Documents/GitHub/EPD/EPD/TeacherScheduleApp/Views/CreateEventDialog.axaml]
+[D:/Program Files/Git/EPD/TeacherScheduleApp/Views/CreateEventDialog.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/razboinikov/Documents/GitHub/EPD/EPD/TeacherScheduleApp/Views/DayView.axaml]
+[D:/Program Files/Git/EPD/TeacherScheduleApp/Views/DayView.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/razboinikov/Documents/GitHub/EPD/EPD/TeacherScheduleApp/Views/GlobalUserSettingsView.axaml]
+[D:/Program Files/Git/EPD/TeacherScheduleApp/Views/GlobalUserSettingsView.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/razboinikov/Documents/GitHub/EPD/EPD/TeacherScheduleApp/Views/MainWindow.axaml]
+[D:/Program Files/Git/EPD/TeacherScheduleApp/Views/MainWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/razboinikov/Documents/GitHub/EPD/EPD/TeacherScheduleApp/Views/MonthView.axaml]
+[D:/Program Files/Git/EPD/TeacherScheduleApp/Views/MonthView.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/razboinikov/Documents/GitHub/EPD/EPD/TeacherScheduleApp/Views/PdfPreviewWindow.axaml]
+[D:/Program Files/Git/EPD/TeacherScheduleApp/Views/PdfPreviewWindow.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
 
-[C:/Users/razboinikov/Documents/GitHub/EPD/EPD/TeacherScheduleApp/Views/WeekView.axaml]
+[D:/Program Files/Git/EPD/TeacherScheduleApp/Views/WeekView.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml

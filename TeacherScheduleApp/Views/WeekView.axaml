@@ -16,7 +16,11 @@
 										 TrueBrush="#FFE0E0E0"
 										 FalseBrush="Transparent"/>
 	</UserControl.Resources>
-
+	<UserControl.KeyBindings>
+		<KeyBinding Gesture="Left"  Command="{Binding PreviousWeekCommand}"/>
+		<KeyBinding Gesture="Right" Command="{Binding NextWeekCommand}"/>
+		<KeyBinding Gesture="Ctrl+T" Command="{Binding TodayCommand}"/>
+	</UserControl.KeyBindings>
 	<Grid>
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto"/>
@@ -34,36 +38,30 @@
 			<ColumnDefinition Width="*"/>
 		</Grid.ColumnDefinitions>
 
-		<Border Grid.Row="0" Grid.ColumnSpan="8" Background="Transparent" Padding="0,0,0,5">
-			<StackPanel Orientation="Horizontal"
-						Background="#ECECEC"
-						Height="50"
-						HorizontalAlignment="Center"
+		<Grid
+			Grid.Row="0"
+			Grid.Column="0"
+			Grid.ColumnSpan="8"
+			Classes="navbar"
+			HorizontalAlignment="Stretch">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*"/>
+				<ColumnDefinition Width="Auto"/>
+				<ColumnDefinition Width="*"/>
+			</Grid.ColumnDefinitions>
+
+			<StackPanel Grid.Column="1"
+						Orientation="Horizontal"
+						Spacing="10"
 						VerticalAlignment="Center"
-						Spacing="10">
-				<Button Content="←"
-						Command="{Binding PreviousWeekCommand}"
-						Background="Transparent"
-						Foreground="Black"
-						Padding="8,4"
-						FontWeight="Bold"
-						BorderBrush="Transparent"/>
-				<Button Content="Dnes"
-						Command="{Binding TodayCommand}"
-						Background="Transparent"
-						Foreground="Black"
-						Padding="8,4"
-						FontWeight="Bold"
-						BorderBrush="Transparent"/>
-				<Button Content="→"
-						Command="{Binding NextWeekCommand}"
-						Background="Transparent"
-						Foreground="Black"
-						Padding="8,4"
-						FontWeight="Bold"
-						BorderBrush="Transparent"/>
+						HorizontalAlignment="Center">
+				<Button Classes="nav" Content="←" Command="{Binding PreviousWeekCommand}"/>
+				<TextBlock FontSize="16" Foreground="Black" VerticalAlignment="Center"
+						   Text="{Binding WeekTitle}"/>
+				<Button Classes="nav" Content="→" Command="{Binding NextWeekCommand}"/>
+				<Button Classes="nav" Content="Dnes" Command="{Binding TodayCommand}"/>
 			</StackPanel>
-		</Border>
+		</Grid>
 
 
 		<Border Grid.Row="1" Grid.Column="0"/>

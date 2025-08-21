@@ -8,6 +8,8 @@ namespace TeacherScheduleApp.Models
 {
     public class Event
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
         public int? ParentEventId { get; set; }
         public string Title { get; set; }

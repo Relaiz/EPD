@@ -10,6 +10,9 @@ using System.Reactive.Linq;
 using TeacherScheduleApp.Messages;
 using System.Linq;
 using TeacherScheduleApp.Controls;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using System.Drawing.Drawing2D;
+using System.Globalization;
 
 namespace TeacherScheduleApp.ViewModels
 {
@@ -33,11 +36,19 @@ namespace TeacherScheduleApp.ViewModels
         public ReactiveCommand<Unit, Unit> PreviousWeekCommand { get; }
         public ReactiveCommand<Unit, Unit> NextWeekCommand { get; }
         public ReactiveCommand<Unit, Unit> TodayCommand { get; }
-
+        public string WeekTitle => BuildWeekTitle(StartOfWeeks(CurrentDate), CultureInfo.CurrentUICulture);
         private readonly Action<DateTime> _onDateChanged;
 
-        public DateTime CurrentDate { get => _currentDate; set => this.RaiseAndSetIfChanged(ref _currentDate, value); }
         private DateTime _currentDate;
+        public DateTime CurrentDate
+        {
+            get => _currentDate;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _currentDate, value);
+                this.RaisePropertyChanged(nameof(WeekTitle));
+            }
+        }
 
         public WeekViewModel(DateTime date, Action<DateTime> onDateChanged)
         {
@@ -97,7 +108,24 @@ namespace TeacherScheduleApp.ViewModels
 
             LoadEvents();
         }
+        private static DateTime StartOfWeeks(DateTime date)
+        {
+            
+            int diff = ((int)date.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            return date.Date.AddDays(-diff);
+        }
+        private static string BuildWeekTitle(DateTime weekStart, CultureInfo culture)
+        {
+            var weekEnd = weekStart.AddDays(6);
 
+            if (weekStart.Month == weekEnd.Month && weekStart.Year == weekEnd.Year)
+                return $"{weekStart.ToString("dd", culture)}–{weekEnd.ToString("dd", culture)} {weekEnd.ToString("MMM yyyy", culture)}";
+
+            if (weekStart.Year == weekEnd.Year)
+                return $"{weekStart.ToString("dd MMM", culture)}–{weekEnd.ToString("dd MMM yyyy", culture)}";
+
+            return $"{weekStart.ToString("dd MMM yyyy", culture)}–{weekEnd.ToString("dd MMM yyyy", culture)}";
+        }
         public void AttachCalendarPanel(Controls.CalendarPanel panel)
         {
             _calendarPanel = panel;
@@ -111,13 +139,12 @@ namespace TeacherScheduleApp.ViewModels
             _isDialogOpen = true;
             try
             {
-                int hourInt = (int)Math.Floor(hour);
-                DateTime eventStart = StartOfWeek.AddDays(dayIndex).AddHours(hourInt);
+                double snapped = Math.Round(hour);
+                DateTime eventStart = StartOfWeek.AddDays(dayIndex).AddHours(snapped);
                 DateTime eventEnd = eventStart.AddHours(1);
 
                 var main = Helpers.Helper.GetMainWindow();
                 if (main == null) return;
-
                 var existing = _eventService.FindEventByStartTime(eventStart);
 
                 var dlg = new Views.CreateEventDialog();
@@ -129,7 +156,7 @@ namespace TeacherScheduleApp.ViewModels
                     {
                         Id = existing.Id,
                         Title = existing.Title,
-                        Description = existing.Description,
+                        Description = existing.Description!,
                         AllDay = existing.AllDay,
                         StartDate = existing.StartTime.Date,
                         StartTime = existing.StartTime.TimeOfDay,
@@ -156,25 +183,35 @@ namespace TeacherScheduleApp.ViewModels
                 var ev = await dlg.ShowDialog<Event>(main);
                 if (ev == null) return;
 
-                var generator = new AutomaticEventsGeneratorService(_eventService, _ => System.Threading.Tasks.Task.FromResult(true));
-
                 if (ev.IsDeleted)
                 {
-                    _eventService.DeleteEvent(ev.Id);
-                    await generator.RegenerateRangeEventsAsync(eventStart.Date, eventEnd.Date);
+                    if (ev.ParentEventId == null)
+                        _eventService.DeleteEventCascadeAndCleanup(ev.Id);
+                    else
+                        _eventService.DeleteEvent(ev.Id);
                 }
                 else if (ev.Id != 0)
                 {
+                    var oldStart = existing?.StartTime.Date ?? ev.StartTime.Date;
+                    var oldEnd = existing?.EndTime.Date ?? ev.EndTime.Date;
+
                     _eventService.UpdateEvent(ev);
-                    await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
+                    var from = oldStart < ev.StartTime.Date ? oldStart : ev.StartTime.Date;
+                    var to = oldEnd > ev.EndTime.Date ? oldEnd : ev.EndTime.Date;
+
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService, _ => System.Threading.Tasks.Task.FromResult(true));
+                    await generator.RegenerateRangeEventsAsync(from, to);
                 }
                 else
                 {
                     _eventService.CreateEvent(ev);
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService, _ => System.Threading.Tasks.Task.FromResult(true));
                     await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
                 }
 
-                MessageBus.Current.SendMessage(new UserSettingsChangedMessage((ev.StartTime.Date)));
+                MessageBus.Current.SendMessage(new UserSettingsChangedMessage(ev.StartTime.Date));
                 MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                 LoadEvents();
             }
@@ -219,23 +256,28 @@ namespace TeacherScheduleApp.ViewModels
                 var updated = await dlg.ShowDialog<Event>(main);
                 if (updated == null) return;
 
-                var generator = new AutomaticEventsGeneratorService(_eventService, _ => System.Threading.Tasks.Task.FromResult(true));
-
                 if (updated.IsDeleted)
                 {
-                    _eventService.DeleteEvent(updated.Id);
-                    await generator.RegenerateRangeEventsAsync(oldStart, oldEnd);
+                    if (updated.ParentEventId == null)
+                        _eventService.DeleteEventCascadeAndCleanup(updated.Id);
+                    else
+                        _eventService.DeleteEvent(updated.Id);
                 }
                 else if (updated.Id != 0)
                 {
                     _eventService.UpdateEvent(updated);
-                    var from = oldStart < updated.StartTime.Date ? oldStart : updated.StartTime.Date;
-                    var to = oldEnd > updated.EndTime.Date ? oldEnd : updated.EndTime.Date;
+                    var from = oldStart < ev.StartTime.Date ? oldStart : ev.StartTime.Date;
+                    var to = oldEnd > ev.EndTime.Date ? oldEnd : ev.EndTime.Date;
+
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService, _ => System.Threading.Tasks.Task.FromResult(true));
                     await generator.RegenerateRangeEventsAsync(from, to);
                 }
                 else
                 {
                     _eventService.CreateEvent(updated);
+                    var generator = new AutomaticEventsGeneratorService(
+                     _eventService, _ => System.Threading.Tasks.Task.FromResult(true));
                     await generator.RegenerateRangeEventsAsync(updated.StartTime.Date, updated.EndTime.Date);
                 }
 
@@ -253,7 +295,47 @@ namespace TeacherScheduleApp.ViewModels
         {
             if (_calendarPanel == null) return;
             _calendarPanel.Children.Clear();
+            for (int day = 0; day < 7; day++)
+            {
+                var d = StartOfWeek.AddDays(day);
+                if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || TeacherScheduleApp.Helpers.HolidayHelper.IsCzechHoliday(d))
+                {
+                    _calendarPanel.Children.Add(new CalendarBackgroundBlock
+                    {
+                        DayIndex = day,
+                        StartHour = 0,
+                        EndHour = 24
+                    });
+                    continue;
+                }
+                var sem = GlobalSettingsService.GetSemesterForDate(d);
+                var global = GlobalSettingsService.LoadGlobalSettings(d.Year, sem)
+                             ?? GlobalSettingsService.GetDefaultSettings(d.Year, sem);
+                var user = SettingsService.GetUserSettingsForDate(d);
+                var (defArr, defDep, _, _) = PdfService.GetWeekdayDefaults(global, d.DayOfWeek);
 
+                double arr = (user?.ArrivalTime ?? defArr).TotalHours;
+                double dep = (user?.DepartureTime ?? defDep).TotalHours;
+
+                if (arr > 0)
+                {
+                    _calendarPanel.Children.Add(new CalendarBackgroundBlock
+                    {
+                        DayIndex = day,
+                        StartHour = 0,
+                        EndHour = arr
+                    });
+                }
+                if (dep < 24)
+                {
+                    _calendarPanel.Children.Add(new CalendarBackgroundBlock
+                    {
+                        DayIndex = day,
+                        StartHour = dep,
+                        EndHour = 24
+                    });
+                }
+            }
             var events = _eventService.GetEventsForWeek(StartOfWeek).ToList();
 
             var parentsWithChildren = events
@@ -278,9 +360,12 @@ namespace TeacherScheduleApp.ViewModels
 
             for (int day = 0; day < 7; day++)
             {
-                var dateOfCell = StartOfWeek.AddDays(day);
-                if (dateOfCell.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
-
+                var d = StartOfWeek.AddDays(day);
+                if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+                var sem = GlobalSettingsService.GetSemesterForDate(d);
+                var global = GlobalSettingsService.LoadGlobalSettings(d.Year, sem)
+                             ?? GlobalSettingsService.GetDefaultSettings(d.Year, sem);
+                var user = SettingsService.GetUserSettingsForDate(d);
                 var segments = new List<(Event ev, double sh, double eh)>();
                 foreach (var ev in events)
                 {

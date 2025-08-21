@@ -10,6 +10,19 @@
 
 	<Application.Styles>
 		<FluentTheme />
+		<Style Selector="Button.nav">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="Foreground" Value="Black"/>
+			<Setter Property="BorderBrush" Value="Transparent"/>
+			<Setter Property="Padding" Value="8,4"/>
+			<Setter Property="FontWeight" Value="Bold"/>
+		</Style>
+
+		<Style Selector="Grid.navbar">
+			<Setter Property="Background" Value="#ECECEC"/>
+			<Setter Property="Height"     Value="50"/>
+			<Setter Property="Margin"     Value="0,0,0,5"/>
+		</Style>
 	</Application.Styles>
 	<Application.DataTemplates>
 		<DataTemplate DataType="{x:Type vm:DayViewModel}">

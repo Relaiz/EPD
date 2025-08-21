@@ -12,7 +12,7 @@
         Width="1200"
         Height="800">
 	<i:Interaction.Behaviors>
-		<beh:WindowLoadedBehavior Command="{Binding EnsureUserSettingsCommand}" />
+		
 		<beh:ShowCollisionMessageBehavior />
 	</i:Interaction.Behaviors>
 	<Window.Styles>

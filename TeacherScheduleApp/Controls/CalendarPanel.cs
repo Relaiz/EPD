@@ -21,15 +21,22 @@ namespace TeacherScheduleApp.Controls
 
         protected override Size MeasureOverride(Size availableSize)
         {
-            double minWidth = DaysCount * MinDayWidth;
+            var days = Math.Max(1, DaysCount);
+            var hours = Math.Max(1, HoursCount);
+
+            const double HourHeight = 50;
+            const double MinDayWidth = 200;
+
+            double minWidth = days * MinDayWidth;
             double width = double.IsInfinity(availableSize.Width)
                 ? minWidth
                 : Math.Max(availableSize.Width, minWidth);
-            double height = HoursCount * HourHeight;
+
+            double height = hours * HourHeight;
             if (!double.IsInfinity(availableSize.Height))
                 height = Math.Min(availableSize.Height, height);
 
-            var desired = new Size(width, height);
+            var desired = new Size(Math.Max(1, width), Math.Max(1, height));
             foreach (var child in Children)
                 child.Measure(new Size(double.PositiveInfinity, desired.Height));
 
@@ -39,27 +46,58 @@ namespace TeacherScheduleApp.Controls
 
         protected override Size ArrangeOverride(Size finalSize)
         {
-            double dayWidth = finalSize.Width / DaysCount;
-            double rowHeight = finalSize.Height / HoursCount;
+            var days = Math.Max(1, DaysCount);
+            var hours = Math.Max(1, HoursCount);
+
+            double width = Math.Max(1, finalSize.Width);
+            double height = Math.Max(1, finalSize.Height);
+
+            double dayWidth = width / days;
+            double rowHeight = height / hours;
+
+            foreach (var bg in Children.OfType<CalendarBackgroundBlock>())
+            {
+                int day = bg.DayIndex;
+                if (day < 0 || day >= days) continue;
+
+                double sh = Math.Clamp(bg.StartHour, 0, hours);
+                double eh = Math.Clamp(bg.EndHour, sh, hours);
+
+                double left = day * dayWidth;
+                double top = sh * rowHeight;
+                double h = Math.Max((eh - sh) * rowHeight, 1);
+                double w = Math.Max(dayWidth, 1);
+
+                left = Math.Clamp(left, 0, Math.Max(0, width - 1));
+                top = Math.Clamp(top, 0, Math.Max(0, height - 1));
+
+                bg.Arrange(new Rect(left, top, w, h));
+            }
 
             foreach (var ev in Children.OfType<CalendarEventControl>())
             {
                 int day = ev.DayIndex;
-                if (day < 0 || day >= DaysCount) continue;
+                if (day < 0 || day >= days) continue;
+
+                double sh = Math.Clamp(ev.StartHour, 0, hours);
+                double eh = Math.Clamp(ev.EndHour, sh + 0.01, hours); // гарантируем > 0
 
                 double leftBase = day * dayWidth;
 
                 int cols = Math.Max(1, ev.OverlapCount);
-                int colIdx = Math.Min(Math.Max(0, ev.OverlapIndex), cols - 1);
-
+                int colIdx = Math.Clamp(ev.OverlapIndex, 0, cols - 1);
                 double colWidth = dayWidth / cols;
 
-                double left = leftBase + colIdx * colWidth;
-                double top = ev.StartHour * rowHeight;
-                double width = colWidth - 4;
-                double height = (ev.EndHour - ev.StartHour) * rowHeight;
+                double w = Math.Max(colWidth - 4, 1);
+                double top = sh * rowHeight;
+                double h = Math.Max((eh - sh) * rowHeight, 2);
 
-                ev.Arrange(new Rect(left, top, width, height));
+                double left = leftBase + colIdx * colWidth + Math.Max(0, (colWidth - w) / 2);
+
+                left = Math.Clamp(left, 0, Math.Max(0, width - w));
+                top = Math.Clamp(top, 0, Math.Max(0, height - h));
+
+                ev.Arrange(new Rect(left, top, w, h));
             }
 
             return finalSize;
@@ -68,17 +106,25 @@ namespace TeacherScheduleApp.Controls
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             base.OnPointerPressed(e);
-            var point = e.GetPosition(this);
-            double colWidth = Bounds.Width / DaysCount;
-            double rowHeight = Bounds.Height / HoursCount;
 
-            int dayIndex = (int)(point.X / colWidth);
+            var days = Math.Max(1, DaysCount);
+            var hours = Math.Max(1, HoursCount);
+
+            if (Bounds.Width <= 0 || Bounds.Height <= 0)
+                return;
+
+            var point = e.GetPosition(this);
+            double colWidth = Bounds.Width / days;
+            double rowHeight = Bounds.Height / hours;
+
+            if (colWidth <= 0 || rowHeight <= 0)
+                return;
+
+            int dayIndex = (int)Math.Floor(point.X / colWidth);
             double hour = point.Y / rowHeight;
 
-            if (dayIndex >= 0 && dayIndex < DaysCount && hour >= 0 && hour < HoursCount)
-            {
+            if (dayIndex >= 0 && dayIndex < days && hour >= 0 && hour < hours)
                 DayHourClicked?.Invoke(dayIndex, hour);
-            }
         }
     }
 }

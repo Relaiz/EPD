@@ -163,7 +163,9 @@ namespace TeacherScheduleApp.Services
             {
                 await autoGen.RegenerateDailyEventsAsync(day);
                 AdjustUserSettingsForDay(day);
-            }     
+                await _eventService.TrimOvertimeByAutoBlocksAsync(day);
+
+            }
             var allDays = Enumerable
                 .Range(0, (yearEnd - yearStart).Days + 1)
                 .Select(offset => yearStart.AddDays(offset));
@@ -172,6 +174,8 @@ namespace TeacherScheduleApp.Services
             {
                 await autoGen.RegenerateDailyEventsAsync(day);
                 AdjustUserSettingsForDay(day);
+                await _eventService.TrimOvertimeByAutoBlocksAsync(day);
+
             }
 
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());

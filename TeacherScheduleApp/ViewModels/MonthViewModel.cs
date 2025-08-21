@@ -70,7 +70,6 @@ namespace TeacherScheduleApp.ViewModels
                 LoadEvents();
             });
 
-            // обновляем сетку по сообщениям
             MessageBus.Current
                 .Listen<UserSettingsChangedMessage>()
                 .ObserveOn(RxApp.MainThreadScheduler)
@@ -91,7 +90,7 @@ namespace TeacherScheduleApp.ViewModels
 
             var firstDay = CurrentMonth;
             int offset = (int)firstDay.DayOfWeek;
-            if (offset == 0) offset = 7; // понедельник-первый
+            if (offset == 0) offset = 7;
             var startDate = firstDay.AddDays(-(offset - 1));
 
             for (int i = 0; i < 42; i++)
@@ -159,7 +158,7 @@ namespace TeacherScheduleApp.ViewModels
                 if (main == null) return;
 
                 var dlg = new Views.CreateEventDialog();
-                var vm = new CreateEventDialogViewModel(dayInfo.Date);
+                var vm = new CreateEventDialogViewModel(dayInfo.Date.AddHours(8));
                 dlg.DataContext = vm;
 
                 var ev = await dlg.ShowDialog<Event>(main);
@@ -229,23 +228,28 @@ namespace TeacherScheduleApp.ViewModels
                 var updated = await dlg.ShowDialog<Event>(main);
                 if (updated == null) return;
 
-                var generator = new AutomaticEventsGeneratorService(_eventService, _ => System.Threading.Tasks.Task.FromResult(true));
-
                 if (updated.IsDeleted)
                 {
-                    _eventService.DeleteEvent(updated.Id);
-                    await generator.RegenerateRangeEventsAsync(oldStart, oldEnd);
+                    if (updated.ParentEventId == null)
+                        _eventService.DeleteEventCascadeAndCleanup(updated.Id);
+                    else
+                        _eventService.DeleteEvent(updated.Id);
                 }
                 else if (updated.Id != 0)
                 {
                     _eventService.UpdateEvent(updated);
-                    var from = oldStart < updated.StartTime.Date ? oldStart : updated.StartTime.Date;
-                    var to = oldEnd > updated.EndTime.Date ? oldEnd : updated.EndTime.Date;
+                    var from = oldStart < ev.StartTime.Date ? oldStart : ev.StartTime.Date;
+                    var to = oldEnd > ev.EndTime.Date ? oldEnd : ev.EndTime.Date;
+
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService, _ => System.Threading.Tasks.Task.FromResult(true));
                     await generator.RegenerateRangeEventsAsync(from, to);
                 }
                 else
                 {
                     _eventService.CreateEvent(updated);
+                    var generator = new AutomaticEventsGeneratorService(
+                     _eventService, _ => System.Threading.Tasks.Task.FromResult(true));
                     await generator.RegenerateRangeEventsAsync(updated.StartTime.Date, updated.EndTime.Date);
                 }
 

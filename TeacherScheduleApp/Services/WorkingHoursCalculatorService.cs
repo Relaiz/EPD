@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using TeacherScheduleApp.Helpers;
 using TeacherScheduleApp.Models;
@@ -10,160 +9,112 @@ namespace TeacherScheduleApp.Services
 {
     public class WorkingHoursCalculatorService
     {
-        /// <summary>
-        /// Vrací očekávaný počet hodin pro dané datum
-        /// </summary>
-        private double GetExpectedHours(DateTime date)
+        private const double DayNorm = 8.0;
+
+        private static readonly HashSet<EventType> SpecialNonPc = new()
         {
-            if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-                return 0;
-            if (HolidayHelper.IsCzechHoliday(date))
-                return 0;
-            var sem = GlobalSettingsService.GetSemesterForDate(date);
-            var global = GlobalSettingsService.LoadGlobalSettings(date.Year,sem)
-                         ?? GlobalSettingsService.GetDefaultSettings(date.Year, sem);
+            EventType.Vacation, EventType.Illness, EventType.Ocr, EventType.Doctor,
+            EventType.Holiday, EventType.DayOff
+        };
 
-            var (defArr, defDep, defLunchStart, defLunchEnd)
-                = PdfService.GetWeekdayDefaults(global, date.DayOfWeek);
+        private static bool IsWorkday(DateTime d)
+            => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
+               && !HolidayHelper.IsCzechHoliday(d);
 
-            var user = SettingsService.GetUserSettingsForDate(date);
-            if (user != null)
-                (defArr, defDep, defLunchStart, defLunchEnd)
-                    = (user.ArrivalTime, user.DepartureTime, user.LunchStart, user.LunchEnd);
-
-            var workWindow = defDep - defArr;
-            var lunchDur = defLunchEnd - defLunchStart;
-            var expected = workWindow - lunchDur;
-
-            return Math.Max(0, expected.TotalHours);
+        private static (TimeSpan arr, TimeSpan dep, TimeSpan ls, TimeSpan le) GetWindow(DateTime day)
+        {
+            var sem = GlobalSettingsService.GetSemesterForDate(day);
+            var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                      ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+            var def = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
+            var us = SettingsService.GetUserSettingsForDate(day);
+            return us is null
+                ? def
+                : (us.ArrivalTime, us.DepartureTime, us.LunchStart, us.LunchEnd);
         }
 
-        /// <summary>
-        /// Vrací započítané hodiny pro danou událost
-        /// </summary>
-        private double CountedHours(Event ev)
+        private static (DateTime s, DateTime e) ClampTo(DateTime s, DateTime e, DateTime winS, DateTime winE)
+            => (s < winS ? winS : s, e > winE ? winE : e);
+
+        private static List<(DateTime s, DateTime e)> MergeIv(IEnumerable<(DateTime s, DateTime e)> iv)
         {
-            switch (ev.EventType)
+            var list = iv.Where(x => x.e > x.s).OrderBy(x => x.s).ToList();
+            var res = new List<(DateTime s, DateTime e)>();
+            foreach (var seg in list)
             {
-                case EventType.Work:
-                    return Math.Max(0, (ev.EndTime - ev.StartTime).TotalHours);
-
-                case EventType.BusinessTrip:
-                    return Math.Max(0, (ev.EndTime - ev.StartTime).TotalHours);
-
-                default:
-                    return 0;
+                if (res.Count == 0 || res[^1].e < seg.s) res.Add(seg);
+                else res[^1] = (res[^1].s, res[^1].e > seg.e ? res[^1].e : seg.e);
             }
+            return res;
         }
 
-        /// <summary>
-        /// Vypočítá počet hodin za jeden den
-        /// </summary>
-        public double CalculateDailyHours(DateTime date, IEnumerable<Event> allEvents)
+        public (double worked, double expected, double over, double under,
+                double specialNonPc, double workInclBT)
+        DailyMetrics(DateTime day, IEnumerable<Event> all)
         {
-            if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ||
-                HolidayHelper.IsCzechHoliday(date))
-                return 0;
+            if (!IsWorkday(day)) return (0, 0, 0, 0, 0, 0);
 
-            var workEvents = allEvents.Where(e => e.EventType is EventType.Work or EventType.BusinessTrip).ToList();
-            var merged = MergeIntervals(workEvents);
-            var totalWorked = merged.Sum(iv => (iv.end - iv.start).TotalHours);
-            var expected = GetExpectedHours(date);
-            return Math.Min(totalWorked, expected);
+            var (arr, dep, _, _) = GetWindow(day);
+            var winS = day + arr;
+            var winE = day + dep;
+
+            var evs = all.Where(e => e.StartTime.Date == day.Date).ToList();
+
+            var specialIv = MergeIv(
+                evs.Where(e => SpecialNonPc.Contains(e.EventType))
+                   .Select(e => ClampTo(e.StartTime, e.EndTime, winS, winE))
+            );
+            var specialNonPc = specialIv.Sum(x => (x.e - x.s).TotalHours);
+
+            var workIv = MergeIv(
+                evs.Where(e => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip)
+                   .Select(e => ClampTo(e.StartTime, e.EndTime, winS, winE))
+            );
+            var workInclBT = workIv.Sum(x => (x.e - x.s).TotalHours);
+
+            var total = specialNonPc + workInclBT;
+
+            var expected = DayNorm;
+            var worked = workInclBT;
+            var over = Math.Max(0, total - DayNorm);
+            var under = Math.Max(0, DayNorm - total);
+
+            return (worked, expected, over, under, specialNonPc, workInclBT);
         }
 
-        /// <summary>
-        /// Vypočítá týdenní statistiky (fakt vs. norma vs. přesčas vs. neodprac.)
-        /// </summary>
-        public (double actual, double expected, double overtime, double undertime)
-        CalculateWeeklyStats(DateTime anyDate, IEnumerable<Event> allEvents)
+        public (double worked, double expected, double over, double under)
+        WeeklyMetrics(DateTime anyDate, IEnumerable<Event> all)
         {
-            var date = anyDate.Date;
-            var delta = ((int)date.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
-            var weekStart = date.AddDays(-delta);
-
-            var workDays = Enumerable
-                .Range(0, 5)
+            int delta = ((int)anyDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            var weekStart = anyDate.Date.AddDays(-delta);
+            var days = Enumerable.Range(0, 7)
                 .Select(i => weekStart.AddDays(i))
-                .ToList();
+                .Where(IsWorkday);
 
-            var dailyStats = workDays
-                .Select(d =>
-                {
-                    var evs = allEvents
-                        .Where(e => e.StartTime.Date == d)
-                        .ToList();
-
-                    double actualDay = evs.Sum(CountedHours);
-                    double expectedDay = GetExpectedHours(d);
-                    double clamped = Math.Min(actualDay, expectedDay);
-
-                    return new { actualDay, expectedDay, clamped };
-                })
-                .ToList();
-
-            double totalActual = dailyStats.Sum(x => x.clamped);
-            double totalExpected = dailyStats.Sum(x => x.expectedDay);
-            double overtime = Math.Max(0, dailyStats.Sum(x => x.actualDay - x.expectedDay));
-            double undertime = Math.Max(0, dailyStats.Sum(x => x.expectedDay - x.actualDay));
-
-            return (totalActual, totalExpected, overtime, undertime);
+            double w = 0, e = 0, o = 0, u = 0;
+            foreach (var d in days)
+            {
+                var m = DailyMetrics(d, all);
+                w += m.worked; e += m.expected; o += m.over; u += m.under;
+            }
+            return (w, e, o, u);
         }
 
-        /// <summary>
-        /// Vypočítá měsíčně přeřazené hodiny (redistribuce přebytku a deficitu)
-        /// </summary>
-        public double CalculateMonthlyRedistributedHours(int year, int month, IEnumerable<Event> allEvents)
+        public (double worked, double expected, double over, double under)
+        MonthlyMetrics(int year, int month, IEnumerable<Event> all)
         {
             int daysInMonth = DateTime.DaysInMonth(year, month);
+            var days = Enumerable.Range(1, daysInMonth)
+                .Select(i => new DateTime(year, month, i))
+                .Where(IsWorkday);
 
-            var dailyStats = Enumerable.Range(1, daysInMonth)
-                .Select(d =>
-                {
-                    var day = new DateTime(year, month, d);
-                    double expected = GetExpectedHours(day);
-                    var evs = allEvents.Where(e => e.StartTime.Date == day);
-                    double actual = evs.Sum(CountedHours);
-
-                    double clamped = Math.Min(actual, expected);
-                    double deficit = expected - clamped;
-                    double excess = Math.Max(0, actual - expected);
-
-                    return new { Clamped = clamped, Deficit = deficit, Excess = excess, Expected = expected };
-                })
-                .Where(x => x.Expected > 0)
-                .ToList();
-
-            double sumClamped = dailyStats.Sum(x => x.Clamped);
-            double totalDeficit = dailyStats.Sum(x => x.Deficit);
-            double totalExcess = dailyStats.Sum(x => x.Excess);
-
-            double redistributed = Math.Min(totalExcess, totalDeficit);
-
-            return sumClamped + redistributed;
-        }
-        private List<(DateTime start, DateTime end)> MergeIntervals(IEnumerable<Event> events)
-        {
-            var intervals = events
-                .Select(e => (e.StartTime, e.EndTime))
-                .OrderBy(iv => iv.StartTime)
-                .ToList();
-
-            var merged = new List<(DateTime s, DateTime e)>();
-            foreach (var (s, e) in intervals)
+            double w = 0, e = 0, o = 0, u = 0;
+            foreach (var d in days)
             {
-                if (merged.Count == 0 || merged.Last().e < s)
-                {
-                    merged.Add((s, e));
-                }
-                else
-                {
-                    var last = merged[^1];
-                    merged[^1] = (last.s, last.e > e ? last.e : e);
-                }
+                var m = DailyMetrics(d, all);
+                w += m.worked; e += m.expected; o += m.over; u += m.under;
             }
-
-            return merged;
+            return (w, e, o, u);
         }
     }
 }
