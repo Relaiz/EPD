@@ -3,6 +3,14 @@
   "WorkspaceRootPath": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\epd\\teacherscheduleapp\\services\\epdgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:services\\epdgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\epd\\teacherscheduleapp\\services\\eventservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:services\\eventservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\epd\\teacherscheduleapp\\data\\appdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:data\\appdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -23,16 +31,8 @@
       "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:behaviors\\closedialogbehavior.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\epd\\teacherscheduleapp\\services\\eventservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:services\\eventservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\epd\\teacherscheduleapp\\services\\automaticeventsgeneratorservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:services\\automaticeventsgeneratorservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\epd\\teacherscheduleapp\\services\\epdgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|solutionrelative:services\\epdgenerator.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{5281216C-5A22-46CC-A3E6-2B23D20769CD}|TeacherScheduleApp.csproj|d:\\program files\\git\\epd\\teacherscheduleapp\\viewmodels\\mainwindowviewmodel.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -290,12 +290,11 @@
               "ViewState": "AQIAAJcBAAAAAAAAAAAUwKsBAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-04-22T19:27:01.148Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 7,
               "Title": "AutomaticEventsGeneratorService.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Services\\AutomaticEventsGeneratorService.cs",
               "RelativeDocumentMoniker": "Services\\AutomaticEventsGeneratorService.cs",
@@ -304,8 +303,7 @@
               "ViewState": "AQIAAEICAAAAAAAAAAAIwEwCAAANAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-04-17T17:39:29.806Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Document",
@@ -318,18 +316,17 @@
               "ViewState": "AQIAAAAAAAAAAAAAAAAAABcAAAAaAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-05-11T13:02:58.383Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 1,
               "Title": "EventService.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Services\\EventService.cs",
               "RelativeDocumentMoniker": "Services\\EventService.cs",
               "ToolTip": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Services\\EventService.cs",
               "RelativeToolTip": "Services\\EventService.cs",
-              "ViewState": "AQIAAEoGAAAAAAAAAAAEwE8GAAAIAAAA",
+              "ViewState": "AQIAAPQGAAAAAAAAAAAcwC0HAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-06-28T20:58:20.899Z",
               "IsPinned": true,
@@ -337,7 +334,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 4,
               "Title": "CreateEventDialogViewModel.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\ViewModels\\CreateEventDialogViewModel.cs",
               "RelativeDocumentMoniker": "ViewModels\\CreateEventDialogViewModel.cs",
@@ -346,8 +343,7 @@
               "ViewState": "AQIAAAYAAAAAAAAAAAAAACQAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-02-16T18:32:20.261Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Document",
@@ -377,6 +373,19 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
+              "Title": "EPDGenerator.cs",
+              "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Services\\EPDGenerator.cs",
+              "RelativeDocumentMoniker": "Services\\EPDGenerator.cs",
+              "ToolTip": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Services\\EPDGenerator.cs",
+              "RelativeToolTip": "Services\\EPDGenerator.cs",
+              "ViewState": "AQIAAL8AAAAAAAAAAAAIwPcAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-03-16T17:26:00.322Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
               "Title": "AppDbContext.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Data\\AppDbContext.cs",
               "RelativeDocumentMoniker": "Data\\AppDbContext.cs",
@@ -389,15 +398,14 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 3,
               "Title": "MainWindow.axaml",
               "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Views\\MainWindow.axaml",
               "RelativeDocumentMoniker": "Views\\MainWindow.axaml",
               "ToolTip": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Views\\MainWindow.axaml",
               "RelativeToolTip": "Views\\MainWindow.axaml",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2025-08-18T19:37:22.423Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-18T19:37:22.423Z"
             },
             {
               "$type": "Document",
@@ -413,7 +421,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 6,
               "Title": "CloseDialogBehavior.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Behaviors\\CloseDialogBehavior.cs",
               "RelativeDocumentMoniker": "Behaviors\\CloseDialogBehavior.cs",
@@ -421,12 +429,11 @@
               "RelativeToolTip": "Behaviors\\CloseDialogBehavior.cs",
               "ViewState": "AQIAABQAAAAAAAAAAAAowCYAAAAQAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-03-02T18:46:05.373Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-03-02T18:46:05.373Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 5,
               "Title": "Program.cs",
               "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Program.cs",
               "RelativeDocumentMoniker": "Program.cs",
@@ -434,21 +441,7 @@
               "RelativeToolTip": "Program.cs",
               "ViewState": "AQIAAAYAAAAAAAAAAAAgwBYAAAAIAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-23T14:29:34.815Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "EPDGenerator.cs",
-              "DocumentMoniker": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Services\\EPDGenerator.cs",
-              "RelativeDocumentMoniker": "Services\\EPDGenerator.cs",
-              "ToolTip": "D:\\Program Files\\Git\\EPD\\TeacherScheduleApp\\Services\\EPDGenerator.cs",
-              "RelativeToolTip": "Services\\EPDGenerator.cs",
-              "ViewState": "AQIAAFwAAAAAAAAAAAAowGsAAABFAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-03-16T17:26:00.322Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-08-23T14:29:34.815Z"
             },
             {
               "$type": "Document",
@@ -730,8 +723,7 @@
               "RelativeToolTip": "TeacherScheduleApp.csproj",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAACwAAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-04-12T19:31:33.205Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-04-12T19:31:33.205Z"
             },
             {
               "$type": "Document",
