@@ -16,7 +16,8 @@ namespace TeacherScheduleApp.Services
 {
     class MoveLunchState { public bool? State; }
     public class EventService
-    {   
+    {
+        public static bool IsWorkLike(Event e) => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
         private static List<(DateTime s, DateTime e, List<Event> owners)>BuildMergedWithOwners(IEnumerable<Event> evs, DateTime winS, DateTime winE)
         {
             var segs = evs
@@ -255,8 +256,9 @@ namespace TeacherScheduleApp.Services
             if (!suppressRegen)
             {
                 var dayToRegen = parent.StartTime.Date;
+                AdjustUserSettingsAfterChange(dayToRegen);
                 var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
-                gen.RegenerateDailyEventsAsync(dayToRegen).GetAwaiter().GetResult();
+                gen.RegenerateDailyEventsAsync(dayToRegen, preserveUserSettings: false).GetAwaiter().GetResult();
                 MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(dayToRegen));
             }
@@ -273,10 +275,10 @@ namespace TeacherScheduleApp.Services
             ev.IsDeleted = true;
             db.SaveChanges();
 
-            AdjustUserSettingsAfterDeletion(day);
+            AdjustUserSettingsAfterChange(day);
 
             var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
-            gen.RegenerateDailyEventsAsync(day).GetAwaiter().GetResult();
+            gen.RegenerateDailyEventsAsync(day, preserveUserSettings: false).GetAwaiter().GetResult();
 
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
             MessageBus.Current.SendMessage(new UserSettingsChangedMessage(day));
@@ -694,161 +696,160 @@ namespace TeacherScheduleApp.Services
             le = cutEnd.TimeOfDay;
             return true;
         }
-        public async Task BalanceEventsForMonthAsync(int year, int month, Func<string, Task<bool>> _)
+        private async Task BalanceOneWeekAsync(List<DateTime> weekDays)
         {
-
-            var monthStart = new DateTime(year, month, 1);
-            var monthEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month));
-
-            static DateTime WeekStart(DateTime d)
-            {
-                int delta = (int)d.DayOfWeek - (int)DayOfWeek.Monday;
-                if (delta < 0) delta += 7;
-                return d.Date.AddDays(-delta);
-            }
-
-            var workDays = Enumerable.Range(0, (monthEnd - monthStart).Days + 1)
-                .Select(i => monthStart.AddDays(i))
-                .Where(d => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
-                            && !HolidayHelper.IsCzechHoliday(d))
-                .ToList();
-
-            var byWeek = workDays.GroupBy(WeekStart)
-                                 .OrderBy(g => g.Key)
-                                 .ToList();
-
+            const double EPS = 1e-6;
             var calc = new WorkingHoursCalculatorService();
 
-            double DayWorked(DateTime d)
+            var metrics = weekDays.Select(d =>
             {
                 var m = calc.DailyMetrics(d, GetEventsForDay(d));
-                return m.workInclBT;
-            }
-
-            foreach (var g in byWeek)
-            {
-                var daysInWeek = g.ToList();
-                double weekQuota = 8.0 * daysInWeek.Count;
-
-                var list = daysInWeek
-                    .Select(d => new { Day = d, Worked = DayWorked(d) })
-                    .OrderBy(d => d.Day)
-                    .ToList();
-
-                double sum = list.Sum(x => x.Worked);
-                double diff = sum - weekQuota;
-
-               
-
-                var deficits = new Queue<(DateTime day, double need)>(
-                    list.Where(x => x.Worked < 8.0 - 1e-6)
-                        .Select(x => (x.Day, 8.0 - x.Worked)));
-
-                var excesses = new Queue<(DateTime day, double extra)>(
-                    list.Where(x => x.Worked > 8.0 + 1e-6)
-                        .Select(x => (x.Day, x.Worked - 8.0)));
-
-
-                while (deficits.Count > 0 && excesses.Count > 0)
+                var total = m.specialNonPc + m.workInclBT;
+                return new
                 {
-                    var (dDef, need) = deficits.Dequeue();
-                    var (dEx, extra) = excesses.Dequeue();
-                    var move = Math.Min(need, extra);
+                    Day = d,
+                    Need = Math.Max(0, 8.0 - total),   
+                    Extra = Math.Max(0, total - 8.0),  
+                    Total = total
+                };
+            }).ToList();
 
+           
+            var deficits = new Queue<(DateTime day, double need)>(
+                metrics.Where(x => x.Need > EPS).Select(x => (x.Day, x.Need)));
 
-                    double cut = TrimAutoFromEnd(dEx, move);
-                    if (cut < move - 1e-6)
-                        cut += TrimAutoFromStart(dEx, move - cut);
+            var excesses = new Queue<(DateTime day, double extra)>(
+                metrics.Where(x => x.Extra > EPS).Select(x => (x.Day, x.Extra)));
 
-                    if (cut <= 1e-6)
-                    {
-                        if (extra - cut > 1e-6) excesses.Enqueue((dEx, extra - cut));
-                        deficits.Enqueue((dDef, need));
-                        continue;
-                    }
+            bool IsFlex(DateTime d) => (CanTrimStart(d) || CanTrimEnd(d));
+            var flexDays = new Queue<DateTime>(
+                metrics.Where(x => x.Need <= EPS && x.Extra <= EPS)
+                       .Select(x => x.Day)
+                       .Where(IsFlex));
 
-                    double placed = ExtendDayWithAuto(dDef, cut);
-                    if (placed < cut - 1e-6)
-                        placed += ExtendDayWithAuto(dDef, cut - placed);
+            while (deficits.Count > 0 && excesses.Count > 0)
+            {
+                var (defDay, need) = deficits.Dequeue();
+                var (exDay, extra) = excesses.Dequeue();
 
+                var transfer = Math.Min(need, extra);
 
-                    double leftNeed = Math.Max(0, need - placed);
-                    double leftExtra = Math.Max(0, extra - cut);
+                double taken = 0;
+                if (CanTrimEnd(exDay)) taken += TrimEndAuto(exDay, transfer - taken);
+                if (taken < transfer && CanTrimStart(exDay))
+                    taken += TrimStartAuto(exDay, transfer - taken);
 
-                    if (leftNeed > 1e-6) deficits.Enqueue((dDef, leftNeed));
-                    if (leftExtra > 1e-6) excesses.Enqueue((dEx, leftExtra));
+                if (taken > EPS)
+                {
+                    double placed = 0;
+                    if (placed < taken) placed += ExtendEndAuto(defDay, taken - placed);
+                    if (placed < taken) placed += ExtendStartAuto(defDay, taken - placed);
+
+                    var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
+                    await gen.RegenerateDailyEventsAsync(exDay);
+                    await gen.RegenerateDailyEventsAsync(defDay);
+
+                    need = Math.Max(0, need - placed);
+                    extra = Math.Max(0, extra - taken);
                 }
 
-                foreach (var d in daysInWeek)
-                {
-                    await new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false))
-                        .RegenerateDailyEventsAsync(d);
-                }
+                if (need > EPS) deficits.Enqueue((defDay, need));
+                if (extra > EPS) excesses.Enqueue((exDay, extra));
             }
 
-            workDays = Enumerable.Range(0, (monthEnd - monthStart).Days + 1)
-                .Select(i => monthStart.AddDays(i))
-                .Where(d => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
-                            && !HolidayHelper.IsCzechHoliday(d))
-                .ToList();
-
-            double WorkedDay(DateTime d) => new WorkingHoursCalculatorService()
-                .DailyMetrics(d, GetEventsForDay(d)).workInclBT;
-
-            var deficitsAll = new Queue<(DateTime day, double need)>(
-                workDays.Select(d => (d, WorkedDay(d)))
-                        .Where(x => x.Item2 < 8.0 - 1e-6)
-                        .Select(x => (x.d, 8.0 - x.Item2)));
-
-            var excessesAll = workDays.Select(d => (day: d, extra: WorkedDay(d) - 8.0))
-                                      .Where(x => x.extra > 1e-6)
-                                      .ToList();
-
-            while (deficitsAll.Count > 0 && excessesAll.Count > 0)
+          
+            while (excesses.Count > 0 && flexDays.Count > 0)
             {
-                var (dDef, need) = deficitsAll.Dequeue();
+                var (exDay, extra) = excesses.Dequeue();
+                if (extra <= EPS) continue;
 
-                int idx = excessesAll.FindIndex(x => WeekStart(x.day) == WeekStart(dDef));
-                if (idx < 0) idx = 0; 
+                var flexDay = flexDays.Dequeue();
 
-                if (excessesAll.Count == 0) break;
-                var donor = excessesAll[idx];
-                var move = Math.Min(need, donor.extra);
+                double taken = 0;
+                if (CanTrimEnd(exDay)) taken += TrimEndAuto(exDay, extra - taken);
+                if (extra - taken > EPS && CanTrimStart(exDay))
+                    taken += TrimStartAuto(exDay, extra - taken);
 
-
-                double cut = TrimAutoFromEnd(donor.day, move);
-                if (cut < move - 1e-6)
-                    cut += TrimAutoFromStart(donor.day, move - cut);
-
-                if (cut <= 1e-6)
+                double placed = 0;
+                if (taken > EPS)
                 {
-                    excessesAll.RemoveAt(idx);
-                    if (need > 1e-6) deficitsAll.Enqueue((dDef, need));
-                    continue;
+                    if (CanTrimEnd(flexDay))
+                        placed += ExtendEndAuto(flexDay, taken - placed);
+                    if ((taken - placed) > EPS && CanTrimStart(flexDay))
+                        placed += ExtendStartAuto(flexDay, taken - placed);
+
+                    var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
+                    await gen.RegenerateDailyEventsAsync(exDay);
+                    await gen.RegenerateDailyEventsAsync(flexDay);
+
+                    extra = Math.Max(0, extra - taken);
                 }
 
-                double placed = ExtendDayWithAuto(dDef, cut);
-                if (placed < cut - 1e-6)
-                    placed += ExtendDayWithAuto(dDef, cut - placed);
+                if (extra > EPS) excesses.Enqueue((exDay, extra));
 
-                double leftNeed = Math.Max(0, need - placed);
-                donor.extra = Math.Max(0, donor.extra - cut);
-
-                if (donor.extra <= 1e-6) excessesAll.RemoveAt(idx);
-                else excessesAll[idx] = donor;
-
-                if (leftNeed > 1e-6) deficitsAll.Enqueue((dDef, leftNeed));
+                if (placed > EPS) flexDays.Enqueue(flexDay);          
             }
-
-            foreach (var d in workDays)
-            {
-                await new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false))
-                    .RegenerateDailyEventsAsync(d);
-            }
-
-            MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
         }
 
+
+        private async Task BalanceTwoWeeksAsync(List<DateTime> w1, List<DateTime> w2)
+        {
+            var all = w1.Concat(w2).OrderBy(d => d).ToList();
+            await BalanceOneWeekAsync(all);
+        }
+        public async Task BalanceEventsForMonthAsync(int year, int month, Func<string, Task<bool>> askCollision)
+        {
+            var first = new DateTime(year, month, 1);
+            var last = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+
+            var monthDays = Enumerable.Range(0, (last - first).Days + 1)
+                .Select(i => first.AddDays(i))
+                .Where(d => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday &&
+                            !HolidayHelper.IsCzechHoliday(d))
+                .ToList();
+
+            if (monthDays.Count == 0) return;
+
+            int IsoW(DateTime d) => System.Globalization.ISOWeek.GetWeekOfYear(d);
+            int IsoY(DateTime d) => System.Globalization.ISOWeek.GetYear(d);
+
+            var weekGroups = monthDays
+                .GroupBy(d => (IsoY(d), IsoW(d)))
+                .OrderBy(g => g.Key)
+                .ToList();
+
+            bool IsPartialMonthWeek((int Y, int W) key)
+            {
+                var mon = (from i in Enumerable.Range(0, 7)
+                           let any = FirstDayOfIsoWeek(key.Y, key.W).AddDays(i)
+                           select any).ToList();
+                return mon.Any(d => d.Month != month);
+            }
+
+            foreach (var g in weekGroups)
+            {
+                await BalanceOneWeekAsync(g.Where(d => d.Month == month).ToList());
+            }
+
+            if (weekGroups.Count >= 2 &&
+                IsPartialMonthWeek(weekGroups.First().Key) &&
+                IsPartialMonthWeek(weekGroups.Last().Key))
+            {
+                var firstWeekDays = weekGroups.First().Where(d => d.Month == month).ToList();
+                var lastWeekDays = weekGroups.Last().Where(d => d.Month == month).ToList();
+                await BalanceTwoWeeksAsync(firstWeekDays, lastWeekDays);
+            }
+
+            await PostNormalizeMonthAsync(year, month);
+        }
+
+        private static DateTime FirstDayOfIsoWeek(int isoYear, int isoWeek)
+        {
+            var thursday = new DateTime(isoYear, 1, 4);
+            int delta = System.Globalization.ISOWeek.GetWeekOfYear(thursday) == 1 ? 0 : 7;
+            var monday = thursday.AddDays(-((int)thursday.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7);
+            return monday.AddDays(7 * (isoWeek - 1) - delta);
+        }
 
         private void UpdateSingleEventEnd(int eventId, DateTime newEnd)
         {
@@ -1151,6 +1152,171 @@ namespace TeacherScheduleApp.Services
 
             return cutDone;
         }
+        private double TrimEndAuto(DateTime day, double hours)
+        {
+            if (hours <= 1e-6) return 0;
+            var (_, last) = GetEdgeWorkEvents(day);
+            if (last == null || !last.IsAutoGenerated) return 0;
+
+            var max = (last.EndTime - last.StartTime).TotalHours;
+            var take = Math.Min(max, hours);
+            if (take <= 1e-6) return 0;
+
+            var newEnd = last.EndTime - TimeSpan.FromHours(take);
+            UpdateSingleEventEnd(last.Id, newEnd);
+
+            var us = SettingsService.GetUserSettingsForDate(day);
+            var sem = GlobalSettingsService.GetSemesterForDate(day);
+            var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                      ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+            var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
+
+            var arr = us?.ArrivalTime ?? defArr;
+            var dep = newEnd.TimeOfDay;
+            var ls = us?.LunchStart ?? defLs;
+            var le = us?.LunchEnd ?? defLe;
+            if (le > ls && (le > dep || ls < arr)) (ls, le) = (TimeSpan.Zero, TimeSpan.Zero);
+
+            SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
+            ReplaceLunchEvent(day, ls, le);
+            return take;
+        }
+
+        private double TrimStartAuto(DateTime day, double hours)
+        {
+            if (hours <= 1e-6) return 0;
+            var (first, _) = GetEdgeWorkEvents(day);
+            if (first == null || !first.IsAutoGenerated) return 0;
+
+            var max = (first.EndTime - first.StartTime).TotalHours;
+            var take = Math.Min(max, hours);
+            if (take <= 1e-6) return 0;
+
+            var newStart = first.StartTime + TimeSpan.FromHours(take);
+            using (var db = new AppDbContext())
+            {
+                var ev = db.Events.Single(x => x.Id == first.Id);
+                ev.StartTime = newStart;
+                db.SaveChanges();
+            }
+
+            var us = SettingsService.GetUserSettingsForDate(day);
+            var sem = GlobalSettingsService.GetSemesterForDate(day);
+            var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                      ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+            var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
+
+            var arr = newStart.TimeOfDay;
+            var dep = us?.DepartureTime ?? defDep;
+            var ls = us?.LunchStart ?? defLs;
+            var le = us?.LunchEnd ?? defLe;
+            if (le > ls && (le > dep || ls < arr)) (ls, le) = (TimeSpan.Zero, TimeSpan.Zero);
+
+            SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
+            ReplaceLunchEvent(day, ls, le);
+            return take;
+        }
+
+        private double ExtendEndAuto(DateTime day, double hours)
+        {
+            if (hours <= 1e-6) return 0;
+            var (_, last) = GetEdgeWorkEvents(day);
+
+            var sem = GlobalSettingsService.GetSemesterForDate(day);
+            var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                      ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+            var us = SettingsService.GetUserSettingsForDate(day);
+            var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
+
+            var arr = us?.ArrivalTime ?? defArr;
+            var dep = us?.DepartureTime ?? defDep;
+
+            var start = last?.EndTime ?? (day + arr);
+            var end = start + TimeSpan.FromHours(hours);
+
+            CreateAutoEvent(new Event
+            {
+                Title = "Vyvažování práce",
+                EventType = EventType.Work,
+                StartTime = start,
+                EndTime = end,
+                IsAutoGenerated = true,
+                AutoGeneratedForDate = day
+            });
+
+            var ls = us?.LunchStart ?? defLs;
+            var le = us?.LunchEnd ?? defLe;
+            if (le > ls && (le > end.TimeOfDay || ls < arr)) (ls, le) = (TimeSpan.Zero, TimeSpan.Zero);
+
+            SettingsService.SaveUserSettingsForDate(day, arr, end.TimeOfDay, ls, le);
+            ReplaceLunchEvent(day, ls, le);
+            return hours;
+        }
+
+        private double ExtendStartAuto(DateTime day, double hours)
+        {
+            if (hours <= 1e-6) return 0;
+
+            var sem = GlobalSettingsService.GetSemesterForDate(day);
+            var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                      ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+            var us = SettingsService.GetUserSettingsForDate(day);
+            var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
+
+            var arr = us?.ArrivalTime ?? defArr;
+            var dep = us?.DepartureTime ?? defDep;
+
+            var firstManualStart = GetEventsForDay(day)
+                .Where(e => !IsWorkLike(e) || !e.IsAutoGenerated) 
+                .Select(e => e.StartTime)
+                .DefaultIfEmpty(day + dep)
+                .Min();
+
+            var end = firstManualStart;
+            var start = end - TimeSpan.FromHours(hours);
+            if (start < day + arr) start = day + arr; 
+
+            CreateAutoEvent(new Event
+            {
+                Title = "Vyvažování práce",
+                EventType = EventType.Work,
+                StartTime = start,
+                EndTime = end,
+                IsAutoGenerated = true,
+                AutoGeneratedForDate = day
+            });
+
+            var ls = us?.LunchStart ?? defLs;
+            var le = us?.LunchEnd ?? defLe;
+            if (le > ls && (le > dep || ls < start.TimeOfDay)) (ls, le) = (TimeSpan.Zero, TimeSpan.Zero);
+
+            SettingsService.SaveUserSettingsForDate(day, start.TimeOfDay, dep, ls, le);
+            ReplaceLunchEvent(day, ls, le);
+            return (end - start).TotalHours;
+        }
+        private (Event? first, Event? last) GetEdgeWorkEvents(DateTime day)
+        {
+            var evs = GetEventsForDay(day)
+                .Where(e => IsWorkLike(e) && !e.IsDeleted)
+                .OrderBy(e => e.StartTime)
+                .ToList();
+
+            var first = evs.FirstOrDefault();
+            var last = evs.LastOrDefault();
+            return (first, last);
+        }
+        private bool CanTrimStart(DateTime day)
+        {
+            var (first, _) = GetEdgeWorkEvents(day);
+            return first != null && first.IsAutoGenerated;
+        }
+
+        private bool CanTrimEnd(DateTime day)
+        {
+            var (_, last) = GetEdgeWorkEvents(day);
+            return last != null && last.IsAutoGenerated;
+        }
+
         private void DeleteLunchEvents(DateTime day)
         {
             using var db = new AppDbContext();
@@ -1163,6 +1329,76 @@ namespace TeacherScheduleApp.Services
             {
                 db.Events.RemoveRange(lunches);
                 db.SaveChanges();
+            }
+        }
+
+        public static int PurgeSoftDeleted()
+        {
+            using var db = new AppDbContext();
+            return db.Events.Where(e => e.IsDeleted).ExecuteDelete();
+        }
+
+        private async Task EnsureLunchInsideWorkWindowAsync(DateTime day)
+        {
+            var sem = GlobalSettingsService.GetSemesterForDate(day);
+            var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                      ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+            var us = SettingsService.GetUserSettingsForDate(day);
+
+            var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
+
+            var arr = us?.ArrivalTime ?? defArr;
+            var dep = us?.DepartureTime ?? defDep;
+
+            if (dep <= arr) return;
+
+            var desiredLen = (defLe > defLs ? defLe - defLs : TimeSpan.FromMinutes(30));
+
+            var evs = GetEventsForDay(day).Where(e => !e.IsDeleted).ToList();
+            var lunchEv = evs.FirstOrDefault(e => e.EventType == EventType.Lunch);
+            var ls0 = lunchEv?.StartTime.TimeOfDay ?? (us?.LunchStart ?? defLs);
+            var le0 = lunchEv?.EndTime.TimeOfDay ?? (us?.LunchEnd ?? defLe);
+
+            bool Inside(TimeSpan ls, TimeSpan le) => le > ls && ls >= arr && le <= dep;
+
+            var (ls, le) = RefitLunch(day, arr, dep, ls0, le0, desiredLen);
+
+            if (le <= ls)
+            {
+                if (!TryCarveLunchFromInnerAuto(day, arr, dep, desiredLen, out ls, out le))
+                {
+                    bool canStart = CanTrimStart(day);
+                    bool canEnd = CanTrimEnd(day);
+
+                    if (canEnd)
+                    {
+                        ExtendEndAuto(day, desiredLen.TotalHours);
+                        var us2 = SettingsService.GetUserSettingsForDate(day);
+                        dep = us2?.DepartureTime ?? defDep;
+                        (ls, le) = RefitLunch(day, arr, dep, defLs, defLe, desiredLen);
+                    }
+                    else if (canStart)
+                    {
+                        ExtendStartAuto(day, desiredLen.TotalHours);
+                        var us2 = SettingsService.GetUserSettingsForDate(day);
+                        arr = us2?.ArrivalTime ?? defArr;
+                        (ls, le) = RefitLunch(day, arr, dep, defLs, defLe, desiredLen);
+                    }
+                }
+            }
+
+            if (Inside(ls, le))
+            {
+                SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
+                ReplaceLunchEvent(day, ls, le);
+
+                var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
+                await gen.RegenerateDailyEventsAsync(day);
+            }
+            else
+            {
+                SettingsService.SaveUserSettingsForDate(day, arr, dep, TimeSpan.Zero, TimeSpan.Zero);
+                ReplaceLunchEvent(day, TimeSpan.Zero, TimeSpan.Zero);
             }
         }
 
@@ -1239,8 +1475,8 @@ namespace TeacherScheduleApp.Services
             var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
             foreach (var day in affectedDays)
             {
-                AdjustUserSettingsAfterDeletion(day);
-                await gen.RegenerateDailyEventsAsync(day);
+                AdjustUserSettingsAfterChange(day);
+                await gen.RegenerateDailyEventsAsync(day, preserveUserSettings: false);
             }
 
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
@@ -1282,8 +1518,8 @@ namespace TeacherScheduleApp.Services
             var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
             foreach (var day in affectedDays)
             {
-                AdjustUserSettingsAfterDeletion(day);
-                await gen.RegenerateDailyEventsAsync(day);
+                AdjustUserSettingsAfterChange(day);
+                await gen.RegenerateDailyEventsAsync(day, preserveUserSettings: false);
             }
 
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
@@ -1326,7 +1562,7 @@ namespace TeacherScheduleApp.Services
                     continue;
                 }
 
-                AdjustUserSettingsAfterDeletion(day);
+                AdjustUserSettingsAfterChange(day);
 
                 var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
                 gen.RegenerateDailyEventsAsync(day).GetAwaiter().GetResult();
@@ -1335,7 +1571,7 @@ namespace TeacherScheduleApp.Services
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(day));
             }
         }
-        private void AdjustUserSettingsAfterDeletion(DateTime day)
+        private void AdjustUserSettingsAfterChange(DateTime day)
         {
             var events = GetEventsForDay(day)
                 .Where(e => e.EventType != EventType.Lunch)
@@ -1374,9 +1610,122 @@ namespace TeacherScheduleApp.Services
             }
 
             SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
+            ReplaceLunchEvent(day, ls, le);
         }
+        private async Task PostNormalizeMonthAsync(int year, int month)
+        {
+            const double EPS = 1e-6;
+            var calc = new WorkingHoursCalculatorService();
 
-        public async Task TrimOvertimeByAutoBlocksAsync(DateTime day)
+            var first = new DateTime(year, month, 1);
+            var last = new DateTime(year, month, DateTime.DaysInMonth(year, month));
+
+            var monthDays = Enumerable.Range(0, (last - first).Days + 1)
+                .Select(i => first.AddDays(i))
+                .Where(d => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
+                            && !HolidayHelper.IsCzechHoliday(d))
+                .ToList();
+
+            foreach (var day in monthDays)
+            {
+                var all = GetEventsForDay(day);
+                var m = calc.DailyMetrics(day, all);
+                double total = m.specialNonPc + m.workInclBT;
+
+                bool hasLunch = all.Any(e => e.EventType == EventType.Lunch
+                                          && !e.IsDeleted
+                                          && (e.EndTime - e.StartTime) >= TimeSpan.FromMinutes(5));
+
+                bool hasAnyWork = all.Any(e => (e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip) && !e.IsDeleted);
+
+                bool canStart = CanTrimStart(day); 
+                bool canEnd = CanTrimEnd(day);   
+
+                if (total < 8.0 - EPS && (canStart || canEnd))
+                {
+                    double need = 8.0 - total;
+                    double placed = 0;
+
+                    if (canEnd) placed += ExtendEndAuto(day, need - placed);
+                    if (need - placed > EPS && canStart)
+                        placed += ExtendStartAuto(day, need - placed);
+
+                    var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
+                    await gen.RegenerateDailyEventsAsync(day);
+                    await EnsureLunchInsideWorkWindowAsync(day);
+
+                    all = GetEventsForDay(day);
+                    m = calc.DailyMetrics(day, all);
+                    total = m.specialNonPc + m.workInclBT;
+                }
+
+                
+                if (!hasLunch && hasAnyWork && (canStart || canEnd))
+                {
+                    var sem = GlobalSettingsService.GetSemesterForDate(day);
+                    var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                              ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+                    var us = SettingsService.GetUserSettingsForDate(day);
+
+                    var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
+                    var arr = us?.ArrivalTime ?? defArr;
+                    var dep = us?.DepartureTime ?? defDep;
+
+                    var desiredLen = (defLe > defLs ? defLe - defLs : TimeSpan.FromMinutes(30));
+
+                    var (ls, le) = RefitLunch(day, arr, dep,
+                                              us?.LunchStart ?? defLs,
+                                              us?.LunchEnd ?? defLe,
+                                              desiredLen);
+
+                    if (le <= ls)
+                    {
+                        if (!TryCarveLunchFromInnerAuto(day, arr, dep, desiredLen, out ls, out le))
+                        {
+                            if (canEnd)
+                            {
+                                ExtendEndAuto(day, desiredLen.TotalHours);
+                                var us2 = SettingsService.GetUserSettingsForDate(day);
+                                dep = us2?.DepartureTime ?? defDep;
+                                (ls, le) = RefitLunch(day, arr, dep, us?.LunchStart ?? defLs, us?.LunchEnd ?? defLe, desiredLen);
+                            }
+                            else if (canStart)
+                            {
+                                ExtendStartAuto(day, desiredLen.TotalHours);
+                                var us2 = SettingsService.GetUserSettingsForDate(day);
+                                arr = us2?.ArrivalTime ?? defArr;
+                                (ls, le) = RefitLunch(day, arr, dep, us?.LunchStart ?? defLs, us?.LunchEnd ?? defLe, desiredLen);
+                            }
+                        }
+                    }
+
+                    if (le > ls)
+                    {
+                        SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
+                        ReplaceLunchEvent(day, ls, le);
+                        await EnsureLunchInsideWorkWindowAsync(day);
+                        all = GetEventsForDay(day);
+                        m = calc.DailyMetrics(day, all);
+                        total = m.specialNonPc + m.workInclBT;
+
+                        if (total < 8.0 - EPS)
+                        {
+                            double need = 8.0 - total;
+                            double placed = 0;
+
+                            if (canEnd) placed += ExtendEndAuto(day, need - placed);
+                            if (need - placed > EPS && canStart)
+                                placed += ExtendStartAuto(day, need - placed);
+
+                            var gen2 = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
+                            await gen2.RegenerateDailyEventsAsync(day);
+                            await EnsureLunchInsideWorkWindowAsync(day);
+                        }
+                    }
+                }
+            }
+        }
+        public async Task TrimOvertimeByAutoBlocksAsync(DateTime day, bool preserveUserSettings = false)
         {
             var calc = new WorkingHoursCalculatorService();
             var all = GetEventsForDay(day);
@@ -1398,35 +1747,37 @@ namespace TeacherScheduleApp.Services
                     if (newEnd < lastAuto.StartTime) newEnd = lastAuto.StartTime;
 
                     UpdateSingleEventEnd(lastAuto.Id, newEnd);
-
-                    var us = SettingsService.GetUserSettingsForDate(day);
-                    var sem = GlobalSettingsService.GetSemesterForDate(day);
-                    var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
-                             ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
-                    var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
-
-                    var arr = us?.ArrivalTime ?? defArr;
-                    var dep = us?.DepartureTime ?? defDep;
-                    var ls = us?.LunchStart ?? defLs;
-                    var le = us?.LunchEnd ?? defLe;
-
-                    dep = newEnd.TimeOfDay > arr ? newEnd.TimeOfDay : arr;
-
-                    if (le > ls && (le > dep || ls < arr))
+                    if (!preserveUserSettings)
                     {
-                        var len = le - ls;
-                        var nls = dep - len;
-                        if (nls >= arr)
-                            (ls, le) = (nls, dep);
-                        else
-                            (ls, le) = (TimeSpan.Zero, TimeSpan.Zero);
-                    }
+                        var us = SettingsService.GetUserSettingsForDate(day);
+                        var sem = GlobalSettingsService.GetSemesterForDate(day);
+                        var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                                 ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+                        var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
 
-                    SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
-                    ReplaceLunchEvent(day, ls, le);
-                    var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(true));
-                    await gen.RegenerateDailyEventsAsync(day);
-                    return;
+                        var arr = us?.ArrivalTime ?? defArr;
+                        var dep = us?.DepartureTime ?? defDep;
+                        var ls = us?.LunchStart ?? defLs;
+                        var le = us?.LunchEnd ?? defLe;
+
+                        dep = newEnd.TimeOfDay > arr ? newEnd.TimeOfDay : arr;
+
+                        if (le > ls && (le > dep || ls < arr))
+                        {
+                            var len = le - ls;
+                            var nls = dep - len;
+                            if (nls >= arr)
+                                (ls, le) = (nls, dep);
+                            else
+                                (ls, le) = (TimeSpan.Zero, TimeSpan.Zero);
+                        }
+
+                        SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
+                        ReplaceLunchEvent(day, ls, le);
+                        var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(true));
+                        await gen.RegenerateDailyEventsAsync(day, preserveUserSettings);
+                        return;
+                    }
                 }
             }
 
@@ -1449,32 +1800,34 @@ namespace TeacherScheduleApp.Services
                         ev.StartTime = newStart;
                         db.SaveChanges();
                     }
-
-                    var us = SettingsService.GetUserSettingsForDate(day);
-                    var sem = GlobalSettingsService.GetSemesterForDate(day);
-                    var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
-                             ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
-                    var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
-
-                    var arr = us?.ArrivalTime ?? defArr;
-                    var dep = us?.DepartureTime ?? defDep;
-                    var ls = us?.LunchStart ?? defLs;
-                    var le = us?.LunchEnd ?? defLe;
-
-                    arr = newStart.TimeOfDay < dep ? newStart.TimeOfDay : dep;
-
-                    if (le > ls && (le > dep || ls < arr))
+                    if (!preserveUserSettings)
                     {
-                        var len = le - ls;
-                        var nle = arr + len;
-                        if (nle <= dep)
-                            (ls, le) = (arr, nle);
-                        else
-                            (ls, le) = (TimeSpan.Zero, TimeSpan.Zero);
-                    }
+                        var us = SettingsService.GetUserSettingsForDate(day);
+                        var sem = GlobalSettingsService.GetSemesterForDate(day);
+                        var gl = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
+                                 ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+                        var (defArr, defDep, defLs, defLe) = PdfService.GetWeekdayDefaults(gl, day.DayOfWeek);
 
-                    SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
-                    ReplaceLunchEvent(day, ls, le);
+                        var arr = us?.ArrivalTime ?? defArr;
+                        var dep = us?.DepartureTime ?? defDep;
+                        var ls = us?.LunchStart ?? defLs;
+                        var le = us?.LunchEnd ?? defLe;
+
+                        arr = newStart.TimeOfDay < dep ? newStart.TimeOfDay : dep;
+
+                        if (le > ls && (le > dep || ls < arr))
+                        {
+                            var len = le - ls;
+                            var nle = arr + len;
+                            if (nle <= dep)
+                                (ls, le) = (arr, nle);
+                            else
+                                (ls, le) = (TimeSpan.Zero, TimeSpan.Zero);
+                        }
+
+                        SettingsService.SaveUserSettingsForDate(day, arr, dep, ls, le);
+                        ReplaceLunchEvent(day, ls, le);
+                    }
                     var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(true));
                     await gen.RegenerateDailyEventsAsync(day);
                 }

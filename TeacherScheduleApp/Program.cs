@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using System;
 using TeacherScheduleApp.Data;
+using TeacherScheduleApp.Services;
 
 namespace TeacherScheduleApp;
 
@@ -15,9 +16,9 @@ class Program
     public static void Main(string[] args)
     {
         
-            using var db = new AppDbContext();
-            db.Database.Migrate();
-       
+        using var db = new AppDbContext();
+        db.Database.Migrate();
+        EventService.PurgeSoftDeleted();
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }

@@ -110,7 +110,11 @@ namespace TeacherScheduleApp.ViewModels
         public EventType EventType
         {
             get => _eventType;
-            set => this.RaiseAndSetIfChanged(ref _eventType, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _eventType, value);
+                this.RaisePropertyChanged(nameof(ShowAllDay));             
+            }
         }
         private string _dialogTitle;
         public string DialogTitle
@@ -234,6 +238,11 @@ namespace TeacherScheduleApp.ViewModels
                         return null;
                     }
                 }
+                if (AllDay && EventType == EventType.Lunch)
+                {
+                    await ShowValidationMessage.Handle("Oběd nemůže být celodenní.");
+                    return null;
+                }
                 var ev = new Event
                 {
                     Id = this.Id,
@@ -252,6 +261,11 @@ namespace TeacherScheduleApp.ViewModels
                     var dayNorm = (dep - arr) - (lunchTo - lunchFrom);
 
                     if (IsVacation(EventType))
+                    {
+                        ev.StartTime = StartDate.Date + arr;
+                        ev.EndTime = EndDate.Date + (arr + EightHours);
+                    }
+                    else if (EventType == EventType.BusinessTrip)
                     {
                         ev.StartTime = StartDate.Date + arr;
                         ev.EndTime = EndDate.Date + (arr + EightHours);
@@ -441,13 +455,23 @@ namespace TeacherScheduleApp.ViewModels
                 var netNorm = grossSpan - (leTod - lsTod);
                 if (netNorm < TimeSpan.Zero) netNorm = TimeSpan.Zero;
 
-                var limit = (type == EventType.Vacation) ? EightHours : netNorm;
+                var limit = type switch
+                {
+                    EventType.Vacation => EightHours,
+                    EventType.BusinessTrip => EightHours,
+                    _ => netNorm
+                };
 
                 var effectiveAllDay = allDay;
                 if (!effectiveAllDay && IsSpecial(type))
                 {
                     var len = endTod - startTod;
                     if (type == EventType.Vacation)
+                    {
+                        if (len.Duration() == EightHours)
+                            effectiveAllDay = true;
+                    }
+                    else if(type == EventType.BusinessTrip)
                     {
                         if (len.Duration() == EightHours)
                             effectiveAllDay = true;
@@ -475,6 +499,18 @@ namespace TeacherScheduleApp.ViewModels
                         pEndTod = arrTod + EightHours;
                         proposedLen = EightHours;
                     }
+                    else if (type == EventType.BusinessTrip)
+                    {
+                        if (grossSpan < EightHours)
+                        {
+                            await ShowValidationMessage.Handle(
+                                $"Pro {day:dd.MM.yyyy} je pracovní rozsah {grossSpan:hh\\:mm}, pracovní cesta vyžaduje 8:00.");
+                            return false;
+                        }
+                        pStartTod = arrTod;
+                        pEndTod = arrTod + EightHours;
+                        proposedLen = EightHours;
+                    }
                     else
                     {
                         pStartTod = arrTod;
@@ -489,18 +525,25 @@ namespace TeacherScheduleApp.ViewModels
                         await ShowValidationMessage.Handle($"Neplatný čas {day:dd.MM.yyyy}.");
                         return false;
                     }
-                    if (type == EventType.Vacation &&
-                        (endTod - startTod != FourHours && endTod - startTod != EightHours))
+
+                    var span = endTod - startTod;
+
+                    if (type == EventType.BusinessTrip && span != EightHours)
                     {
-                        await ShowValidationMessage.Handle(
-                            "Dovolená může mít pouze délku 4 hodiny nebo 8 hodin za den.");
+                        await ShowValidationMessage.Handle("Pracovní cesta může mít pouze délku 8 hodin za den.");
                         return false;
                     }
+
+                    if (type == EventType.Vacation && span != FourHours && span != EightHours)
+                    {
+                        await ShowValidationMessage.Handle("Dovolená může mít pouze délku 4 hodiny nebo 8 hodin za den.");
+                        return false;
+                    }
+
                     pStartTod = startTod;
                     pEndTod = endTod;
-                    proposedLen = pEndTod - pStartTod;
+                    proposedLen = span;
                 }
-
                 var existing = evSvc.GetEventsForDay(day)
                 .Where(e => IsSpecial(e.EventType) && !e.IsDeleted && !e.IsAutoGenerated)
                 .Where(e => e.Id != this.Id && e.ParentEventId != this.Id)
