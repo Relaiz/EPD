@@ -50,7 +50,7 @@ namespace TeacherScheduleApp.Services
 
         public (double worked, double expected, double over, double under,
                 double specialNonPc, double workInclBT)
-        DailyMetrics(DateTime day, IEnumerable<Event> all)
+       DailyMetrics(DateTime day, IEnumerable<Event> all)
         {
             if (!IsWorkday(day)) return (0, 0, 0, 0, 0, 0);
 
@@ -72,12 +72,10 @@ namespace TeacherScheduleApp.Services
             );
             var workInclBT = workIv.Sum(x => (x.e - x.s).TotalHours);
 
-            var total = specialNonPc + workInclBT;
-
-            var expected = DayNorm;
+            var expected = Math.Max(0, DayNorm - specialNonPc);
             var worked = workInclBT;
-            var over = Math.Max(0, total - DayNorm);
-            var under = Math.Max(0, DayNorm - total);
+            var over = Math.Max(0, worked - expected);
+            var under = Math.Max(0, expected - worked);
 
             return (worked, expected, over, under, specialNonPc, workInclBT);
         }

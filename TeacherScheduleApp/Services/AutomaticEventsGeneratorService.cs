@@ -396,7 +396,25 @@ namespace TeacherScheduleApp.Services
             var prev = SettingsService.GetUserSettingsForDate(day);
 
             // works = evs.Where(e => e.EventType is EventType.Work or EventType.BusinessTrip).ToList();
+            const double EPS = 1e-6;
+            var movedOut = WorkTransferReportingService.GetMovedOut(day);
+            if (movedOut > EPS && prev != null)
+            {
+                var ar = prev.ArrivalTime;
+                var de = prev.DepartureTime;
 
+                TimeSpan lS = TimeSpan.Zero, lE = TimeSpan.Zero;
+                var lunch = evs.FirstOrDefault(e => e.EventType == EventType.Lunch);
+                if (lunch != null)
+                {
+                    var tls = lunch.StartTime.TimeOfDay;
+                    var tle = lunch.EndTime.TimeOfDay;
+                    if (tle > tls && tls >= ar && tle <= de) { lS = tls; lE = tle; }
+                }
+
+                SettingsService.SaveUserSettingsForDate(day, ar, de, lS, lE);
+                return;
+            }
             TimeSpan arr = prev?.ArrivalTime ?? defArr;
             TimeSpan dep = prev?.DepartureTime ?? defDep;
             if (evs.Any())

@@ -18,6 +18,7 @@ using System.Runtime.InteropServices;
 using System.Diagnostics;
 using Microsoft.VisualBasic;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace TeacherScheduleApp.Services
 {
@@ -117,7 +118,9 @@ namespace TeacherScheduleApp.Services
                     const float pageMargin = 10f;
                     var pageWidth = PageSizes.A4.Landscape().Width;
                     var contentWidth = pageWidth - 2 * pageMargin;
-
+                    double sumWorked = 0.0;
+                    double sumOvers = 0.0;
+                    double sumNeod = 0.0;
                     // BODY
                     page.Content().PaddingTop(10).Column(col =>
                     {
@@ -155,9 +158,7 @@ namespace TeacherScheduleApp.Services
                                 h.Cell().Border(1).Background("#EEEEEE").Text("Od").AlignCenter();
                                 h.Cell().Border(1).Background("#EEEEEE").Text("Do").AlignCenter();
                             });
-                            double sumWorked = 0.0;
-                            double sumOvers = 0.0;
-                            double sumNeod = 0.0;
+                            
                             for (int d = 1; d <= daysInMonth; d++)
                             {
                                 var date = new DateTime(year, month, d);
@@ -184,8 +185,18 @@ namespace TeacherScheduleApp.Services
                                 const double dayQuota = 8.0;
                                 double worked = dm.workInclBT;                   
                                 double over = Math.Max(0.0, worked - dayQuota); 
-                                double neod = Math.Max(0.0, dayQuota - worked); 
-
+                                double neod = Math.Max(0.0, dayQuota - worked);
+                                var movedOut = WorkTransferReportingService.GetMovedOut(date);
+                                var movedInDetails = WorkTransferReportingService.GetMovedInDetails(date);
+                                double movedIn = movedInDetails.Sum(x => x.hours);
+                                if (movedOut > 1e-6)
+                                {
+                                    neod = Math.Max(0.0, neod - movedOut);
+                                }
+                                if (movedIn > 1e-6)
+                                {
+                                    over = Math.Max(0.0, over - movedIn);
+                                }
                                 sumWorked += worked;
                                 sumOvers += over;
                                 sumNeod += neod;
@@ -247,8 +258,7 @@ namespace TeacherScheduleApp.Services
                         });
 
                         var monthTotals2 = calc.MonthlyMetrics(year, month, events);
-                        var kontr = TimeSpan.FromHours(monthTotals2.worked - monthTotals2.over + monthTotals2.under);
-                        int kh = kontr.Days * 24 + kontr.Hours;
+                        var kontr = TimeSpan.FromHours(sumWorked - sumOvers + sumNeod); int kh = kontr.Days * 24 + kontr.Hours;
                         int km = kontr.Minutes;
                         int ks = kontr.Seconds;
 
@@ -407,7 +417,7 @@ namespace TeacherScheduleApp.Services
                 _ => (TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero)
             };
         }
-         private List<(DateTime start, DateTime end)> MergeIntervals(List<(DateTime start, DateTime end)> intervals)
+        private List<(DateTime start, DateTime end)> MergeIntervals(List<(DateTime start, DateTime end)> intervals)
         {
             var sorted = intervals.OrderBy(x => x.start).ToList();
             var merged = new List<(DateTime start, DateTime end)>();
