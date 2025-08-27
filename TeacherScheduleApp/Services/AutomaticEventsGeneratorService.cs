@@ -302,9 +302,19 @@ namespace TeacherScheduleApp.Services
 
             foreach (var ev in newEvents.Where(x => (x.EndTime - x.StartTime) > TimeSpan.FromMinutes(1)))
                 _eventService.CreateAutoEvent(ev);
+            var dm0 = calc.DailyMetrics(day, _eventService.GetEventsForDay(day));
+            var net0 = dm0.workInclBT;
+            if (!preserveUserSettings && net0 <= 12.0 - 1e-6)
+            {
+                var over0 = Math.Max(0, (dm0.specialNonPc + dm0.workInclBT) - 8.0);
+                if (over0 > 1e-6)
+                {
+                    await _eventService.TrimOvertimeByAutoBlocksAsync(day, preserveUserSettings);
+                }
+            }
             var dayEvents = _eventService.GetEventsForDay(day)
-                .OrderBy(e => e.StartTime)
-                .ToList();
+                             .OrderBy(e => e.StartTime)
+                             .ToList();
 
             var all = _eventService.GetEventsForDay(day);
             var dailyMetric = calc.DailyMetrics(day, all);

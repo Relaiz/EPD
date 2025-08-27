@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using ReactiveUI;
-using SkiaSharp;
+﻿using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -8,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using TeacherScheduleApp.Helpers;
 using TeacherScheduleApp.Messages;
 using TeacherScheduleApp.Models;
 
@@ -19,68 +16,157 @@ namespace TeacherScheduleApp.Services
         private readonly EventService _eventService;
         private readonly Func<string, Task<bool>> _askCollision;
 
+        public record EpdImportReport(
+            List<Event> Events,
+            int TotalRows,
+            int ImportedRows,
+            int SkippedRows,
+            List<string> Errors,
+            Encoding UsedEncoding,
+            DateTime? RangeStart,
+            DateTime? RangeEnd,
+            string BatchId,
+            string BatchLabel
+        );
+
+        static class CsvCols
+        {
+            public const int TitlePart1 = 3;
+            public const int TitlePart2 = 20;
+            public const int DescPart1 = 15;
+            public const int DescPart2 = 16;
+            public const int StartTime = 30;
+            public const int EndTime = 31;
+            public const int WeekFrom = 32;
+            public const int WeekTo = 33;
+            public const int Parity = 35;
+            public const int BaseDate = 42;
+            public const int DateFrom = 43;
+            public const int DateTo = 44;
+            public const int MinCols = 45;
+        }
+
         public EPDGenerator(EventService eventService, Func<string, Task<bool>> askCollision)
         {
             _eventService = eventService;
             _askCollision = askCollision;
         }
 
-       
         public async Task<List<Event>> GenerateEPDEventsAsync(string teacherScheduleCsvPath)
         {
+            var report = await GenerateEPDEventsWithReportAsync(teacherScheduleCsvPath);
+            return report.Events;
+        }
+
+        public async Task<EpdImportReport> GenerateEPDEventsWithReportAsync(string teacherScheduleCsvPath)
+        {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            var lines = File.ReadAllLines(teacherScheduleCsvPath, Encoding.GetEncoding("windows-1250"));
-            DateTime importStart = DateTime.MaxValue;
-            DateTime importEnd = DateTime.MinValue;
-            for (int i = 1; i < lines.Length; i++)
-            {
-                var parts = lines[i].Split(';').Select(p => p.Trim('"')).ToArray();
-                if (parts.Length < 45) continue;
-                if (!DateTime.TryParse(parts[43], out var from)) continue;
-                if (!DateTime.TryParse(parts[44], out var to)) continue;
-                importStart = (from.Date < importStart) ? from.Date : importStart;
-                importEnd = (to.Date > importEnd) ? to.Date : importEnd;
-            }
-            if (importStart <= importEnd)
-                await _eventService.BulkSoftDeleteImportedInRangeAsync(importStart, importEnd);
+            var (lines, usedEnc) = ReadAllLinesSmart(teacherScheduleCsvPath);
+            if (lines.Length == 0) throw new InvalidDataException($"Soubor je prázdný: {Path.GetFileName(teacherScheduleCsvPath)}");
+            var header = SplitCsvLine(lines[0]);
+            if (header.Length < CsvCols.MinCols) throw new InvalidDataException($"Nedostatečný počet sloupců v hlavičce: nalezeno {header.Length}, vyžadováno ≥ {CsvCols.MinCols}. Soubor: {Path.GetFileName(teacherScheduleCsvPath)}");
+
+            var errors = new List<string>();
+            var eventsOut = new List<Event>();
+            int totalRows = Math.Max(0, lines.Length - 1);
+            int imported = 0;
+            int skipped = 0;
+
             var batchId = Guid.NewGuid().ToString("N");
             var batchName = Path.GetFileName(teacherScheduleCsvPath);
-            var manualEvents = new List<Event>(); ;
+
+            DateTime importStart = DateTime.MaxValue;
+            DateTime importEnd = DateTime.MinValue;
+
             for (int i = 1; i < lines.Length; i++)
             {
-                var p = lines[i].Split(';').Select(s => s.Trim('"')).ToArray();
-                if (p.Length < 36) continue;
+                var raw = lines[i];
+                if (string.IsNullOrWhiteSpace(raw)) { skipped++; continue; }
+                string[] p;
+                try { p = SplitCsvLine(raw); }
+                catch (Exception)
+                {
+                    skipped++;
+                    errors.Add($"Řádek {i + 1}: poškozené CSV (nepárové uvozovky).");
+                    continue;
+                }
 
-                if (!DateTime.TryParse(p[42], out var baseDate) && !DateTime.TryParse(p[43], out baseDate)) continue;
-                if (!DateTime.TryParse(p[43], out var dateFrom)) continue;
-                if (!DateTime.TryParse(p[44], out var dateTo)) continue;
-                if (!int.TryParse(p[32], out var weekFrom)) continue;
-                if (!int.TryParse(p[33], out var weekTo)) continue;
+                if (p.Length < CsvCols.MinCols)
+                {
+                    skipped++;
+                    errors.Add($"Řádek {i + 1}: nedostatečný počet sloupců (získáno {p.Length}, vyžadováno ≥ {CsvCols.MinCols}).");
+                    continue;
+                }
 
-                var parity = p[35].Length > 0 ? char.ToUpperInvariant(p[35][0]) : 'K';
-                if (!TimeSpan.TryParse(p[30], out var t0)) continue;
-                if (!TimeSpan.TryParse(p[31], out var t1)) continue;
+                if (!TryParseDate(p[CsvCols.DateFrom], out var dateFrom) || !TryParseDate(p[CsvCols.DateTo], out var dateTo))
+                {
+                    skipped++;
+                    errors.Add($"Řádek {i + 1}: neplatná data období (DateFrom/DateTo).");
+                    continue;
+                }
 
-                var title = $"{p[3]} {p[20]}".Trim();
-                var description = $"{p[15]} {p[16]}".Trim();
+                DateTime baseDate;
+                if (!TryParseDate(p[CsvCols.BaseDate], out baseDate))
+                {
+                    if (!TryParseDate(p[CsvCols.DateFrom], out baseDate))
+                    {
+                        skipped++;
+                        errors.Add($"Řádek {i + 1}: neplatné základní datum (BaseDate/DateFrom).");
+                        continue;
+                    }
+                }
+
+                if (!TryParseWeek(p[CsvCols.WeekFrom], out var weekFrom) || !TryParseWeek(p[CsvCols.WeekTo], out var weekTo))
+                {
+                    skipped++;
+                    errors.Add($"Řádek {i + 1}: neplatná čísla týdnů (WeekFrom/WeekTo).");
+                    continue;
+                }
+
+                if (!TryParseTime(p[CsvCols.StartTime], out var t0) || !TryParseTime(p[CsvCols.EndTime], out var t1))
+                {
+                    skipped++;
+                    errors.Add($"Řádek {i + 1}: neplatný čas (Start/End).");
+                    continue;
+                }
+
+                if (t1 <= t0)
+                {
+                    skipped++;
+                    errors.Add($"Řádek {i + 1}: konec je dříve než začátek nebo stejný ({t0:hh\\:mm}–{t1:hh\\:mm}).");
+                    continue;
+                }
+
+                var parity = SafeFirstUpper(p[CsvCols.Parity], 'K');
+                var title = $"{Safe(p[CsvCols.TitlePart1])} {Safe(p[CsvCols.TitlePart2])}".Trim();
+                var description = $"{Safe(p[CsvCols.DescPart1])} {Safe(p[CsvCols.DescPart2])}".Trim();
                 var targetDow = baseDate.DayOfWeek;
+
+                if (dateTo < dateFrom)
+                {
+                    skipped++;
+                    errors.Add($"Řádek {i + 1}: DateTo je dříve než DateFrom ({dateFrom:dd.MM.yyyy} > {dateTo:dd.MM.yyyy}).");
+                    continue;
+                }
+
+                importStart = dateFrom.Date < importStart ? dateFrom.Date : importStart;
+                importEnd = dateTo.Date > importEnd ? dateTo.Date : importEnd;
 
                 for (var dt = dateFrom.Date; dt <= dateTo.Date; dt = dt.AddDays(1))
                 {
                     if (dt.DayOfWeek != targetDow) continue;
                     int isoWeek = CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(dt, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
                     if (isoWeek < weekFrom || isoWeek > weekTo) continue;
-
                     switch (parity)
                     {
-                        case 'L': if (isoWeek % 2 == 0) continue; break; 
-                        case 'S': if (isoWeek % 2 != 0) continue; break; 
-                        case 'J': if (((isoWeek - weekFrom) % 2) == 0) continue; break; 
+                        case 'L': if (isoWeek % 2 == 0) continue; break;
+                        case 'S': if (isoWeek % 2 != 0) continue; break;
+                        case 'J': if (((isoWeek - weekFrom) % 2) == 0) continue; break;
                         case 'K':
                         default: break;
                     }
 
-                    manualEvents.Add(new Event
+                    eventsOut.Add(new Event
                     {
                         Title = title,
                         Description = description,
@@ -93,14 +179,18 @@ namespace TeacherScheduleApp.Services
                         ImportLabel = batchName
                     });
                 }
+
+                imported++;
             }
 
-            if (manualEvents.Count > 0)
-                _eventService.CreateEventsBulk(manualEvents);
+            if (importStart <= importEnd)
+                await _eventService.BulkSoftDeleteImportedInRangeAsync(importStart, importEnd);
 
-            var days = manualEvents.Select(e => e.StartTime.Date).Distinct().OrderBy(d => d).ToList();
+            if (eventsOut.Count > 0)
+                _eventService.CreateEventsBulk(eventsOut);
+
+            var days = eventsOut.Select(e => e.StartTime.Date).Distinct().OrderBy(d => d).ToList();
             var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision);
-
             foreach (var day in days)
             {
                 await autoGen.RegenerateDailyEventsAsync(day);
@@ -110,55 +200,157 @@ namespace TeacherScheduleApp.Services
 
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
             MessageBus.Current.SendMessage(new EpdGeneratedMessage());
-            return manualEvents;
+
+            return new EpdImportReport(
+                Events: eventsOut,
+                TotalRows: totalRows,
+                ImportedRows: imported,
+                SkippedRows: skipped,
+                Errors: errors,
+                UsedEncoding: usedEnc,
+                RangeStart: importStart == DateTime.MaxValue ? null : importStart,
+                RangeEnd: importEnd == DateTime.MinValue ? null : importEnd,
+                BatchId: batchId,
+                BatchLabel: batchName
+            );
         }
 
+        private static (string[] lines, Encoding used) ReadAllLinesSmart(string path)
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+            var bytes = File.ReadAllBytes(path);
+
+            var candidates = new List<Encoding>
+    {
+        new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true), 
+        new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false), 
+        Encoding.UTF8,                  
+        Encoding.Unicode,               
+        Encoding.BigEndianUnicode,      
+        Encoding.GetEncoding(1250),     
+        Encoding.GetEncoding(1251),    
+        Encoding.GetEncoding(28592),    
+        Encoding.Latin1                 
+    };
+
+            string bestText = string.Empty;
+            Encoding bestEnc = Encoding.UTF8;
+            int bestBad = int.MaxValue;
+
+            foreach (var enc in candidates)
+            {
+                try
+                {
+                    var text = enc.GetString(bytes);             
+                    var bad = text.Count(ch => ch == '\uFFFD');   
+                    if (bad < bestBad)
+                    {
+                        bestBad = bad;
+                        bestEnc = enc;
+                        bestText = text;
+                        if (bad == 0) break; 
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            if (string.IsNullOrEmpty(bestText))
+                throw new InvalidDataException($"Nelze rozpoznat kódování souboru: {Path.GetFileName(path)}");
+
+            if (bestText.Length > 0 && bestText[0] == '\uFEFF') 
+                bestText = bestText.Substring(1);
+
+            var lines = bestText.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            return (lines, bestEnc);
+        }
+
+
+        private static string[] SplitCsvLine(string line)
+        {
+            var list = new List<string>();
+            var sb = new StringBuilder();
+            bool inQuotes = false;
+            for (int i = 0; i < line.Length; i++)
+            {
+                char c = line[i];
+                if (c == '\"')
+                {
+                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '\"') { sb.Append('\"'); i++; }
+                    else inQuotes = !inQuotes;
+                }
+                else if (c == ';' && !inQuotes)
+                {
+                    list.Add(sb.ToString());
+                    sb.Clear();
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            list.Add(sb.ToString());
+            for (int i = 0; i < list.Count; i++) list[i] = list[i].Trim();
+            return list.ToArray();
+        }
+
+        private static bool TryParseDate(string s, out DateTime dt)
+        {
+            var cultures = new[] { new CultureInfo("cs-CZ"), new CultureInfo("ru-RU"), CultureInfo.InvariantCulture, CultureInfo.CurrentCulture };
+            var fmts = new[] { "d.M.yyyy", "dd.MM.yyyy", "yyyy-MM-dd", "d.M.yyyy H:mm", "dd.MM.yyyy H:mm", "yyyy-MM-dd H:mm", "dd.MM.yyyy HH:mm", "H:mm d.M.yyyy", "H:mm dd.MM.yyyy" };
+            foreach (var c in cultures)
+            {
+                if (DateTime.TryParse(s, c, DateTimeStyles.None, out dt)) return true;
+                if (DateTime.TryParseExact(s, fmts, c, DateTimeStyles.None, out dt)) return true;
+            }
+            dt = default;
+            return false;
+        }
+
+        private static bool TryParseTime(string s, out TimeSpan ts)
+        {
+            var fmts = new[] { "h\\:mm", "hh\\:mm", "h\\:mm\\:ss", "hh\\:mm\\:ss" };
+            if (TimeSpan.TryParse(s, out ts)) return true;
+            if (TimeSpan.TryParseExact(s, fmts, CultureInfo.InvariantCulture, out ts)) return true;
+            return false;
+        }
+
+        private static bool TryParseWeek(string s, out int w)
+        {
+            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out w)) return w >= 1 && w <= 53;
+            w = 0; return false;
+        }
+
+        private static string Safe(string? s) => s?.Trim() ?? string.Empty;
+
+        private static char SafeFirstUpper(string? s, char fallback)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return fallback;
+            var ch = char.ToUpperInvariant(s.Trim()[0]);
+            return ch;
+        }
 
         private IEnumerable<TeacherLesson> LoadTeacherSchedule(string csvPath)
         {
             var lessons = new List<TeacherLesson>();
-            var lines = File.ReadAllLines(csvPath);
-            if (lines.Length < 2)
-                return lessons;
-
-     
+            var (lines, _) = ReadAllLinesSmart(csvPath);
+            if (lines.Length < 2) return lessons;
             for (int i = 1; i < lines.Length; i++)
             {
-                var line = lines[i];
-                var parts = line.Split(';')
-                             .Select(p => p.Trim('\"'))
-                             .ToArray();
-
-               
-                if (parts.Length < 55)
-                    continue;
-
-         
+                var parts = SplitCsvLine(lines[i]);
+                if (parts.Length < 55) continue;
                 string dateStr = parts[42];
-                if (string.IsNullOrWhiteSpace(dateStr))
-                {
-                    dateStr = parts[43]; 
-                }
-                if (!DateTime.TryParse(dateStr, out DateTime date))
-                    continue;
-
-               
-                if (!TimeSpan.TryParse(parts[30], out TimeSpan startTimeSpan))
-                    continue;
-                if (!TimeSpan.TryParse(parts[31], out TimeSpan endTimeSpan))
-                    continue;
-
-               
-                string title = $"{parts[3]} {parts[20]}".Trim();
-               
-                string description = $"{parts[15]} {parts[16]}".Trim();
-
-              
+                if (string.IsNullOrWhiteSpace(dateStr)) dateStr = parts[43];
+                if (!TryParseDate(dateStr, out DateTime date)) continue;
+                if (!TryParseTime(parts[30], out var startTimeSpan)) continue;
+                if (!TryParseTime(parts[31], out var endTimeSpan)) continue;
+                string title = $"{Safe(parts[3])} {Safe(parts[20])}".Trim();
+                string description = $"{Safe(parts[15])} {Safe(parts[16])}".Trim();
                 int rok = int.TryParse(parts[14], out int rokVal) ? rokVal : DateTime.Now.Year;
-
                 DateTime startDateTime = date.Date.Add(startTimeSpan);
                 DateTime endDateTime = date.Date.Add(endTimeSpan);
-
                 lessons.Add(new TeacherLesson
                 {
                     Date = date,
@@ -172,35 +364,15 @@ namespace TeacherScheduleApp.Services
             return lessons;
         }
 
-   
         private void AdjustUserSettingsForDay(DateTime day)
         {
-           
-            var evs = _eventService
-                .GetEventsForDay(day)
-                .Where(e => !e.IsDeleted)
-                .ToList();
-
-           
-            var workEvs = evs
-                .Where(e => e.EventType is EventType.Work or EventType.BusinessTrip)
-                .OrderBy(e => e.StartTime)
-                .ToList();
-
-            if (!workEvs.Any())
-                return;
-
-
+            var evs = _eventService.GetEventsForDay(day).Where(e => !e.IsDeleted).ToList();
+            var workEvs = evs.Where(e => e.EventType is EventType.Work or EventType.BusinessTrip).OrderBy(e => e.StartTime).ToList();
+            if (!workEvs.Any()) return;
             var merged = MergeIntervals(workEvs);
             var arrival = merged.First().start.TimeOfDay;
             var departure = merged.Last().end.TimeOfDay;
-
-
-            var lunchEvs = evs
-                .Where(e => e.EventType == EventType.Lunch)
-                .OrderBy(e => e.StartTime)
-                .ToList();
-
+            var lunchEvs = evs.Where(e => e.EventType == EventType.Lunch).OrderBy(e => e.StartTime).ToList();
             TimeSpan lunchStart, lunchEnd;
             if (lunchEvs.Any())
             {
@@ -209,39 +381,28 @@ namespace TeacherScheduleApp.Services
             }
             else
             {
-         
                 var sem = GlobalSettingsService.GetSemesterForDate(day);
-                var global = GlobalSettingsService.LoadGlobalSettings(day.Year, sem)
-                             ?? GlobalSettingsService.GetDefaultSettings(day.Year,sem);
-              
-                lunchStart = TimeSpan.Parse(global.MondayLunchStart); 
+                var global = GlobalSettingsService.LoadGlobalSettings(day.Year, sem) ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
+                lunchStart = TimeSpan.Parse(global.MondayLunchStart);
                 lunchEnd = TimeSpan.Parse(global.MondayLunchEnd);
             }
-
             SettingsService.SaveUserSettingsForDate(day, arrival, departure, lunchStart, lunchEnd);
         }
+
         private List<(DateTime start, DateTime end)> MergeIntervals(IEnumerable<Event> events)
         {
-            var intervals = events
-                .Select(e => (e.StartTime, e.EndTime))
-                .OrderBy(iv => iv.StartTime)
-                .ToList();
-
+            var intervals = events.Select(e => (e.StartTime, e.EndTime)).OrderBy(iv => iv.StartTime).ToList();
             var merged = new List<(DateTime s, DateTime e)>();
             foreach (var (s, e) in intervals)
             {
-                if (merged.Count == 0 || merged.Last().e < s)
-                {
-                    merged.Add((s, e));
-                }
+                if (merged.Count == 0 || merged.Last().e < s) merged.Add((s, e));
                 else
                 {
                     var last = merged[^1];
                     merged[^1] = (last.s, last.e > e ? last.e : e);
                 }
             }
-
-            return merged;
+            return merged.Select(t => (t.s, t.e)).ToList();
         }
     }
 }

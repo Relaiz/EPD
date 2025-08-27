@@ -91,8 +91,16 @@ namespace TeacherScheduleApp.ViewModels
             PageIndex = 0;
 
             var (year, month) = Parse(SelectedMonth);
-            await _eventService.BalanceEventsForMonthAsync(year, month, AskUserAsync);
-            var events = _eventService.GetEventsForMonth(new DateTime(year, month, 1));        
+            var fpBefore = Helpers.BalanceFingerprint.ForMonth(_eventService, year, month);
+            if (!Helpers.MonthBalanceStore.IsBalanced(year, month, fpBefore))
+            {
+                await _eventService.BalanceEventsForMonthAsync(year, month, AskUserAsync);
+
+                var fpAfter = Helpers.BalanceFingerprint.ForMonth(_eventService, year, month);
+                Helpers.MonthBalanceStore.Save(year, month, fpAfter);
+            }
+
+            var events = _eventService.GetEventsForMonth(new DateTime(year, month, 1));
             var pdfBytes = _pdfService.GenerateMonthReport(year, month, events);
             var images = _pdfService.RenderPdfPages(pdfBytes);
             foreach (var img in images)

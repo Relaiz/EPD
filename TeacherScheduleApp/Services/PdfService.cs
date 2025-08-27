@@ -183,23 +183,17 @@ namespace TeacherScheduleApp.Services
                                 var dm = calc.DailyMetrics(date, events);
 
                                 const double dayQuota = 8.0;
-                                double worked = dm.workInclBT;                   
-                                double over = Math.Max(0.0, worked - dayQuota); 
-                                double neod = Math.Max(0.0, dayQuota - worked);
-                                var movedOut = WorkTransferReportingService.GetMovedOut(date);
-                                var movedInDetails = WorkTransferReportingService.GetMovedInDetails(date);
-                                double movedIn = movedInDetails.Sum(x => x.hours);
-                                if (movedOut > 1e-6)
-                                {
-                                    neod = Math.Max(0.0, neod - movedOut);
-                                }
-                                if (movedIn > 1e-6)
-                                {
-                                    over = Math.Max(0.0, over - movedIn);
-                                }
+                                double worked = dm.workInclBT;
+                                double specialOnly = Math.Max(0.0, dm.specialNonPc);
+                                double movedOut = WorkTransferReportingService.GetMovedOut(date);
+                                double movedIn = WorkTransferReportingService.GetMovedInDetails(date).Sum(x => x.hours);
+                                double effective = worked - movedOut + movedIn;
+                                double overShown = (movedIn > 1e-6) ? 0.0 : Math.Max(0.0, effective - dayQuota);
+                                double neodShown = (movedOut > 1e-6) ? 0.0 : Math.Max(0.0, dayQuota - effective);
+                                double neodShown1 = specialOnly;
                                 sumWorked += worked;
-                                sumOvers += over;
-                                sumNeod += neod;
+                                sumOvers += overShown;
+                                sumNeod += neodShown1;
                                 var def = GetWeekdayDefaults(gl, date.DayOfWeek);
                                 var us = SettingsService.GetUserSettingsForDate(date);
                                 var dayStart = us?.ArrivalTime ?? def.arrival;
@@ -225,8 +219,8 @@ namespace TeacherScheduleApp.Services
                                         .Where(s => !string.IsNullOrWhiteSpace(s))
                                         .Distinct());
                                 var workedTs = TimeSpan.FromHours(worked);
-                                var overTs = TimeSpan.FromHours(over);
-                                var neodTs = TimeSpan.FromHours(neod);
+                               // var overTs = TimeSpan.FromHours(over);
+                             //   var neodTs = TimeSpan.FromHours(neod);
                                 table.Cell().Border(1).Text($"{d}.");
                                 table.Cell().Border(1).Text(dayStart.ToString(@"hh\:mm"));
                                 table.Cell().Border(1).Text(lunches.ElementAtOrDefault(0)?.StartTime.TimeOfDay.ToString(@"hh\:mm") ?? "");
@@ -236,8 +230,8 @@ namespace TeacherScheduleApp.Services
                                 table.Cell().Border(1).Text(dayEnd.ToString(@"hh\:mm"));
 
                                 table.Cell().Border(1).Text($"{TimeSpan.FromHours(worked):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(over):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(neod):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(overShown):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(neodShown):hh\\:mm\\:ss}");
                                 table.Cell().Border(1).Text(note);
                             }
 
