@@ -62,7 +62,27 @@ namespace TeacherScheduleApp.Services
             var eventsByDay = events
                 .GroupBy(e => e.StartTime.Day)
                 .ToDictionary(g => g.Key, g => g.ToList());
+            var weekHasLocked = new Dictionary<DateTime, bool>();
 
+            for (int d = 1; d <= daysInMonth; d++)
+            {
+                var date = new DateTime(year, month, d);
+                var monday = MondayOf(date);
+
+                if (!weekHasLocked.ContainsKey(monday))
+                {
+                    bool anyLocked = Enumerable.Range(0, 7)
+                        .Select(i => monday.AddDays(i))
+                        .Where(dt => dt.Month == month)
+                        .Any(dt =>
+                        {
+                            var list = eventsByDay.TryGetValue(dt.Day, out var evs) ? evs : new List<Event>();
+                            return IsLockedDay(list);
+                        });
+
+                    weekHasLocked[monday] = anyLocked;
+                }
+            }
             int workDays = Enumerable.Range(1, daysInMonth)
                 .Select(d => new DateTime(year, month, d))
                 .Count(dt => dt.DayOfWeek is not DayOfWeek.Saturday
@@ -121,6 +141,7 @@ namespace TeacherScheduleApp.Services
                     double sumWorked = 0.0;
                     double sumOvers = 0.0;
                     double sumNeod = 0.0;
+                    double sumCtrlWorked = 0.0;
                     // BODY
                     page.Content().PaddingTop(10).Column(col =>
                     {
@@ -185,15 +206,21 @@ namespace TeacherScheduleApp.Services
                                 const double dayQuota = 8.0;
                                 double worked = dm.workInclBT;
                                 double specialOnly = Math.Max(0.0, dm.specialNonPc);
-                                double movedOut = WorkTransferReportingService.GetMovedOut(date);
-                                double movedIn = WorkTransferReportingService.GetMovedInDetails(date).Sum(x => x.hours);
-                                double effective = worked - movedOut + movedIn;
-                                double overShown = (movedIn > 1e-6) ? 0.0 : Math.Max(0.0, effective - dayQuota);
-                                double neodShown = (movedOut > 1e-6) ? 0.0 : Math.Max(0.0, dayQuota - effective);
+                                bool hideWeek = weekHasLocked[MondayOf(date)];
+                                double effective = worked;
+                                double overVal = Math.Max(0.0, effective - dayQuota);
+                                double missVal = Math.Max(0.0, dayQuota - effective);
+                                double overShown = Math.Max(0.0, effective - dayQuota);
+                                double neodShown = Math.Max(0.0, dayQuota - effective);
+                                if (hideWeek) { overShown = 0.0; neodShown = 0.0; }
                                 double neodShown1 = specialOnly;
                                 sumWorked += worked;
-                                sumOvers += overShown;
+                                if (!hideWeek) sumOvers += overShown;
                                 sumNeod += neodShown1;
+                                if (hideWeek && specialOnly <= 1e-6)
+                                    sumCtrlWorked += dayQuota;
+                                else
+                                    sumCtrlWorked += worked;
                                 var def = GetWeekdayDefaults(gl, date.DayOfWeek);
                                 var us = SettingsService.GetUserSettingsForDate(date);
                                 var dayStart = us?.ArrivalTime ?? def.arrival;
@@ -230,8 +257,8 @@ namespace TeacherScheduleApp.Services
                                 table.Cell().Border(1).Text(dayEnd.ToString(@"hh\:mm"));
 
                                 table.Cell().Border(1).Text($"{TimeSpan.FromHours(worked):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(overShown):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(neodShown):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text(hideWeek ? "00:00:00" : $"{TimeSpan.FromHours(overShown):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text(hideWeek ? "00:00:00" : $"{TimeSpan.FromHours(neodShown):hh\\:mm\\:ss}");
                                 table.Cell().Border(1).Text(note);
                             }
 
@@ -240,7 +267,7 @@ namespace TeacherScheduleApp.Services
                                 f.Cell().ColumnSpan(7).Text("Celkem").AlignRight();
 
                                 var monthTotals = calc.MonthlyMetrics(year, month, events);
-                                var totalWorkedTs = TimeSpan.FromHours(sumWorked);
+                                var totalWorkedTs = TimeSpan.FromHours(sumCtrlWorked);
                                 var totalOverTs = TimeSpan.FromHours(sumOvers);
                                 var totalNeodTs = TimeSpan.FromHours(sumNeod);
 
@@ -252,7 +279,8 @@ namespace TeacherScheduleApp.Services
                         });
 
                         var monthTotals2 = calc.MonthlyMetrics(year, month, events);
-                        var kontr = TimeSpan.FromHours(sumWorked - sumOvers + sumNeod); int kh = kontr.Days * 24 + kontr.Hours;
+                        var kontr = TimeSpan.FromHours(sumCtrlWorked - sumOvers + sumNeod);
+                        int kh = kontr.Days * 24 + kontr.Hours;
                         int km = kontr.Minutes;
                         int ks = kontr.Seconds;
 
@@ -279,7 +307,27 @@ namespace TeacherScheduleApp.Services
             return ms.ToArray();
         }
 
+        static bool IsWorkLike(Event e)
+    => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
 
+        static bool IsLockedDay(IEnumerable<Event> dayEvents)
+        {
+            var evs = dayEvents
+                .Where(e => !e.IsDeleted && e.EventType != EventType.Lunch)
+                .OrderBy(e => e.StartTime)
+                .ToList();
+
+            if (evs.Count == 0) return false;
+            bool firstManual = !evs.First().IsAutoGenerated && IsWorkLike(evs.First());
+            bool lastManual = !evs.Last().IsAutoGenerated && IsWorkLike(evs.Last());
+            return firstManual && lastManual;
+        }
+
+        static DateTime MondayOf(DateTime d)
+        {
+            int delta = ((int)d.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            return d.Date.AddDays(-delta);
+        }
         public IReadOnlyList<Bitmap> RenderPdfPages(byte[] pdfBytes, int dpi = 300)
         {
             try

@@ -129,6 +129,8 @@ namespace TeacherScheduleApp.Services
                 autoGen.RegenerateDailyEventsAsync(d).Wait();
                 EnsureLunchInsideWorkWindowAsync(d).Wait();
             }
+            BalanceWeekForDateAsync(parentDate).GetAwaiter().GetResult();
+            MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
         }
 
         public List<Event> GetAllEvents()
@@ -252,6 +254,7 @@ namespace TeacherScheduleApp.Services
                 var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
                 gen.RegenerateDailyEventsAsync(dayToRegen, preserveUserSettings: true).GetAwaiter().GetResult();
                 EnsureLunchInsideWorkWindowAsync(dayToRegen).GetAwaiter().GetResult();
+                BalanceWeekForDateAsync(parent.StartTime).GetAwaiter().GetResult();
                 MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(dayToRegen));
             }
@@ -272,7 +275,7 @@ namespace TeacherScheduleApp.Services
 
             var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
             gen.RegenerateDailyEventsAsync(day, preserveUserSettings: false).GetAwaiter().GetResult();
-
+            BalanceWeekForDateAsync(day).GetAwaiter().GetResult();
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
             MessageBus.Current.SendMessage(new UserSettingsChangedMessage(day));
         }
@@ -713,53 +716,96 @@ namespace TeacherScheduleApp.Services
         private async Task BalanceOneWeekAsync(List<DateTime> weekDays)
         {
             const double EPS = 1e-6;
+            WorkTransferReportingService.ResetWeek(weekDays);
             var calc = new WorkingHoursCalculatorService();
-            var meta = weekDays.Select(d =>
+            var meta = weekDays.ToDictionary(d => d, d =>
             {
                 var m = calc.DailyMetrics(d, GetEventsForDay(d));
                 var total = m.specialNonPc + m.workInclBT;
-                return new { Day = d, Need = Math.Max(0, 8.0 - total), Extra = Math.Max(0, total - 8.0), Locked = IsLockedEdgeDay(d) };
-            }).ToList();
-            foreach (var free in meta.Where(x => !x.Locked && x.Extra > EPS).OrderBy(x => x.Day))
-            {
-                await TrimOvertimeOnSameDayAsync(free.Day, free.Extra);
-            }
-            meta = weekDays.Select(d =>
-            {
-                var m = calc.DailyMetrics(d, GetEventsForDay(d));
-                var total = m.specialNonPc + m.workInclBT;
-                return new { Day = d, Need = Math.Max(0, 8.0 - total), Extra = Math.Max(0, total - 8.0), Locked = IsLockedEdgeDay(d) };
-            }).ToList();
-            foreach (var locked in meta.Where(x => x.Locked && x.Extra > EPS).OrderBy(x => x.Day))
-                await TransferLockedOvertimeAsync(locked.Day, locked.Extra, weekDays);
-            var deficits = new Queue<(DateTime day, double need)>(meta.Where(x => x.Need > EPS && !x.Locked).Select(x => (x.Day, x.Need)));
-            var excesses = new Queue<(DateTime day, double extra)>(meta.Where(x => x.Extra > EPS && !x.Locked).Select(x => (x.Day, x.Extra)));
-            bool IsFlex(DateTime d) => (CanTrimStart(d) || CanTrimEnd(d));
-            var flexDays = new Queue<DateTime>(weekDays.Where(d => !meta.Any(m => m.Day == d && (m.Need > EPS || m.Extra > EPS))).Where(IsFlex));
-            while (deficits.Count > 0 && excesses.Count > 0)
-            {
-                var (defDay, need) = deficits.Dequeue();
-                var (exDay, extra) = excesses.Dequeue();
-                var transfer = Math.Min(need, extra);
-                double taken = 0;
-                if (CanTrimEnd(exDay)) { var t = TrimEndAuto(exDay, transfer - taken); taken += t; }
-                if (transfer - taken > EPS && CanTrimStart(exDay)) { var t = TrimStartAuto(exDay, transfer - taken); taken += t; }
-                double placed = 0;
-                if (taken > EPS)
+                return new WeekDayMeta
                 {
-                    if (CanTrimEnd(defDay)) { var t = ExtendEndAuto(defDay, taken - placed); placed += t; }
-                    if (taken - placed > EPS && CanTrimStart(defDay)) { var t = ExtendStartAuto(defDay, taken - placed); placed += t; }
-                    if (placed > 1e-6)
-                        WorkTransferReportingService.AddTransfer(exDay, defDay, placed);
-                    var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
-                    await gen.RegenerateDailyEventsAsync(exDay);
-                    await gen.RegenerateDailyEventsAsync(defDay);
-                    need = Math.Max(0, need - placed);
-                    extra = Math.Max(0, extra - taken);
+                    Day = d,
+                    Extra = Math.Max(0, total - 8.0),
+                    Locked = IsLockedEdgeDay(d),
+                    CanStart = CanTrimStart(d),
+                    CanEnd = CanTrimEnd(d)
+                };
+            });
+
+            var touched = new HashSet<DateTime>();
+
+            double CutFairOneStep(DateTime day, double planHours)
+            {
+                double cut = 0.0;
+                bool canS = CanTrimStart(day);
+                bool canE = CanTrimEnd(day);
+                if (!canS && !canE) return 0.0;
+
+                if (planHours >= 1.0 && canS && canE)
+                {
+                    cut += TrimStartAuto(day, 0.5);
+                    cut += TrimEndAuto(day, 0.5);
+
+                    var left = 1.0 - cut;
+                    if (left > EPS)
+                    {
+                        if (CanTrimEnd(day)) cut += TrimEndAuto(day, left);
+                        else if (CanTrimStart(day)) cut += TrimStartAuto(day, left);
+                    }
+                }
+                else
+                {
+                    double req = (planHours >= 1.0) ? 1.0 : 0.5;
+                    if (canE) cut += TrimEndAuto(day, req);
+                    else if (canS) cut += TrimStartAuto(day, req);
                 }
 
-                if (need > EPS) { deficits.Enqueue((defDay, need)); }
-                if (extra > EPS) { excesses.Enqueue((exDay, extra)); }
+                if (cut > EPS)
+                {
+                    meta[day].CanStart = CanTrimStart(day);
+                    meta[day].CanEnd = CanTrimEnd(day);
+                    touched.Add(day);
+                }
+                return cut;
+            }
+
+            bool progress = true;
+            while (progress)
+            {
+                progress = false;
+                foreach (var d in weekDays.OrderBy(x => x))
+                {
+                    var md = meta[d];
+                    if (md.Extra <= EPS) continue;
+                    if (!(md.CanStart || md.CanEnd)) continue;
+
+                    var plan = Math.Min(1.0, md.Extra);
+                    var cut = CutFairOneStep(d, plan);
+                    if (cut > EPS)
+                    {
+                        md.Extra = Math.Max(0, md.Extra - cut);
+                        meta[d] = md;
+                        progress = true;
+                    }
+                }
+            }
+
+            foreach (var kv in meta.Where(x => x.Value.Locked && x.Value.Extra > EPS)
+                        .OrderBy(x => x.Key))
+            {
+                var lockedDay = kv.Key;
+                var extra = kv.Value.Extra;
+
+                var transferred = await TransferLockedOvertimeAsync(lockedDay, extra, weekDays);
+
+                meta[lockedDay].Extra = Math.Max(0, extra - transferred);
+            }
+
+            var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
+            foreach (var d in touched)
+            {
+                await gen.RegenerateDailyEventsAsync(d, preserveUserSettings: false);
+                await EnsureLunchInsideWorkWindowAsync(d, callRegenerate: false);
             }
         }
 
@@ -1110,13 +1156,12 @@ namespace TeacherScheduleApp.Services
 
             return cutDone;
         }
-        private const int QUANTUM_MIN = 1;
+        private const int QUANTUM_MIN = 5;
+        private static int RoundDownToQuantum(int minutes) => minutes - minutes % QUANTUM_MIN;
+        private static int RoundUpToQuantum(int minutes) => minutes % QUANTUM_MIN == 0 ? minutes : minutes + (QUANTUM_MIN - minutes % QUANTUM_MIN);
+        private static TimeSpan QMinutes(int minutes) => TimeSpan.FromMinutes(RoundDownToQuantum(minutes));
+        private static int ToWholeMinutes(double hours) => (int)Math.Round(hours * 60.0);
 
-        private static TimeSpan QMinutes(int minutes)
-            => TimeSpan.FromMinutes(minutes - minutes % QUANTUM_MIN);
-
-        private static int ToWholeMinutes(double hours)
-            => (int)Math.Round(hours * 60.0);
 
         private static DateTime TruncToMinute(DateTime dt)
             => new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, 0, dt.Kind);
@@ -1462,7 +1507,8 @@ namespace TeacherScheduleApp.Services
                 AdjustUserSettingsAfterChange(day);
                 await gen.RegenerateDailyEventsAsync(day, preserveUserSettings: false);
             }
-
+            if (affectedDays.Count > 0)
+                await BalanceForChangedRangeAsync(affectedDays.Min(), affectedDays.Max());
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
         }
 
@@ -1506,7 +1552,7 @@ namespace TeacherScheduleApp.Services
                 AdjustUserSettingsAfterChange(day);
                 await gen.RegenerateDailyEventsAsync(day, preserveUserSettings: false);
             }
-
+            await BalanceForChangedRangeAsync(from, to);
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
         }
 
@@ -1554,7 +1600,7 @@ namespace TeacherScheduleApp.Services
                 var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
                 gen.RegenerateDailyEventsAsync(day).GetAwaiter().GetResult();
                 EnsureLunchInsideWorkWindowAsync(day).GetAwaiter().GetResult();
-
+                BalanceWeekForDateAsync(day).GetAwaiter().GetResult();
                 MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(day));
             }
@@ -1726,68 +1772,50 @@ namespace TeacherScheduleApp.Services
         private async Task<double> TransferLockedOvertimeAsync(DateTime lockedDay, double overtimeHours, IEnumerable<DateTime> weekDays)
         {
             const double EPS = 1e-6;
-            const double QUANTUM = 1;
-            double left = overtimeHours;
+            int leftMin = RoundDownToQuantum(ToWholeMinutes(overtimeHours));
+            if (leftMin < QUANTUM_MIN) return 0;
 
             var donors = weekDays
-                .Where(d => d.Date != lockedDay.Date)
-                .Select(d => new DonorCap(d, GetStartCap(d), GetEndCap(d)))
-                .Where(d => d.Remaining > EPS)
-                .OrderBy(d => d.Day)
+                .Where(d => d.Date != lockedDay.Date && (CanTrimStart(d) || CanTrimEnd(d)))
+                .OrderBy(d => d)
                 .ToList();
-
             if (donors.Count == 0) return 0;
 
-            while (left > EPS)
+            var preferEnd = donors.ToDictionary(d => d, _ => true);
+            var touched = new HashSet<DateTime>();
+            int i = 0, guard = 0;
+
+            while (leftMin >= QUANTUM_MIN && donors.Count > 0 && guard++ < 2000)
             {
-                var active = donors.Where(d => d.Remaining > EPS).ToList();
-                if (active.Count == 0) break;
+                var d = donors[i % donors.Count]; i++;
 
-                var share = (active.Count > 0) ? (left / active.Count) : 0;
+                double cut = 0;
+                if (preferEnd[d] && CanTrimEnd(d)) cut = TrimEndAuto(d, QMinutes(QUANTUM_MIN));
+                if (cut <= EPS && CanTrimStart(d)) cut = TrimStartAuto(d, QMinutes(QUANTUM_MIN));
+                if (cut <= EPS && CanTrimEnd(d)) cut = TrimEndAuto(d, QMinutes(QUANTUM_MIN));
 
-                foreach (var d in active)
+                int gotMin = RoundDownToQuantum((int)Math.Round(cut * 60.0));
+                if (gotMin <= 0)
                 {
-                    var want = Math.Min(share, Math.Min(left, d.Remaining));
-                    double cut = 0;
-                    double perSide = Math.Min(want / 2.0, Math.Min(d.CapStartRem, d.CapEndRem));
-
-                    if (perSide > EPS)
-                    {
-                        var t1 = TrimStartAuto(d.Day, perSide);
-                        var t2 = TrimEndAuto(d.Day, perSide);
-                        d.CapStartRem -= t1;
-                        d.CapEndRem -= t2;
-                        cut += t1 + t2;
-                    }
-
-                    var rem = want - cut;
-                    if (rem > EPS && d.CapEndRem > EPS)
-                    {
-                        var t = TrimEndAuto(d.Day, Math.Min(rem, d.CapEndRem));
-                        d.CapEndRem -= t; cut += t;
-                        rem = want - cut;
-                    }
-                    if (rem > EPS && d.CapStartRem > EPS)
-                    {
-                        var t = TrimStartAuto(d.Day, Math.Min(rem, d.CapStartRem));
-                        d.CapStartRem -= t; cut += t;
-                    }
-
-                    if (cut > EPS)
-                    {
-                        left -= cut;
-                        WorkTransferReportingService.AddTransfer(d.Day, lockedDay, cut);
-
-                        var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
-                        await gen.RegenerateDailyEventsAsync(d.Day, preserveUserSettings: false);
-                        await EnsureLunchInsideWorkWindowAsync(d.Day, callRegenerate: false);
-                    }
-
-                    if (left <= EPS) break;
+                    if (!(CanTrimStart(d) || CanTrimEnd(d))) donors.Remove(d);
+                    continue;
                 }
+
+                leftMin -= gotMin;
+                preferEnd[d] = !preferEnd[d];
+                touched.Add(d);
+
+                WorkTransferReportingService.AddTransfer(d, lockedDay, gotMin / 60.0);
             }
 
-            return overtimeHours - left;
+            var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
+            foreach (var d in touched)
+            {
+                await gen.RegenerateDailyEventsAsync(d, preserveUserSettings: false);
+                await EnsureLunchInsideWorkWindowAsync(d, callRegenerate: false);
+            }
+            MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
+            return (ToWholeMinutes(overtimeHours) - leftMin) / 60.0;
         }
 
         private async Task<double> TrimOvertimeOnSameDayAsync(DateTime day, double extraHours)
@@ -1911,35 +1939,31 @@ namespace TeacherScheduleApp.Services
             => TrimStartAuto(day, QMinutes(ToWholeMinutes(hours)));
         private async Task<double> TrimAutoSymmetricAsync(DateTime day, double hours, bool callRegenerate = true)
         {
-            int toCutMin = ToWholeMinutes(hours);
+            int toCutMin = RoundDownToQuantum(ToWholeMinutes(hours));
             if (toCutMin <= 0) return 0;
 
-            int capStartMin = (int)Math.Floor(GetStartCap(day) * 60.0);
-            int capEndMin = (int)Math.Floor(GetEndCap(day) * 60.0);
-            if (capStartMin + capEndMin <= 0) return 0;
+            int cut = 0;
+            while (toCutMin - cut >= QUANTUM_MIN && (CanTrimStart(day) || CanTrimEnd(day)))
+            {
+                int left = toCutMin - cut;
 
-            int perSideMin = Math.Min(toCutMin / 2, Math.Min(capStartMin, capEndMin));
-            int cutMin = 0;
-            if (perSideMin > 0)
-            {
-                cutMin += ToWholeMinutes(TrimStartAuto(day, QMinutes(perSideMin)));
-                cutMin += ToWholeMinutes(TrimEndAuto(day, QMinutes(perSideMin)));
-                capStartMin -= perSideMin;
-                capEndMin -= perSideMin;
-            }
+                int endWant = RoundUpToQuantum(left / 2);
+                if (endWant > left) endWant = left;
+                int startWant = left - endWant;
 
-            int left = toCutMin - cutMin;
-            if (left > 0 && capEndMin > 0)
-            {
-                int take = Math.Min(left, capEndMin);
-                cutMin += ToWholeMinutes(TrimEndAuto(day, QMinutes(take)));
-                left -= take;
-            }
-            if (left > 0 && capStartMin > 0)
-            {
-                int take = Math.Min(left, capStartMin);
-                cutMin += ToWholeMinutes(TrimStartAuto(day, QMinutes(take)));
-                left -= take;
+                double c1 = 0, c2 = 0;
+                if (endWant > 0 && CanTrimEnd(day)) c1 = TrimEndAuto(day, TimeSpan.FromMinutes(endWant));
+                if (startWant > 0 && CanTrimStart(day)) c2 = TrimStartAuto(day, TimeSpan.FromMinutes(startWant));
+
+                int got = RoundDownToQuantum((int)Math.Round((c1 + c2) * 60.0));
+                if (got <= 0)
+                {
+                    if (CanTrimEnd(day)) got = RoundDownToQuantum((int)Math.Round(TrimEndAuto(day, QMinutes(QUANTUM_MIN)) * 60.0));
+                    if (got <= 0 && CanTrimStart(day))
+                        got = RoundDownToQuantum((int)Math.Round(TrimStartAuto(day, QMinutes(QUANTUM_MIN)) * 60.0));
+                    if (got <= 0) break;
+                }
+                cut += got;
             }
 
             if (callRegenerate)
@@ -1947,9 +1971,80 @@ namespace TeacherScheduleApp.Services
                 var gen = new AutomaticEventsGeneratorService(this, _ => Task.FromResult(false));
                 await gen.RegenerateDailyEventsAsync(day, preserveUserSettings: false);
             }
-
             await EnsureLunchInsideWorkWindowAsync(day, callRegenerate: false);
-            return cutMin / 60.0;
+            MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
+            return cut / 60.0;
+        }
+        private sealed class WeekDayMeta
+        {
+            public DateTime Day;
+            public double Extra;
+            public bool Locked;          
+            public bool CanStart;        
+            public bool CanEnd;          
+        }
+        private bool _isBalancingNow;
+
+        private static bool IsWorkday(DateTime d)
+            => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
+               && !HolidayHelper.IsCzechHoliday(d);
+
+        private static List<DateTime> GetWeekWorkdays(DateTime anyDate)
+        {
+            var date = anyDate.Date;
+            int delta = ((int)date.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            var weekStart = date.AddDays(-delta);
+            return Enumerable.Range(0, 7)
+                .Select(i => weekStart.AddDays(i))
+                .Where(IsWorkday)
+                .ToList();
+        }
+
+        public async Task BalanceWeekForDateAsync(DateTime anyDate)
+        {
+            if (_isBalancingNow) return;
+            try
+            {
+                _isBalancingNow = true;
+                var days = GetWeekWorkdays(anyDate);
+                if (days.Count == 0) return;
+                WorkTransferReportingService.ResetWeek(days);
+                await BalanceOneWeekAsync(days);
+
+                foreach (var g in days.GroupBy(d => new { d.Year, d.Month }))
+                    await PostNormalizeMonthAsync(g.Key.Year, g.Key.Month);
+            }
+            finally { _isBalancingNow = false; }
+        }
+
+        public async Task BalanceForChangedRangeAsync(DateTime startIncl, DateTime endIncl)
+        {
+            if (_isBalancingNow) return;
+            try
+            {
+                _isBalancingNow = true;
+
+                var days = Enumerable.Range(0, (endIncl.Date - startIncl.Date).Days + 1)
+                    .Select(i => startIncl.Date.AddDays(i))
+                    .Where(IsWorkday)
+                    .ToList();
+
+                if (days.Count == 0) return;
+
+                var groups = days.GroupBy(d => (System.Globalization.ISOWeek.GetYear(d),
+                                                System.Globalization.ISOWeek.GetWeekOfYear(d)))
+                                 .OrderBy(g => g.Key);
+                foreach (var g in groups)
+                {
+                    var weekDays = g.OrderBy(d => d).ToList();
+                    WorkTransferReportingService.ResetWeek(weekDays);
+                    await BalanceOneWeekAsync(weekDays);
+                }
+
+                foreach (var m in days.Select(d => (d.Year, d.Month)).Distinct())
+                    await PostNormalizeMonthAsync(m.Year, m.Month);
+            }
+            finally { _isBalancingNow = false; }
         }
     }
 }

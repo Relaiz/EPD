@@ -94,7 +94,7 @@ namespace TeacherScheduleApp.ViewModels
             var fpBefore = Helpers.BalanceFingerprint.ForMonth(_eventService, year, month);
             if (!Helpers.MonthBalanceStore.IsBalanced(year, month, fpBefore))
             {
-                await _eventService.BalanceEventsForMonthAsync(year, month, AskUserAsync);
+               
 
                 var fpAfter = Helpers.BalanceFingerprint.ForMonth(_eventService, year, month);
                 Helpers.MonthBalanceStore.Save(year, month, fpAfter);

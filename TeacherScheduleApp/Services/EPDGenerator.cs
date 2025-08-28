@@ -197,7 +197,7 @@ namespace TeacherScheduleApp.Services
                 AdjustUserSettingsForDay(day);
                 await _eventService.TrimOvertimeByAutoBlocksAsync(day);
             }
-
+            await _eventService.BalanceForChangedRangeAsync(importStart, importEnd);
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
             MessageBus.Current.SendMessage(new EpdGeneratedMessage());
 
