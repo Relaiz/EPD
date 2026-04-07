@@ -1,30 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Avalonia.Media.Imaging;
 using Ghostscript.NET;
 using Ghostscript.NET.Rasterizer;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using TeacherScheduleApp.Models;
-using QuestPDF.Helpers;
-using TeacherScheduleApp.Services;
+using TeacherScheduleApp.Data;
 using TeacherScheduleApp.Helpers;
-using static TeacherScheduleApp.Models.GlobalSettings;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-using Microsoft.VisualBasic;
-using System.Runtime.CompilerServices;
-using System.Text;
+using TeacherScheduleApp.Models;
 
 namespace TeacherScheduleApp.Services
 {
     public interface IPdfPreviewService
     {
-        byte[] GenerateMonthReport(int year, int month, IEnumerable<Event> events);
+        byte[] GenerateMonthReport(int year, int month, IEnumerable<Event> events, int employeeId = EventService.DefaultEmployeeId);
         IReadOnlyList<Bitmap> RenderPdfPages(byte[] pdfBytes, int dpi = 300);
     }
 
@@ -40,6 +35,7 @@ namespace TeacherScheduleApp.Services
             EventType.BusinessTrip,
             EventType.Holiday
         };
+
         private static string CodeFor(EventType t) => t switch
         {
             EventType.Vacation => "D",
@@ -51,17 +47,29 @@ namespace TeacherScheduleApp.Services
             EventType.DayOff => "S",
             _ => ""
         };
-        public byte[] GenerateMonthReport(int year, int month, IEnumerable<Event> events)
+
+        public byte[] GenerateMonthReport(int year, int month, IEnumerable<Event> events, int employeeId = EventService.DefaultEmployeeId)
         {
-            var sem = GlobalSettingsService.GetSemesterForDate(new DateTime(year, month, 1));
-            var gl = GlobalSettingsService.LoadGlobalSettings(year, sem)
-                     ?? GlobalSettingsService.GetDefaultSettings(year, sem);
+            var employee = GlobalSettingsService.EnsureDefaultEmployee(employeeId);
+            var semester = GlobalSettingsService.GetSemesterForDate(new DateTime(year, month, 1));
+            var semesterSettings = GlobalSettingsService.LoadSemesterSettings(year, semester, employeeId)
+                                   ?? GlobalSettingsService.GetDefaultSettings(year, semester, employeeId);
+
             var calc = new WorkingHoursCalculatorService();
 
             int daysInMonth = DateTime.DaysInMonth(year, month);
-            var eventsByDay = events
+
+            var monthEvents = events
+                .Where(e => !e.IsDeleted &&
+                            e.EmployeeId == employeeId &&
+                            e.StartTime.Year == year &&
+                            e.StartTime.Month == month)
+                .ToList();
+
+            var eventsByDay = monthEvents
                 .GroupBy(e => e.StartTime.Day)
                 .ToDictionary(g => g.Key, g => g.ToList());
+
             var weekHasLocked = new Dictionary<DateTime, bool>();
 
             for (int d = 1; d <= daysInMonth; d++)
@@ -83,11 +91,13 @@ namespace TeacherScheduleApp.Services
                     weekHasLocked[monday] = anyLocked;
                 }
             }
+
             int workDays = Enumerable.Range(1, daysInMonth)
                 .Select(d => new DateTime(year, month, d))
                 .Count(dt => dt.DayOfWeek is not DayOfWeek.Saturday
-                          && dt.DayOfWeek is not DayOfWeek.Sunday
+                          and not DayOfWeek.Sunday
                           && !HolidayHelper.IsCzechHoliday(dt));
+
             double monthQuota = workDays * 8.0;
 
             using var ms = new MemoryStream();
@@ -100,52 +110,49 @@ namespace TeacherScheduleApp.Services
                     page.Margin(10);
                     page.DefaultTextStyle(x => x.FontSize(9));
 
-                    // HEADER
                     page.Header().Column(h =>
                     {
-                        h.Item().Container().PaddingBottom(6)
+                        h.Item().PaddingBottom(6)
                             .Text("Evidence pracovní doby, včetně přestávek v práci a práce přesčas")
-                            .FontSize(12).SemiBold().AlignCenter();
+                            .FontSize(12)
+                            .SemiBold()
+                            .AlignCenter();
 
                         h.Item().Row(r =>
                         {
                             r.RelativeColumn(1).Column(c =>
                             {
-                                c.Item().Container().PaddingBottom(2).Text("Fakulta elektrotechniky a informatiky")
-                                    .FontSize(9).AlignLeft();
-                                c.Item().Container().PaddingBottom(2).Text($"jméno: {gl.EmployeeName}")
-                                    .FontSize(9).AlignLeft();
-                                c.Item().Text($"útvar: {gl.Department}").FontSize(9).AlignLeft();
+                                c.Item().PaddingBottom(2).Text("Fakulta elektrotechniky a informatiky").FontSize(9);
+                                c.Item().PaddingBottom(2).Text($"jméno: {employee.FullName}").FontSize(9);
+                                c.Item().Text($"útvar: {employee.Department}").FontSize(9);
                             });
 
                             r.RelativeColumn(1).Column(c =>
                             {
-                                c.Item().Container().PaddingBottom(1)
-                                    .Text($"pracovní doba: {gl.GlobalStartTime}–{gl.GlobalEndTime} hod.")
-                                    .FontSize(9).AlignLeft();
-                                c.Item().Text($"docházka za měsíc: {new DateTime(year, month, 1):MMMM yyyy}")
-                                    .FontSize(9).AlignLeft();
+                                c.Item().PaddingBottom(1)
+                                    .Text($"pracovní doba: {semesterSettings.GlobalStartTime}–{semesterSettings.GlobalEndTime} hod.")
+                                    .FontSize(9);
+                                c.Item()
+                                    .Text($"docházka za měsíc: {new DateTime(year, month, 1):MMMM yyyy}")
+                                    .FontSize(9);
                             });
 
-                            r.ConstantColumn(120).Container().Border(1).Padding(4).Column(q =>
+                            r.ConstantColumn(120).Border(1).Padding(4).Column(q =>
                             {
-                                q.Item().Text("Fond prac. doby:").Bold().FontSize(9).AlignLeft();
-                                q.Item().Text($"{monthQuota:F0} hodin").FontSize(9).AlignLeft();
+                                q.Item().Text("Fond prac. doby:").Bold().FontSize(9);
+                                q.Item().Text($"{monthQuota:F0} hodin").FontSize(9);
                             });
                         });
                     });
 
-                    const float pageMargin = 10f;
-                    var pageWidth = PageSizes.A4.Landscape().Width;
-                    var contentWidth = pageWidth - 2 * pageMargin;
                     double sumWorked = 0.0;
                     double sumOvers = 0.0;
                     double sumNeod = 0.0;
                     double sumCtrlWorked = 0.0;
-                    // BODY
+
                     page.Content().PaddingTop(10).Column(col =>
                     {
-                        col.Item().Width(contentWidth).Table(table =>
+                        col.Item().Table(table =>
                         {
                             table.ColumnsDefinition(cd =>
                             {
@@ -179,13 +186,13 @@ namespace TeacherScheduleApp.Services
                                 h.Cell().Border(1).Background("#EEEEEE").Text("Od").AlignCenter();
                                 h.Cell().Border(1).Background("#EEEEEE").Text("Do").AlignCenter();
                             });
-                            
+
                             for (int d = 1; d <= daysInMonth; d++)
                             {
                                 var date = new DateTime(year, month, d);
                                 bool isHoliday = HolidayHelper.IsCzechHoliday(date);
                                 bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
-                                
+
                                 if (isHoliday)
                                 {
                                     table.Cell().Border(1).Background("#F0F0F0").Text($"{d}.");
@@ -194,6 +201,7 @@ namespace TeacherScheduleApp.Services
                                     table.Cell().Border(1).Background("#F0F0F0").Text("S");
                                     continue;
                                 }
+
                                 if (isWeekend)
                                 {
                                     table.Cell().Border(1).Background("#F0F0F0").Text($"{d}.");
@@ -201,53 +209,39 @@ namespace TeacherScheduleApp.Services
                                         table.Cell().Border(1).Background("#F0F0F0").Text("");
                                     continue;
                                 }
-                                var dm = calc.DailyMetrics(date, events);
 
-                                const double dayQuota = 8.0;
-                                double worked = dm.workInclBT;
-                                double specialOnly = Math.Max(0.0, dm.specialNonPc);
-                                bool hideWeek = weekHasLocked[MondayOf(date)];
-                                double effective = worked;
-                                double overVal = Math.Max(0.0, effective - dayQuota);
-                                double missVal = Math.Max(0.0, dayQuota - effective);
-                                double overShown = Math.Max(0.0, effective - dayQuota);
-                                double neodShown = Math.Max(0.0, dayQuota - effective);
-                                if (hideWeek) { overShown = 0.0; neodShown = 0.0; }
-                                double neodShown1 = specialOnly;
-                                sumWorked += worked;
-                                if (!hideWeek) sumOvers += overShown;
-                                sumNeod += neodShown1;
-                                if (hideWeek && specialOnly <= 1e-6)
-                                    sumCtrlWorked += dayQuota;
-                                else
-                                    sumCtrlWorked += worked;
-                                var def = GetWeekdayDefaults(gl, date.DayOfWeek);
-                                var us = SettingsService.GetUserSettingsForDate(date);
-                                var dayStart = us?.ArrivalTime ?? def.arrival;
-                                var dayEnd = us?.DepartureTime ?? def.departure;
+                                var dm = calc.DailyMetrics(date, monthEvents, employeeId);
 
                                 var dayEvents = eventsByDay.GetValueOrDefault(d) ?? new List<Event>();
 
+                                bool weekLocked = weekHasLocked[MondayOf(date)];
+                                bool dayLocked = IsLockedDay(dayEvents);
+
+                                double workedShown = dayLocked ? dm.credited : dm.worked;
+                                double overShown = weekLocked ? 0.0 : dm.over;
+                                double neodShown = weekLocked ? 0.0 : dm.under;
+
+                                sumWorked += workedShown;
+                                if (!weekLocked) sumOvers += overShown;
+                                if (!weekLocked) sumNeod += neodShown;
+                                sumCtrlWorked += workedShown;
+
+                                var resolved = SettingsService.GetResolvedDaySettings(date, employeeId);
+                                var dayStart = resolved.ArrivalTime;
+                                var dayEnd = resolved.DepartureTime;
+
                                 var lunches = dayEvents
-                                    .Where(e => e.EventType == EventType.Lunch)
+                                    .Where(e => e.EventType == EventType.Lunch && !e.IsDeleted)
                                     .OrderBy(e => e.StartTime)
                                     .ToList();
-                                var winS = date + dayStart;
-                                var winE = date + dayEnd;
-                                bool hasUserLunch = us is not null && us.LunchEnd > us.LunchStart;
-                                var lunchStart = hasUserLunch ? us.LunchStart : def.lunchStart;
-                                var lunchEnd = hasUserLunch ? us.LunchEnd : def.lunchEnd;
 
-                                
                                 string note = string.Join("+",
                                     dayEvents
-                                        .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch)
+                                        .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch && !e.IsDeleted)
                                         .Select(e => CodeFor(e.EventType))
                                         .Where(s => !string.IsNullOrWhiteSpace(s))
                                         .Distinct());
-                                var workedTs = TimeSpan.FromHours(worked);
-                               // var overTs = TimeSpan.FromHours(over);
-                             //   var neodTs = TimeSpan.FromHours(neod);
+
                                 table.Cell().Border(1).Text($"{d}.");
                                 table.Cell().Border(1).Text(dayStart.ToString(@"hh\:mm"));
                                 table.Cell().Border(1).Text(lunches.ElementAtOrDefault(0)?.StartTime.TimeOfDay.ToString(@"hh\:mm") ?? "");
@@ -256,9 +250,9 @@ namespace TeacherScheduleApp.Services
                                 table.Cell().Border(1).Text(lunches.ElementAtOrDefault(1)?.EndTime.TimeOfDay.ToString(@"hh\:mm") ?? "");
                                 table.Cell().Border(1).Text(dayEnd.ToString(@"hh\:mm"));
 
-                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(worked):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text(hideWeek ? "00:00:00" : $"{TimeSpan.FromHours(overShown):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text(hideWeek ? "00:00:00" : $"{TimeSpan.FromHours(neodShown):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(workedShown):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text(weekLocked ? "00:00:00" : $"{TimeSpan.FromHours(overShown):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text(weekLocked ? "00:00:00" : $"{TimeSpan.FromHours(neodShown):hh\\:mm\\:ss}");
                                 table.Cell().Border(1).Text(note);
                             }
 
@@ -266,7 +260,6 @@ namespace TeacherScheduleApp.Services
                             {
                                 f.Cell().ColumnSpan(7).Text("Celkem").AlignRight();
 
-                                var monthTotals = calc.MonthlyMetrics(year, month, events);
                                 var totalWorkedTs = TimeSpan.FromHours(sumCtrlWorked);
                                 var totalOverTs = TimeSpan.FromHours(sumOvers);
                                 var totalNeodTs = TimeSpan.FromHours(sumNeod);
@@ -278,7 +271,6 @@ namespace TeacherScheduleApp.Services
                             });
                         });
 
-                        var monthTotals2 = calc.MonthlyMetrics(year, month, events);
                         var kontr = TimeSpan.FromHours(sumCtrlWorked - sumOvers + sumNeod);
                         int kh = kontr.Days * 24 + kontr.Hours;
                         int km = kontr.Minutes;
@@ -297,37 +289,41 @@ namespace TeacherScheduleApp.Services
                         });
 
                         col.Item().PaddingTop(4)
-                           .Text("*) do poznámky: D – dovolená, N – nemoc, OČR – ošetřování, L – lékař, PC – pracovní cesta, S – svátek a ostatní dny pracovního klidu")
-                           .FontSize(8).AlignCenter();
+                            .Text("*) do poznámky: D – dovolená, N – nemoc, OČR – ošetřování, L – lékař, PC – pracovní cesta, S – svátek a ostatní dny pracovního klidu")
+                            .FontSize(8)
+                            .AlignCenter();
                     });
                 });
-            })
-            .GeneratePdf(ms);
+            }).GeneratePdf(ms);
 
             return ms.ToArray();
         }
 
-        static bool IsWorkLike(Event e)
-    => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
+        private static bool IsWorkLike(Event e)
+            => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
 
-        static bool IsLockedDay(IEnumerable<Event> dayEvents)
+        private static bool IsLockedDay(IEnumerable<Event> dayEvents)
         {
             var evs = dayEvents
                 .Where(e => !e.IsDeleted && e.EventType != EventType.Lunch)
                 .OrderBy(e => e.StartTime)
                 .ToList();
 
-            if (evs.Count == 0) return false;
+            if (evs.Count == 0)
+                return false;
+
             bool firstManual = !evs.First().IsAutoGenerated && IsWorkLike(evs.First());
             bool lastManual = !evs.Last().IsAutoGenerated && IsWorkLike(evs.Last());
+
             return firstManual && lastManual;
         }
 
-        static DateTime MondayOf(DateTime d)
+        private static DateTime MondayOf(DateTime d)
         {
             int delta = ((int)d.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
             return d.Date.AddDays(-delta);
         }
+
         public IReadOnlyList<Bitmap> RenderPdfPages(byte[] pdfBytes, int dpi = 300)
         {
             try
@@ -340,14 +336,13 @@ namespace TeacherScheduleApp.Services
                 else
                     return RenderOnWindowsWithGhostscriptNet(pdfBytes, dpi);
             }
-
             catch (Exception ex)
             {
-
                 Debug.WriteLine($"PDF render failed: {ex}");
                 throw new PdfRenderException("Nepodařilo se otevřít náhled PDF.", ex);
             }
         }
+
         public IReadOnlyList<Bitmap> RenderOnWindowsWithGhostscriptNet(byte[] pdfBytes, int dpi = 300)
         {
             try
@@ -380,7 +375,6 @@ namespace TeacherScheduleApp.Services
             }
         }
 
-
         private IReadOnlyList<Bitmap> RenderOnLinuxWithGsBinary(byte[] pdfBytes, int dpi)
         {
             var tmp = Path.Combine(Path.GetTempPath(), "pdfpreview_" + Guid.NewGuid());
@@ -390,9 +384,9 @@ namespace TeacherScheduleApp.Services
             {
                 var pdfFile = Path.Combine(tmp, "doc.pdf");
                 File.WriteAllBytes(pdfFile, pdfBytes);
+
                 var outputPattern = Path.Combine(tmp, "page-%03d.png");
-                var args = $"-q -dNOPAUSE -dBATCH -sDEVICE=pngalpha -r{dpi} " +
-                           $"-sOutputFile=\"{outputPattern}\" \"{pdfFile}\"";
+                var args = $"-q -dNOPAUSE -dBATCH -sDEVICE=pngalpha -r{dpi} -sOutputFile=\"{outputPattern}\" \"{pdfFile}\"";
 
                 var psi = new ProcessStartInfo("gs", args)
                 {
@@ -400,6 +394,7 @@ namespace TeacherScheduleApp.Services
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
+
                 using var proc = Process.Start(psi) ?? throw new PdfRenderException("Nelze spustit Ghostscript (gs).");
                 proc.WaitForExit();
 
@@ -430,50 +425,11 @@ namespace TeacherScheduleApp.Services
                 try { Directory.Delete(tmp, recursive: true); } catch { }
             }
         }
-        public   static (TimeSpan arrival, TimeSpan departure, TimeSpan lunchStart, TimeSpan lunchEnd)
-        GetWeekdayDefaults(GlobalSettings g, DayOfWeek dow)
+
+        private class PdfRenderException : Exception
         {
-            const string fmt = @"hh\:mm";
-            return dow switch
-            {
-                DayOfWeek.Monday => (TimeSpan.ParseExact(g.MondayArrival, fmt, null),
-                                        TimeSpan.ParseExact(g.MondayDeparture, fmt, null),
-                                        TimeSpan.ParseExact(g.MondayLunchStart, fmt, null),
-                                        TimeSpan.ParseExact(g.MondayLunchEnd, fmt, null)),
-                DayOfWeek.Tuesday => (TimeSpan.ParseExact(g.TuesdayArrival, fmt, null),
-                                        TimeSpan.ParseExact(g.TuesdayDeparture, fmt, null),
-                                        TimeSpan.ParseExact(g.TuesdayLunchStart, fmt, null),
-                                        TimeSpan.ParseExact(g.TuesdayLunchEnd, fmt, null)),
-                DayOfWeek.Wednesday => (TimeSpan.ParseExact(g.WednesdayArrival, fmt, null),
-                                        TimeSpan.ParseExact(g.WednesdayDeparture, fmt, null),
-                                        TimeSpan.ParseExact(g.WednesdayLunchStart, fmt, null),
-                                        TimeSpan.ParseExact(g.WednesdayLunchEnd, fmt, null)),
-                DayOfWeek.Thursday => (TimeSpan.ParseExact(g.ThursdayArrival, fmt, null),
-                                        TimeSpan.ParseExact(g.ThursdayDeparture, fmt, null),
-                                        TimeSpan.ParseExact(g.ThursdayLunchStart, fmt, null),
-                                        TimeSpan.ParseExact(g.ThursdayLunchEnd, fmt, null)),
-                DayOfWeek.Friday => (TimeSpan.ParseExact(g.FridayArrival, fmt, null),
-                                        TimeSpan.ParseExact(g.FridayDeparture, fmt, null),
-                                        TimeSpan.ParseExact(g.FridayLunchStart, fmt, null),
-                                        TimeSpan.ParseExact(g.FridayLunchEnd, fmt, null)),
-                _ => (TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero)
-            };
-        }
-        private List<(DateTime start, DateTime end)> MergeIntervals(List<(DateTime start, DateTime end)> intervals)
-        {
-            var sorted = intervals.OrderBy(x => x.start).ToList();
-            var merged = new List<(DateTime start, DateTime end)>();
-            foreach (var seg in sorted)
-            {
-                if (merged.Count == 0 || merged[^1].end < seg.start)
-                    merged.Add(seg);
-                else
-                    merged[^1] = (
-                        merged[^1].start,
-                        merged[^1].end > seg.end ? merged[^1].end : seg.end
-                    );
-            }
-            return merged;
+            public PdfRenderException(string message) : base(message) { }
+            public PdfRenderException(string message, Exception inner) : base(message, inner) { }
         }
     }
 }

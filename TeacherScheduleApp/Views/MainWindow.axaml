@@ -60,7 +60,7 @@
 				VerticalAlignment="Stretch">
 			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
 				<ProgressBar IsIndeterminate="True" Width="200" />
-				<TextBlock Text="Načítám…" Foreground="White" Margin="0,8,0,0" />
+				<TextBlock Text="{Binding BusyText}" Foreground="White" Margin="0,8,0,0" />
 			</StackPanel>
 		</Border>
 	<Grid>

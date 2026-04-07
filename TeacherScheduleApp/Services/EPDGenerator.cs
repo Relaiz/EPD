@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TeacherScheduleApp.Helpers;
 using TeacherScheduleApp.Messages;
 using TeacherScheduleApp.Models;
 
@@ -15,6 +16,8 @@ namespace TeacherScheduleApp.Services
     {
         private readonly EventService _eventService;
         private readonly Func<string, Task<bool>> _askCollision;
+        private readonly int _employeeId;
+        private readonly Action<string>? _reportStatus;
 
         public record EpdImportReport(
             List<Event> Events,
@@ -46,10 +49,12 @@ namespace TeacherScheduleApp.Services
             public const int MinCols = 45;
         }
 
-        public EPDGenerator(EventService eventService, Func<string, Task<bool>> askCollision)
+        public EPDGenerator(EventService eventService, Func<string, Task<bool>> askCollision, int employeeId = EventService.DefaultEmployeeId, Action<string>? reportStatus = null)
         {
             _eventService = eventService;
             _askCollision = askCollision;
+            _employeeId = employeeId;
+            _reportStatus = reportStatus;
         }
 
         public async Task<List<Event>> GenerateEPDEventsAsync(string teacherScheduleCsvPath)
@@ -60,14 +65,23 @@ namespace TeacherScheduleApp.Services
 
         public async Task<EpdImportReport> GenerateEPDEventsWithReportAsync(string teacherScheduleCsvPath)
         {
+            _reportStatus?.Invoke("Čtu CSV soubor…");
+
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
             var (lines, usedEnc) = ReadAllLinesSmart(teacherScheduleCsvPath);
-            if (lines.Length == 0) throw new InvalidDataException($"Soubor je prázdný: {Path.GetFileName(teacherScheduleCsvPath)}");
+
+            if (lines.Length == 0)
+                throw new InvalidDataException($"Soubor je prázdný: {Path.GetFileName(teacherScheduleCsvPath)}");
+
             var header = SplitCsvLine(lines[0]);
-            if (header.Length < CsvCols.MinCols) throw new InvalidDataException($"Nedostatečný počet sloupců v hlavičce: nalezeno {header.Length}, vyžadováno ≥ {CsvCols.MinCols}. Soubor: {Path.GetFileName(teacherScheduleCsvPath)}");
+            if (header.Length < CsvCols.MinCols)
+                throw new InvalidDataException(
+                    $"Nedostatečný počet sloupců v hlavičce: nalezeno {header.Length}, vyžadováno ≥ {CsvCols.MinCols}. Soubor: {Path.GetFileName(teacherScheduleCsvPath)}");
 
             var errors = new List<string>();
             var eventsOut = new List<Event>();
+
             int totalRows = Math.Max(0, lines.Length - 1);
             int imported = 0;
             int skipped = 0;
@@ -78,13 +92,23 @@ namespace TeacherScheduleApp.Services
             DateTime importStart = DateTime.MaxValue;
             DateTime importEnd = DateTime.MinValue;
 
+            _reportStatus?.Invoke("Zpracovávám řádky CSV…");
+
             for (int i = 1; i < lines.Length; i++)
             {
                 var raw = lines[i];
-                if (string.IsNullOrWhiteSpace(raw)) { skipped++; continue; }
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    skipped++;
+                    continue;
+                }
+
                 string[] p;
-                try { p = SplitCsvLine(raw); }
-                catch (Exception)
+                try
+                {
+                    p = SplitCsvLine(raw);
+                }
+                catch
                 {
                     skipped++;
                     errors.Add($"Řádek {i + 1}: poškozené CSV (nepárové uvozovky).");
@@ -155,19 +179,30 @@ namespace TeacherScheduleApp.Services
                 for (var dt = dateFrom.Date; dt <= dateTo.Date; dt = dt.AddDays(1))
                 {
                     if (dt.DayOfWeek != targetDow) continue;
-                    int isoWeek = CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(dt, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+
+                    int isoWeek = CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(
+                        dt,
+                        CalendarWeekRule.FirstFourDayWeek,
+                        DayOfWeek.Monday);
+
                     if (isoWeek < weekFrom || isoWeek > weekTo) continue;
+
                     switch (parity)
                     {
-                        case 'L': if (isoWeek % 2 == 0) continue; break;
-                        case 'S': if (isoWeek % 2 != 0) continue; break;
-                        case 'J': if (((isoWeek - weekFrom) % 2) == 0) continue; break;
-                        case 'K':
-                        default: break;
+                        case 'L':
+                            if (isoWeek % 2 == 0) continue;
+                            break;
+                        case 'S':
+                            if (isoWeek % 2 != 0) continue;
+                            break;
+                        case 'J':
+                            if (((isoWeek - weekFrom) % 2) == 0) continue;
+                            break;
                     }
 
                     eventsOut.Add(new Event
                     {
+                        EmployeeId = _employeeId,
                         Title = title,
                         Description = description,
                         StartTime = dt + t0,
@@ -175,8 +210,7 @@ namespace TeacherScheduleApp.Services
                         EventType = EventType.Work,
                         AllDay = false,
                         IsAutoGenerated = false,
-                        ImportBatchId = batchId,
-                        ImportLabel = batchName
+                        IsDeleted = false
                     });
                 }
 
@@ -184,20 +218,68 @@ namespace TeacherScheduleApp.Services
             }
 
             if (importStart <= importEnd)
-                await _eventService.BulkSoftDeleteImportedInRangeAsync(importStart, importEnd);
+            {
+                _reportStatus?.Invoke("Mažu původní import…");
+                await _eventService.BulkSoftDeleteImportedInRangeAsync(importStart, importEnd, _employeeId);
+            }
 
             if (eventsOut.Count > 0)
-                _eventService.CreateEventsBulk(eventsOut);
-
-            var days = eventsOut.Select(e => e.StartTime.Date).Distinct().OrderBy(d => d).ToList();
-            var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision);
-            foreach (var day in days)
             {
-                await autoGen.RegenerateDailyEventsAsync(day);
-                AdjustUserSettingsForDay(day);
-                await _eventService.TrimOvertimeByAutoBlocksAsync(day);
+                _reportStatus?.Invoke("Ukládám události…");
+
+                var importBatch = new ImportBatch
+                {
+                    Id = batchId,
+                    Label = batchName,
+                    ImportedAt = DateTime.Now
+                };
+
+                await _eventService.CreateImportBatchAsync(importBatch);
+
+                foreach (var ev in eventsOut)
+                    ev.ImportBatchId = batchId;
+
+                _eventService.CreateEventsBulk(eventsOut);
             }
-            await _eventService.BalanceForChangedRangeAsync(importStart, importEnd);
+
+            var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision, _employeeId);
+
+            if (importStart <= importEnd)
+            {
+                for (int year = importStart.Year; year <= importEnd.Year; year++)
+                {
+                    var yearStart = new DateTime(year, 1, 1);
+                    var yearEnd = new DateTime(year, 12, 31);
+
+                    _reportStatus?.Invoke($"Generuji auto-události pro rok {year}…");
+                    await autoGen.RegenerateRangeEventsAsync(yearStart, yearEnd);
+
+                    _reportStatus?.Invoke($"Dolaďuji nastavení dnů pro rok {year}…");
+                    for (var day = yearStart; day <= yearEnd; day = day.AddDays(1))
+                    {
+                        if (day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                            continue;
+
+                        if (HolidayHelper.IsCzechHoliday(day))
+                            continue;
+
+                        AdjustDaySettingsForDay(day);
+                        await _eventService.TrimOvertimeByAutoBlocksAsync(_employeeId, day);
+                    }
+
+                    _reportStatus?.Invoke($"Provádím vyvážení pro rok {year}…");
+                    await _eventService.BalanceForChangedRangeAsync(yearStart, yearEnd, _employeeId);
+                }
+            }
+
+            if (importStart <= importEnd)
+            {
+                _reportStatus?.Invoke("Dokončuji vyvážení importovaného rozsahu…");
+                await _eventService.BalanceForChangedRangeAsync(importStart, importEnd, _employeeId);
+            }
+
+            _reportStatus?.Invoke("Dokončeno.");
+
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
             MessageBus.Current.SendMessage(new EpdGeneratedMessage());
 
@@ -222,17 +304,17 @@ namespace TeacherScheduleApp.Services
             var bytes = File.ReadAllBytes(path);
 
             var candidates = new List<Encoding>
-    {
-        new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true), 
-        new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false), 
-        Encoding.UTF8,                  
-        Encoding.Unicode,               
-        Encoding.BigEndianUnicode,      
-        Encoding.GetEncoding(1250),     
-        Encoding.GetEncoding(1251),    
-        Encoding.GetEncoding(28592),    
-        Encoding.Latin1                 
-    };
+            {
+                new UTF8Encoding(false, true),
+                new UTF8Encoding(false, false),
+                Encoding.UTF8,
+                Encoding.Unicode,
+                Encoding.BigEndianUnicode,
+                Encoding.GetEncoding(1250),
+                Encoding.GetEncoding(1251),
+                Encoding.GetEncoding(28592),
+                Encoding.Latin1
+            };
 
             string bestText = string.Empty;
             Encoding bestEnc = Encoding.UTF8;
@@ -242,14 +324,15 @@ namespace TeacherScheduleApp.Services
             {
                 try
                 {
-                    var text = enc.GetString(bytes);             
-                    var bad = text.Count(ch => ch == '\uFFFD');   
+                    var text = enc.GetString(bytes);
+                    var bad = text.Count(ch => ch == '\uFFFD');
+
                     if (bad < bestBad)
                     {
                         bestBad = bad;
                         bestEnc = enc;
                         bestText = text;
-                        if (bad == 0) break; 
+                        if (bad == 0) break;
                     }
                 }
                 catch
@@ -260,26 +343,34 @@ namespace TeacherScheduleApp.Services
             if (string.IsNullOrEmpty(bestText))
                 throw new InvalidDataException($"Nelze rozpoznat kódování souboru: {Path.GetFileName(path)}");
 
-            if (bestText.Length > 0 && bestText[0] == '\uFEFF') 
-                bestText = bestText.Substring(1);
+            if (bestText.Length > 0 && bestText[0] == '\uFEFF')
+                bestText = bestText[1..];
 
             var lines = bestText.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
             return (lines, bestEnc);
         }
-
 
         private static string[] SplitCsvLine(string line)
         {
             var list = new List<string>();
             var sb = new StringBuilder();
             bool inQuotes = false;
+
             for (int i = 0; i < line.Length; i++)
             {
                 char c = line[i];
-                if (c == '\"')
+
+                if (c == '"')
                 {
-                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '\"') { sb.Append('\"'); i++; }
-                    else inQuotes = !inQuotes;
+                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        sb.Append('"');
+                        i++;
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                    }
                 }
                 else if (c == ';' && !inQuotes)
                 {
@@ -291,20 +382,44 @@ namespace TeacherScheduleApp.Services
                     sb.Append(c);
                 }
             }
+
             list.Add(sb.ToString());
-            for (int i = 0; i < list.Count; i++) list[i] = list[i].Trim();
+
+            for (int i = 0; i < list.Count; i++)
+                list[i] = list[i].Trim();
+
             return list.ToArray();
         }
 
         private static bool TryParseDate(string s, out DateTime dt)
         {
-            var cultures = new[] { new CultureInfo("cs-CZ"), new CultureInfo("ru-RU"), CultureInfo.InvariantCulture, CultureInfo.CurrentCulture };
-            var fmts = new[] { "d.M.yyyy", "dd.MM.yyyy", "yyyy-MM-dd", "d.M.yyyy H:mm", "dd.MM.yyyy H:mm", "yyyy-MM-dd H:mm", "dd.MM.yyyy HH:mm", "H:mm d.M.yyyy", "H:mm dd.MM.yyyy" };
+            var cultures = new[]
+            {
+                new CultureInfo("cs-CZ"),
+                new CultureInfo("ru-RU"),
+                CultureInfo.InvariantCulture,
+                CultureInfo.CurrentCulture
+            };
+
+            var fmts = new[]
+            {
+                "d.M.yyyy",
+                "dd.MM.yyyy",
+                "yyyy-MM-dd",
+                "d.M.yyyy H:mm",
+                "dd.MM.yyyy H:mm",
+                "yyyy-MM-dd H:mm",
+                "dd.MM.yyyy HH:mm",
+                "H:mm d.M.yyyy",
+                "H:mm dd.MM.yyyy"
+            };
+
             foreach (var c in cultures)
             {
                 if (DateTime.TryParse(s, c, DateTimeStyles.None, out dt)) return true;
                 if (DateTime.TryParseExact(s, fmts, c, DateTimeStyles.None, out dt)) return true;
             }
+
             dt = default;
             return false;
         }
@@ -319,61 +434,50 @@ namespace TeacherScheduleApp.Services
 
         private static bool TryParseWeek(string s, out int w)
         {
-            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out w)) return w >= 1 && w <= 53;
-            w = 0; return false;
+            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out w))
+                return w >= 1 && w <= 53;
+
+            w = 0;
+            return false;
         }
 
         private static string Safe(string? s) => s?.Trim() ?? string.Empty;
 
         private static char SafeFirstUpper(string? s, char fallback)
         {
-            if (string.IsNullOrWhiteSpace(s)) return fallback;
-            var ch = char.ToUpperInvariant(s.Trim()[0]);
-            return ch;
+            if (string.IsNullOrWhiteSpace(s))
+                return fallback;
+
+            return char.ToUpperInvariant(s.Trim()[0]);
         }
 
-        private IEnumerable<TeacherLesson> LoadTeacherSchedule(string csvPath)
+        private void AdjustDaySettingsForDay(DateTime day)
         {
-            var lessons = new List<TeacherLesson>();
-            var (lines, _) = ReadAllLinesSmart(csvPath);
-            if (lines.Length < 2) return lessons;
-            for (int i = 1; i < lines.Length; i++)
-            {
-                var parts = SplitCsvLine(lines[i]);
-                if (parts.Length < 55) continue;
-                string dateStr = parts[42];
-                if (string.IsNullOrWhiteSpace(dateStr)) dateStr = parts[43];
-                if (!TryParseDate(dateStr, out DateTime date)) continue;
-                if (!TryParseTime(parts[30], out var startTimeSpan)) continue;
-                if (!TryParseTime(parts[31], out var endTimeSpan)) continue;
-                string title = $"{Safe(parts[3])} {Safe(parts[20])}".Trim();
-                string description = $"{Safe(parts[15])} {Safe(parts[16])}".Trim();
-                int rok = int.TryParse(parts[14], out int rokVal) ? rokVal : DateTime.Now.Year;
-                DateTime startDateTime = date.Date.Add(startTimeSpan);
-                DateTime endDateTime = date.Date.Add(endTimeSpan);
-                lessons.Add(new TeacherLesson
-                {
-                    Date = date,
-                    StartTime = startDateTime,
-                    EndTime = endDateTime,
-                    Title = title,
-                    Description = description,
-                    Rok = rok
-                });
-            }
-            return lessons;
-        }
+            var evs = _eventService.GetEventsForDay(_employeeId, day)
+                .Where(e => !e.IsDeleted)
+                .ToList();
 
-        private void AdjustUserSettingsForDay(DateTime day)
-        {
-            var evs = _eventService.GetEventsForDay(day).Where(e => !e.IsDeleted).ToList();
-            var workEvs = evs.Where(e => e.EventType is EventType.Work or EventType.BusinessTrip).OrderBy(e => e.StartTime).ToList();
-            if (!workEvs.Any()) return;
+            var workEvs = evs
+                .Where(e => e.EventType is EventType.Work or EventType.BusinessTrip)
+                .OrderBy(e => e.StartTime)
+                .ToList();
+
+            if (!workEvs.Any())
+                return;
+
             var merged = MergeIntervals(workEvs);
+
             var arrival = merged.First().start.TimeOfDay;
             var departure = merged.Last().end.TimeOfDay;
-            var lunchEvs = evs.Where(e => e.EventType == EventType.Lunch).OrderBy(e => e.StartTime).ToList();
-            TimeSpan lunchStart, lunchEnd;
+
+            var lunchEvs = evs
+                .Where(e => e.EventType == EventType.Lunch)
+                .OrderBy(e => e.StartTime)
+                .ToList();
+
+            TimeSpan lunchStart;
+            TimeSpan lunchEnd;
+
             if (lunchEvs.Any())
             {
                 lunchStart = lunchEvs.First().StartTime.TimeOfDay;
@@ -381,27 +485,34 @@ namespace TeacherScheduleApp.Services
             }
             else
             {
-                var sem = GlobalSettingsService.GetSemesterForDate(day);
-                var global = GlobalSettingsService.LoadGlobalSettings(day.Year, sem) ?? GlobalSettingsService.GetDefaultSettings(day.Year, sem);
-                lunchStart = TimeSpan.Parse(global.MondayLunchStart);
-                lunchEnd = TimeSpan.Parse(global.MondayLunchEnd);
+                var resolved = SettingsService.GetResolvedDaySettings(day, _employeeId);
+                lunchStart = resolved.LunchStart;
+                lunchEnd = resolved.LunchEnd;
             }
-            SettingsService.SaveUserSettingsForDate(day, arrival, departure, lunchStart, lunchEnd);
+
+            SettingsService.SaveDaySettingsForDate(day, arrival, departure, lunchStart, lunchEnd, _employeeId);
         }
 
         private List<(DateTime start, DateTime end)> MergeIntervals(IEnumerable<Event> events)
         {
-            var intervals = events.Select(e => (e.StartTime, e.EndTime)).OrderBy(iv => iv.StartTime).ToList();
+            var intervals = events
+                .Select(e => (e.StartTime, e.EndTime))
+                .OrderBy(iv => iv.StartTime)
+                .ToList();
+
             var merged = new List<(DateTime s, DateTime e)>();
+
             foreach (var (s, e) in intervals)
             {
-                if (merged.Count == 0 || merged.Last().e < s) merged.Add((s, e));
+                if (merged.Count == 0 || merged.Last().e < s)
+                    merged.Add((s, e));
                 else
                 {
                     var last = merged[^1];
                     merged[^1] = (last.s, last.e > e ? last.e : e);
                 }
             }
+
             return merged.Select(t => (t.s, t.e)).ToList();
         }
     }

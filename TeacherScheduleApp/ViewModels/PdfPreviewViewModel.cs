@@ -18,16 +18,19 @@ namespace TeacherScheduleApp.ViewModels
     {
         private readonly IPdfPreviewService _pdfService;
         private readonly EventService _eventService;
+        private readonly int _employeeId;
 
         public ObservableCollection<string> AvailableMonths { get; }
 
-        private string _selectedMonth;
+        private string _selectedMonth = string.Empty;
         public string SelectedMonth
         {
             get => _selectedMonth;
             set => this.RaiseAndSetIfChanged(ref _selectedMonth, value);
         }
+
         public ObservableCollection<Bitmap> Pages { get; } = new();
+
         private int _pageIndex;
         public int PageIndex
         {
@@ -38,49 +41,72 @@ namespace TeacherScheduleApp.ViewModels
                 this.RaisePropertyChanged(nameof(CurrentPage));
             }
         }
-        public Bitmap CurrentPage => Pages.ElementAtOrDefault(PageIndex);
+
+        public async Task LoadInitialAsync()
+        {
+            await LoadPreviewAsync();
+        }
+
+        public Bitmap? CurrentPage => Pages.ElementAtOrDefault(PageIndex);
 
         public ReactiveCommand<Unit, Unit> SavePdf { get; }
 
-        public PdfPreviewViewModel(IPdfPreviewService pdfService,
-                                   EventService eventService,
-                                   DateTime initialMonth)
+        public PdfPreviewViewModel(
+            IPdfPreviewService pdfService,
+            EventService eventService,
+            DateTime initialMonth,
+            int employeeId = EventService.DefaultEmployeeId)
         {
             _pdfService = pdfService;
             _eventService = eventService;
-            var months = _eventService.LoadEvents()
-                             .Select(e => new DateTime(e.StartTime.Year, e.StartTime.Month, 1))
-                             .Distinct()
-                             .OrderByDescending(d => d)
-                             .Select(d => d.ToString("MM-yyyy"));
+            _employeeId = employeeId;
+
+            var months = _eventService.LoadEvents(_employeeId)
+                .Select(e => new DateTime(e.StartTime.Year, e.StartTime.Month, 1))
+                .Distinct()
+                .OrderByDescending(d => d)
+                .Select(d => d.ToString("MM-yyyy"));
 
             AvailableMonths = new ObservableCollection<string>(months);
 
             this.WhenAnyValue(vm => vm.SelectedMonth)
-            .Where(s => !string.IsNullOrEmpty(s))
-            .Subscribe(async _ => await LoadPreviewAsync());
+               .Skip(1)
+               .Where(s => !string.IsNullOrWhiteSpace(s))
+               .SelectMany(_ => Observable.FromAsync(LoadPreviewAsync))
+               .Subscribe();
+
             SelectedMonth = initialMonth.ToString("MM-yyyy");
 
             SavePdf = ReactiveCommand.CreateFromTask(async () =>
             {
                 var (year, month) = Parse(SelectedMonth);
+
                 var bytes = _pdfService.GenerateMonthReport(
-                    year, month,
-                    _eventService.GetEventsForMonth(new DateTime(year, month, 1))
+                    year,
+                    month,
+                    _eventService.GetEventsForMonth(_employeeId, new DateTime(year, month, 1))
                 );
 
                 var dlg = new SaveFileDialog
                 {
                     Title = "Uložit PDF",
-                    Filters = { new FileDialogFilter { Name = $"EPD_{month:D2}-{year:D4}", Extensions = { "pdf" } } }
+                    InitialFileName = $"EPD_{month:D2}-{year:D4}.pdf",
+                    Filters =
+                    {
+                        new FileDialogFilter
+                        {
+                            Name = "PDF",
+                            Extensions = { "pdf" }
+                        }
+                    }
                 };
 
                 Window? parent = null;
-                if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                     parent = desktop.MainWindow;
 
                 var path = await dlg.ShowAsync(parent);
-                if (!string.IsNullOrEmpty(path))
+                if (!string.IsNullOrWhiteSpace(path))
                     await File.WriteAllBytesAsync(path, bytes);
             });
         }
@@ -91,23 +117,18 @@ namespace TeacherScheduleApp.ViewModels
             PageIndex = 0;
 
             var (year, month) = Parse(SelectedMonth);
-            var fpBefore = Helpers.BalanceFingerprint.ForMonth(_eventService, year, month);
-            if (!Helpers.MonthBalanceStore.IsBalanced(year, month, fpBefore))
-            {
-               
 
-                var fpAfter = Helpers.BalanceFingerprint.ForMonth(_eventService, year, month);
-                Helpers.MonthBalanceStore.Save(year, month, fpAfter);
-            }
-
-            var events = _eventService.GetEventsForMonth(new DateTime(year, month, 1));
+            var events = _eventService.GetEventsForMonth(_employeeId, new DateTime(year, month, 1));
             var pdfBytes = _pdfService.GenerateMonthReport(year, month, events);
             var images = _pdfService.RenderPdfPages(pdfBytes);
+
             foreach (var img in images)
                 Pages.Add(img);
 
             PageIndex = 0;
+            await Task.CompletedTask;
         }
+
         private static async Task<bool> AskUserAsync(string message)
         {
             var owner =
@@ -127,7 +148,7 @@ namespace TeacherScheduleApp.ViewModels
 
             var res = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
                 () => box.ShowWindowDialogAsync(owner)
-            ); 
+            );
 
             return res == MsBox.Avalonia.Enums.ButtonResult.Yes;
         }
@@ -139,10 +160,10 @@ namespace TeacherScheduleApp.ViewModels
                 var parts = s.Split('-');
                 if (parts.Length == 2 &&
                     int.TryParse(parts[0], out var m) &&
-                    int.TryParse(parts[1], out var y))
+                    int.TryParse(parts[1], out var y) &&
+                    m >= 1 && m <= 12)
                 {
-                    if (m >= 1 && m <= 12)
-                        return (y, m);
+                    return (y, m);
                 }
             }
 

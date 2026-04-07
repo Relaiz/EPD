@@ -5,176 +5,229 @@ using System.Linq;
 using System.Threading.Tasks;
 using TeacherScheduleApp.Data;
 using TeacherScheduleApp.Models;
-using static TeacherScheduleApp.Models.GlobalSettings;
 
 namespace TeacherScheduleApp.Services
 {
     public static class GlobalSettingsService
     {
-        public static async Task SaveGlobalSettingsAsync(int year, SemesterType semester, GlobalSettings settings)
+        public static async Task SaveSemesterSettingsAsync(
+            int year,
+            SemesterType semester,
+            SemesterSettings settings,
+            int employeeId = 1)
         {
             using var db = new AppDbContext();
-            var record = await db.GlobalSettings
-                .FirstOrDefaultAsync(s => s.Year == year && s.Semester == semester);
-            if (record == null)
+
+            var existing = await db.SemesterSettings
+                .Include(x => x.WeekdaySettings)
+                .FirstOrDefaultAsync(x =>
+                    x.EmployeeId == employeeId &&
+                    x.Year == year &&
+                    x.Semester == semester);
+
+            if (existing == null)
             {
-                record = new GlobalSettings { Year = year, Semester = semester };
-                db.GlobalSettings.Add(record);
+                existing = new SemesterSettings
+                {
+                    EmployeeId = employeeId,
+                    Year = year,
+                    Semester = semester
+                };
+
+                db.SemesterSettings.Add(existing);
+                await db.SaveChangesAsync();
             }
-            CopyValues(settings, record);
+
+            existing.GlobalStartTime = settings.GlobalStartTime;
+            existing.GlobalEndTime = settings.GlobalEndTime;
+            existing.MinBreakDuration = settings.MinBreakDuration;
+            existing.MaxBreakDuration = settings.MaxBreakDuration;
+            existing.AutoEventNamePreLunch = settings.AutoEventNamePreLunch;
+            existing.AutoEventNameLunch = settings.AutoEventNameLunch;
+            existing.AutoEventNamePostLunch = settings.AutoEventNamePostLunch;
+
+            await db.SaveChangesAsync();
+
+            var currentWeekdays = await db.WeekdaySettings
+                .Where(x => x.SemesterSettingsId == existing.Id)
+                .ToListAsync();
+
+            db.WeekdaySettings.RemoveRange(currentWeekdays);
+            await db.SaveChangesAsync();
+
+            foreach (var wd in settings.WeekdaySettings.OrderBy(x => x.DayOfWeek))
+            {
+                db.WeekdaySettings.Add(new WeekdaySettings
+                {
+                    SemesterSettingsId = existing.Id,
+                    DayOfWeek = wd.DayOfWeek,
+                    ArrivalTime = wd.ArrivalTime,
+                    DepartureTime = wd.DepartureTime,
+                    LunchStart = wd.LunchStart,
+                    LunchEnd = wd.LunchEnd
+                });
+            }
+
             await db.SaveChangesAsync();
         }
 
-
-        private static void CopyValues(GlobalSettings src, GlobalSettings dst)
-        {
-           
-            dst.GlobalStartTime = src.GlobalStartTime;
-            dst.GlobalEndTime = src.GlobalEndTime;
-            dst.EmployeeName = src.EmployeeName;
-            dst.Department = src.Department;
-            dst.MondayArrival = src.MondayArrival;
-            dst.MondayDeparture = src.MondayDeparture;
-            dst.MondayLunchStart = src.MondayLunchStart;
-            dst.MondayLunchEnd = src.MondayLunchEnd;
-            dst.TuesdayArrival = src.TuesdayArrival;
-            dst.TuesdayDeparture = src.TuesdayDeparture;
-            dst.TuesdayLunchStart = src.TuesdayLunchStart;
-            dst.TuesdayLunchEnd = src.TuesdayLunchEnd;
-            dst.WednesdayArrival = src.WednesdayArrival;
-            dst.WednesdayDeparture = src.WednesdayDeparture;
-            dst.WednesdayLunchStart = src.WednesdayLunchStart;
-            dst.WednesdayLunchEnd = src.WednesdayLunchEnd;
-            dst.ThursdayArrival = src.ThursdayArrival;
-            dst.ThursdayDeparture = src.ThursdayDeparture;
-            dst.ThursdayLunchStart = src.ThursdayLunchStart;
-            dst.ThursdayLunchEnd = src.ThursdayLunchEnd;
-            dst.FridayArrival = src.FridayArrival;
-            dst.FridayDeparture = src.FridayDeparture;
-            dst.FridayLunchStart = src.FridayLunchStart;
-            dst.FridayLunchEnd = src.FridayLunchEnd;
-            dst.MinBreakDuration = src.MinBreakDuration;
-            dst.MaxBreakDuration = src.MaxBreakDuration;
-            dst.AutoEventNamePreLunch = src.AutoEventNamePreLunch;
-            dst.AutoEventNameLunch = src.AutoEventNameLunch;
-            dst.AutoEventNamePostLunch = src.AutoEventNamePostLunch;
-        }
-
-        public static GlobalSettings LoadGlobalSettings(int year, SemesterType semester)
+        public static SemesterSettings? LoadSemesterSettings(int year, SemesterType semester, int employeeId = 1)
         {
             using var db = new AppDbContext();
-            var record = db.GlobalSettings
-                .FirstOrDefault(s => s.Year == year && s.Semester == semester);
-            if (record == null) return null;
-            return record;
+
+            return db.SemesterSettings
+                .AsNoTracking()
+                .Include(x => x.WeekdaySettings)
+                .FirstOrDefault(x =>
+                    x.EmployeeId == employeeId &&
+                    x.Year == year &&
+                    x.Semester == semester);
         }
+
         public static SemesterType GetSemesterForDate(DateTime date)
         {
             if ((date.Month >= 9) || (date.Month == 2 && date.Day <= 9))
-            {
                 return SemesterType.Winter;
-            }
 
             if (date.Month >= 2 && date.Month <= 8)
-            {
                 return SemesterType.Summer;
-            }
 
             return SemesterType.Winter;
         }
-        public static List<int> GetYearsWithData()
+
+        public static List<int> GetYearsWithData(int employeeId = 1)
         {
             using var db = new AppDbContext();
-            var years =
-                db.GlobalSettings.AsNoTracking().Select(g => g.Year)
-                .Concat(db.Events.AsNoTracking().Where(e => !e.IsDeleted).Select(e => e.StartTime.Year))
-                .Concat(db.Events.AsNoTracking().Where(e => !e.IsDeleted).Select(e => e.EndTime.Year))
-                .Concat(db.UserSettings.AsNoTracking().Select(u => u.Date.Year))
+
+            return db.SemesterSettings
+                .AsNoTracking()
+                .Where(x => x.EmployeeId == employeeId)
+                .Select(x => x.Year)
+                .Concat(
+                    db.Events.AsNoTracking()
+                        .Where(e => !e.IsDeleted && e.EmployeeId == employeeId)
+                        .Select(e => e.StartTime.Year))
+                .Concat(
+                    db.Events.AsNoTracking()
+                        .Where(e => !e.IsDeleted && e.EmployeeId == employeeId)
+                        .Select(e => e.EndTime.Year))
+                .Concat(
+                    db.DaySettings.AsNoTracking()
+                        .Where(x => x.EmployeeId == employeeId)
+                        .Select(x => x.Date.Year))
                 .Distinct()
-                .OrderBy(y => y)
+                .OrderBy(x => x)
                 .ToList();
-
-            return years;
         }
-        public static GlobalSettings GetDefaultSettings(int year,SemesterType sem)
-        {
 
-            if (sem == SemesterType.Winter)
+        public static Employee EnsureDefaultEmployee(int employeeId = 1)
+        {
+            using var db = new AppDbContext();
+
+            var employee = db.Employees.FirstOrDefault(x => x.Id == employeeId);
+            if (employee != null)
+                return employee;
+
+            employee = new Employee
             {
-                return new GlobalSettings
+                Id = employeeId,
+                FullName = "Radek Matoušek",
+                Department = "Katedra informačních technologií"
+            };
+
+            db.Employees.Add(employee);
+            db.SaveChanges();
+
+            return employee;
+        }
+        public static async Task SaveEmployeeInfoAsync(int employeeId, string fullName, string department)
+        {
+            using var db = new AppDbContext();
+
+            var employee = await db.Employees.FirstOrDefaultAsync(x => x.Id == employeeId);
+            if (employee == null)
+            {
+                employee = new Employee
                 {
-                    Semester = SemesterType.Winter,
-                    Year = year,
-                    GlobalStartTime = "08:00",
-                    GlobalEndTime = "16:30",
-                    EmployeeName = "Radek Matoušek",
-                    Department = "Katedra informačních technologií",
-                    MondayArrival = "08:00",
-                    MondayDeparture = "16:30",
-                    MondayLunchStart = "12:00",
-                    MondayLunchEnd = "12:30",
-                    TuesdayArrival = "08:00",
-                    TuesdayDeparture = "16:30",
-                    TuesdayLunchStart = "12:00",
-                    TuesdayLunchEnd = "12:30",
-                    WednesdayArrival = "08:00",
-                    WednesdayDeparture = "16:30",
-                    WednesdayLunchStart = "12:00",
-                    WednesdayLunchEnd = "12:30",
-                    ThursdayArrival = "08:00",
-                    ThursdayDeparture = "16:30",
-                    ThursdayLunchStart = "12:00",
-                    ThursdayLunchEnd = "12:30",
-                    FridayArrival = "08:00",
-                    FridayDeparture = "16:30",
-                    FridayLunchStart = "12:00",
-                    FridayLunchEnd = "12:30",
-                    MinBreakDuration = "00:15",
-                    MaxBreakDuration = "01:00",
-                    AutoEventNamePreLunch = "Dopolední pracovní doba",
-                    AutoEventNameLunch = "Oběd",
-                    AutoEventNamePostLunch = "Odpolední pracovní doba",
-                }; 
+                    Id = employeeId,
+                    FullName = fullName,
+                    Department = department
+                };
+                db.Employees.Add(employee);
             }
             else
             {
-                // Letní
-                return new GlobalSettings
+                employee.FullName = fullName;
+                employee.Department = department;
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        public static SemesterSettings GetDefaultSettings(int year, SemesterType semester, int employeeId = 1)
+        {
+            EnsureDefaultEmployee(employeeId);
+
+            if (semester == SemesterType.Winter)
+            {
+                return new SemesterSettings
                 {
-                    Semester = SemesterType.Summer,
+                    EmployeeId = employeeId,
                     Year = year,
-                    GlobalStartTime = "08:30",
-                    GlobalEndTime = "17:00",
-                    EmployeeName = "Radek Matoušek",
-                    Department = "Katedra informačních technologií",
-                    MondayArrival = "08:30",
-                    MondayDeparture = "17:00",
-                    MondayLunchStart = "12:30",
-                    MondayLunchEnd = "13:00",
-                    TuesdayArrival = "08:30",
-                    TuesdayDeparture = "17:00",
-                    TuesdayLunchStart = "12:30",
-                    TuesdayLunchEnd = "13:00",
-                    WednesdayArrival = "08:30",
-                    WednesdayDeparture = "17:00",
-                    WednesdayLunchStart = "12:30",
-                    WednesdayLunchEnd = "13:00",
-                    ThursdayArrival = "08:30",
-                    ThursdayDeparture = "17:00",
-                    ThursdayLunchStart = "12:30",
-                    ThursdayLunchEnd = "13:00",
-                    FridayArrival = "08:30",
-                    FridayDeparture = "17:00",
-                    FridayLunchStart = "12:30",
-                    FridayLunchEnd = "13:00",
+                    Semester = SemesterType.Winter,
+                    GlobalStartTime = "08:00",
+                    GlobalEndTime = "16:30",
                     MinBreakDuration = "00:15",
                     MaxBreakDuration = "01:00",
                     AutoEventNamePreLunch = "Dopolední pracovní doba",
                     AutoEventNameLunch = "Oběd",
                     AutoEventNamePostLunch = "Odpolední pracovní doba",
+                    WeekdaySettings = new List<WeekdaySettings>
+                    {
+                        new() { DayOfWeek = 1, ArrivalTime = TimeSpan.Parse("08:00"), DepartureTime = TimeSpan.Parse("16:30"), LunchStart = TimeSpan.Parse("12:00"), LunchEnd = TimeSpan.Parse("12:30") },
+                        new() { DayOfWeek = 2, ArrivalTime = TimeSpan.Parse("08:00"), DepartureTime = TimeSpan.Parse("16:30"), LunchStart = TimeSpan.Parse("12:00"), LunchEnd = TimeSpan.Parse("12:30") },
+                        new() { DayOfWeek = 3, ArrivalTime = TimeSpan.Parse("08:00"), DepartureTime = TimeSpan.Parse("16:30"), LunchStart = TimeSpan.Parse("12:00"), LunchEnd = TimeSpan.Parse("12:30") },
+                        new() { DayOfWeek = 4, ArrivalTime = TimeSpan.Parse("08:00"), DepartureTime = TimeSpan.Parse("16:30"), LunchStart = TimeSpan.Parse("12:00"), LunchEnd = TimeSpan.Parse("12:30") },
+                        new() { DayOfWeek = 5, ArrivalTime = TimeSpan.Parse("08:00"), DepartureTime = TimeSpan.Parse("16:30"), LunchStart = TimeSpan.Parse("12:00"), LunchEnd = TimeSpan.Parse("12:30") }
+                    }
                 };
             }
 
+            return new SemesterSettings
+            {
+                EmployeeId = employeeId,
+                Year = year,
+                Semester = SemesterType.Summer,
+                GlobalStartTime = "08:30",
+                GlobalEndTime = "17:00",
+                MinBreakDuration = "00:15",
+                MaxBreakDuration = "01:00",
+                AutoEventNamePreLunch = "Dopolední pracovní doba",
+                AutoEventNameLunch = "Oběd",
+                AutoEventNamePostLunch = "Odpolední pracovní doba",
+                WeekdaySettings = new List<WeekdaySettings>
+                {
+                    new() { DayOfWeek = 1, ArrivalTime = TimeSpan.Parse("08:30"), DepartureTime = TimeSpan.Parse("17:00"), LunchStart = TimeSpan.Parse("12:30"), LunchEnd = TimeSpan.Parse("13:00") },
+                    new() { DayOfWeek = 2, ArrivalTime = TimeSpan.Parse("08:30"), DepartureTime = TimeSpan.Parse("17:00"), LunchStart = TimeSpan.Parse("12:30"), LunchEnd = TimeSpan.Parse("13:00") },
+                    new() { DayOfWeek = 3, ArrivalTime = TimeSpan.Parse("08:30"), DepartureTime = TimeSpan.Parse("17:00"), LunchStart = TimeSpan.Parse("12:30"), LunchEnd = TimeSpan.Parse("13:00") },
+                    new() { DayOfWeek = 4, ArrivalTime = TimeSpan.Parse("08:30"), DepartureTime = TimeSpan.Parse("17:00"), LunchStart = TimeSpan.Parse("12:30"), LunchEnd = TimeSpan.Parse("13:00") },
+                    new() { DayOfWeek = 5, ArrivalTime = TimeSpan.Parse("08:30"), DepartureTime = TimeSpan.Parse("17:00"), LunchStart = TimeSpan.Parse("12:30"), LunchEnd = TimeSpan.Parse("13:00") }
+                }
+            };
+        }
+
+        public static async Task EnsureDefaultSemesterSettingsAsync(int year, SemesterType semester, int employeeId = 1)
+        {
+            using var db = new AppDbContext();
+
+            var exists = await db.SemesterSettings
+                .AnyAsync(x => x.EmployeeId == employeeId && x.Year == year && x.Semester == semester);
+
+            if (exists)
+                return;
+
+            var defaults = GetDefaultSettings(year, semester, employeeId);
+            await SaveSemesterSettingsAsync(year, semester, defaults, employeeId);
         }
     }
 }
