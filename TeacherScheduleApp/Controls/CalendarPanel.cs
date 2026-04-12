@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace TeacherScheduleApp.Controls
@@ -15,17 +14,16 @@ namespace TeacherScheduleApp.Controls
     {
         public int DaysCount { get; set; } = 1;
         public int HoursCount { get; set; } = 24;
+
         public event Action<int, double>? DayHourClicked;
-        private const double HourHeight = 50;
+        private const double HourHeight = 80;
         private const double MinDayWidth = 200;
+        private const double EventHorizontalGap = 4;
 
         protected override Size MeasureOverride(Size availableSize)
         {
             var days = Math.Max(1, DaysCount);
             var hours = Math.Max(1, HoursCount);
-
-            const double HourHeight = 50;
-            const double MinDayWidth = 200;
 
             double minWidth = days * MinDayWidth;
             double width = double.IsInfinity(availableSize.Width)
@@ -33,16 +31,17 @@ namespace TeacherScheduleApp.Controls
                 : Math.Max(availableSize.Width, minWidth);
 
             double height = hours * HourHeight;
-            if (!double.IsInfinity(availableSize.Height))
-                height = Math.Min(availableSize.Height, height);
 
             var desired = new Size(Math.Max(1, width), Math.Max(1, height));
+            double dayWidth = desired.Width / days;
+
             foreach (var child in Children)
-                child.Measure(new Size(double.PositiveInfinity, desired.Height));
+            {
+                child.Measure(new Size(dayWidth, desired.Height));
+            }
 
             return desired;
         }
-
 
         protected override Size ArrangeOverride(Size finalSize)
         {
@@ -54,24 +53,25 @@ namespace TeacherScheduleApp.Controls
 
             double dayWidth = width / days;
             double rowHeight = height / hours;
-            static double ExclusiveHeight(double topPx, double bottomPx) => Math.Max(bottomPx - topPx - 1, 1);
+
+            static double ExclusiveHeight(double topPx, double bottomPx)
+                => Math.Max(bottomPx - topPx - 1, 1);
+
             foreach (var bg in Children.OfType<CalendarBackgroundBlock>())
             {
                 int day = bg.DayIndex;
-                if (day < 0 || day >= days) continue;
+                if (day < 0 || day >= days)
+                    continue;
 
                 double sh = Math.Clamp(bg.StartHour, 0, hours);
                 double eh = Math.Clamp(bg.EndHour, sh, hours);
 
-                double left = day * dayWidth;
-                double top = sh * rowHeight;
-                double bot = eh * rowHeight;
+                double left = Math.Floor(day * dayWidth);
+                double top = Math.Floor(sh * rowHeight);
+                double bottom = Math.Ceiling(eh * rowHeight);
 
-                left = Math.Floor(left);
-                top = Math.Floor(top);
-
-                double h = ExclusiveHeight(top, bot);
-                double w = Math.Max(Math.Floor(dayWidth), 1);
+                double w = Math.Max(Math.Ceiling(dayWidth), 1);
+                double h = ExclusiveHeight(top, bottom);
 
                 bg.Arrange(new Rect(left, top, w, h));
             }
@@ -79,25 +79,24 @@ namespace TeacherScheduleApp.Controls
             foreach (var ev in Children.OfType<CalendarEventControl>())
             {
                 int day = ev.DayIndex;
-                if (day < 0 || day >= days) continue;
+                if (day < 0 || day >= days)
+                    continue;
 
                 double sh = Math.Clamp(ev.StartHour, 0, hours);
                 double eh = Math.Clamp(ev.EndHour, sh + 0.01, hours);
 
-                double leftBase = day * dayWidth;
-
                 int cols = Math.Max(1, ev.OverlapCount);
                 int colIdx = Math.Clamp(ev.OverlapIndex, 0, cols - 1);
-                double cW = dayWidth / cols;
 
-                double top = sh * rowHeight;
-                double bot = eh * rowHeight;
+                double baseLeft = day * dayWidth;
+                double columnWidth = dayWidth / cols;
 
-                double left = Math.Floor(leftBase + colIdx * cW);
-                top = Math.Floor(top);
+                double left = Math.Floor(baseLeft + colIdx * columnWidth);
+                double top = Math.Floor(sh * rowHeight);
+                double bottom = Math.Ceiling(eh * rowHeight);
 
-                double w = Math.Max(Math.Floor(cW) - 4, 1);
-                double h = Math.Max(ExclusiveHeight(top, bot), 2);
+                double w = Math.Max(Math.Floor(columnWidth - EventHorizontalGap), 1);
+                double h = Math.Max(ExclusiveHeight(top, bottom), 2);
 
                 ev.Arrange(new Rect(left, top, w, h));
             }
@@ -116,6 +115,7 @@ namespace TeacherScheduleApp.Controls
                 return;
 
             var point = e.GetPosition(this);
+
             double colWidth = Bounds.Width / days;
             double rowHeight = Bounds.Height / hours;
 
@@ -126,7 +126,9 @@ namespace TeacherScheduleApp.Controls
             double hour = point.Y / rowHeight;
 
             if (dayIndex >= 0 && dayIndex < days && hour >= 0 && hour < hours)
+            {
                 DayHourClicked?.Invoke(dayIndex, hour);
+            }
         }
     }
 }

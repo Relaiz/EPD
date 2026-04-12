@@ -227,5 +227,95 @@ namespace TeacherScheduleApp.Services
                 _ => throw new InvalidOperationException("Weekend does not have weekday settings.")
             };
         }
+
+        public static ResolvedDaySettings GetResolvedDaySettingsIgnoringComputed(DateTime date, int employeeId = 1)
+        {
+            using var db = new AppDbContext();
+
+            var semester = GlobalSettingsService.GetSemesterForDate(date);
+
+            var semesterSettings = db.SemesterSettings
+                .AsNoTracking()
+                .FirstOrDefault(x =>
+                    x.EmployeeId == employeeId &&
+                    x.Year == date.Year &&
+                    x.Semester == semester);
+
+            var manualOverride = db.DaySettings
+                .AsNoTracking()
+                .FirstOrDefault(x =>
+                    x.EmployeeId == employeeId &&
+                    x.Date.Date == date.Date &&
+                    x.IsManualOverride);
+
+            var baseSettings = semesterSettings
+                ?? GlobalSettingsService.GetDefaultSettings(date.Year, semester, employeeId);
+
+            bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+            bool isHoliday = HolidayHelper.IsCzechHoliday(date);
+
+            if (isWeekend || isHoliday)
+            {
+                return new ResolvedDaySettings
+                {
+                    EmployeeId = employeeId,
+                    Date = date.Date,
+                    Year = date.Year,
+                    Semester = semester,
+
+                    ArrivalTime = manualOverride?.ArrivalTime ?? TimeSpan.Zero,
+                    DepartureTime = manualOverride?.DepartureTime ?? TimeSpan.Zero,
+                    LunchStart = manualOverride?.LunchStart ?? TimeSpan.Zero,
+                    LunchEnd = manualOverride?.LunchEnd ?? TimeSpan.Zero,
+
+                    AutoEventNamePreLunch = baseSettings.AutoEventNamePreLunch,
+                    AutoEventNameLunch = baseSettings.AutoEventNameLunch,
+                    AutoEventNamePostLunch = baseSettings.AutoEventNamePostLunch,
+                    MinBreakDuration = baseSettings.MinBreakDuration,
+                    MaxBreakDuration = baseSettings.MaxBreakDuration
+                };
+            }
+
+            var weekdayNumber = MapDayOfWeek(date.DayOfWeek);
+
+            WeekdaySettings? weekdaySettings;
+
+            if (semesterSettings == null)
+            {
+                weekdaySettings = baseSettings.WeekdaySettings
+                    .FirstOrDefault(x => x.DayOfWeek == weekdayNumber);
+            }
+            else
+            {
+                weekdaySettings = db.WeekdaySettings
+                    .AsNoTracking()
+                    .FirstOrDefault(x =>
+                        x.SemesterSettingsId == semesterSettings.Id &&
+                        x.DayOfWeek == weekdayNumber);
+            }
+
+            if (weekdaySettings == null)
+                throw new InvalidOperationException(
+                    $"WeekdaySettings not found for {date:yyyy-MM-dd}, employeeId={employeeId}");
+
+            return new ResolvedDaySettings
+            {
+                EmployeeId = employeeId,
+                Date = date.Date,
+                Year = date.Year,
+                Semester = semester,
+
+                ArrivalTime = manualOverride?.ArrivalTime ?? weekdaySettings.ArrivalTime,
+                DepartureTime = manualOverride?.DepartureTime ?? weekdaySettings.DepartureTime,
+                LunchStart = manualOverride?.LunchStart ?? weekdaySettings.LunchStart,
+                LunchEnd = manualOverride?.LunchEnd ?? weekdaySettings.LunchEnd,
+
+                AutoEventNamePreLunch = baseSettings.AutoEventNamePreLunch,
+                AutoEventNameLunch = baseSettings.AutoEventNameLunch,
+                AutoEventNamePostLunch = baseSettings.AutoEventNamePostLunch,
+                MinBreakDuration = baseSettings.MinBreakDuration,
+                MaxBreakDuration = baseSettings.MaxBreakDuration
+            };
+        }
     }
 }

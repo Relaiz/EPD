@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using ReactiveUI;
+using TeacherScheduleApp.Models;
 using TeacherScheduleApp.Services;
 
 namespace TeacherScheduleApp.ViewModels
@@ -113,20 +114,26 @@ namespace TeacherScheduleApp.ViewModels
 
         private async Task LoadPreviewAsync()
         {
-            Pages.Clear();
-            PageIndex = 0;
+            var selected = SelectedMonth;
+            var (year, month) = Parse(selected);
 
-            var (year, month) = Parse(SelectedMonth);
+            var images = await Task.Run(() =>
+            {
+                var events = _eventService.GetEventsForMonth(_employeeId, new DateTime(year, month, 1));
+                var refreshedEvents = _eventService.LoadEvents(_employeeId);
+                var pdfBytes = _pdfService.GenerateMonthReport(year, month, refreshedEvents, _employeeId);
+                return _pdfService.RenderPdfPages(pdfBytes).ToList();
+            });
 
-            var events = _eventService.GetEventsForMonth(_employeeId, new DateTime(year, month, 1));
-            var pdfBytes = _pdfService.GenerateMonthReport(year, month, events);
-            var images = _pdfService.RenderPdfPages(pdfBytes);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Pages.Clear();
 
-            foreach (var img in images)
-                Pages.Add(img);
+                foreach (var img in images)
+                    Pages.Add(img);
 
-            PageIndex = 0;
-            await Task.CompletedTask;
+                PageIndex = 0;
+            });
         }
 
         private static async Task<bool> AskUserAsync(string message)

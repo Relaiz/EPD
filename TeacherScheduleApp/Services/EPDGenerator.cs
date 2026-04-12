@@ -70,7 +70,6 @@ namespace TeacherScheduleApp.Services
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
             var (lines, usedEnc) = ReadAllLinesSmart(teacherScheduleCsvPath);
-
             if (lines.Length == 0)
                 throw new InvalidDataException($"Soubor je prázdný: {Path.GetFileName(teacherScheduleCsvPath)}");
 
@@ -89,8 +88,8 @@ namespace TeacherScheduleApp.Services
             var batchId = Guid.NewGuid().ToString("N");
             var batchName = Path.GetFileName(teacherScheduleCsvPath);
 
-            DateTime importStart = DateTime.MaxValue;
-            DateTime importEnd = DateTime.MinValue;
+            DateTime newImportStart = DateTime.MaxValue;
+            DateTime newImportEnd = DateTime.MinValue;
 
             _reportStatus?.Invoke("Zpracovávám řádky CSV…");
 
@@ -172,9 +171,9 @@ namespace TeacherScheduleApp.Services
                     errors.Add($"Řádek {i + 1}: DateTo je dříve než DateFrom ({dateFrom:dd.MM.yyyy} > {dateTo:dd.MM.yyyy}).");
                     continue;
                 }
-
-                importStart = dateFrom.Date < importStart ? dateFrom.Date : importStart;
-                importEnd = dateTo.Date > importEnd ? dateTo.Date : importEnd;
+          
+                newImportStart = dateFrom.Date < newImportStart ? dateFrom.Date : newImportStart;
+                newImportEnd = dateTo.Date > newImportEnd ? dateTo.Date : newImportEnd;
 
                 for (var dt = dateFrom.Date; dt <= dateTo.Date; dt = dt.AddDays(1))
                 {
@@ -217,12 +216,43 @@ namespace TeacherScheduleApp.Services
                 imported++;
             }
 
-            if (importStart <= importEnd)
+            DateTime? rangeStart = null;
+            DateTime? rangeEnd = null;
+
+            if (newImportStart != DateTime.MaxValue && newImportEnd != DateTime.MinValue)
+            {
+                var oldImported = _eventService
+                    .GetEventsForRange(_employeeId, newImportStart, newImportEnd.AddDays(1))
+                    .Where(e => !e.IsDeleted && e.ImportBatchId != null)
+                    .ToList();
+
+                DateTime? oldImportStart = oldImported.Any() ? oldImported.Min(e => e.StartTime.Date) : null;
+                DateTime? oldImportEnd = oldImported.Any() ? oldImported.Max(e => e.StartTime.Date) : null;
+
+                rangeStart = new[]
+                {
+                    oldImportStart,
+                    (DateTime?)newImportStart
+                }
+                .Where(x => x.HasValue)
+                .Min()!.Value.Date;
+                
+                rangeEnd = new[]
+                {
+                    oldImportEnd,
+                    (DateTime?)newImportEnd
+                }
+                .Where(x => x.HasValue)
+                .Max()!.Value.Date;
+            }
+           
+            if (newImportStart != DateTime.MaxValue && newImportEnd != DateTime.MinValue)
             {
                 _reportStatus?.Invoke("Mažu původní import…");
-                await _eventService.BulkSoftDeleteImportedInRangeAsync(importStart, importEnd, _employeeId);
-            }
+                await _eventService.BulkSoftDeleteImportedInRangeAsync(newImportStart, newImportEnd, _employeeId);
 
+            }
+          
             if (eventsOut.Count > 0)
             {
                 _reportStatus?.Invoke("Ukládám události…");
@@ -242,47 +272,42 @@ namespace TeacherScheduleApp.Services
                 _eventService.CreateEventsBulk(eventsOut);
             }
 
-            var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision, _employeeId);
-
-            if (importStart <= importEnd)
+            if (rangeStart.HasValue && rangeEnd.HasValue)
             {
-                for (int year = importStart.Year; year <= importEnd.Year; year++)
+                var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision, _employeeId);
+
+                for (int year = rangeStart.Value.Year; year <= rangeEnd.Value.Year; year++)
                 {
                     var yearStart = new DateTime(year, 1, 1);
                     var yearEnd = new DateTime(year, 12, 31);
 
                     _reportStatus?.Invoke($"Generuji auto-události pro rok {year}…");
-                    await autoGen.RegenerateRangeEventsAsync(yearStart, yearEnd);
 
-                    _reportStatus?.Invoke($"Dolaďuji nastavení dnů pro rok {year}…");
-                    for (var day = yearStart; day <= yearEnd; day = day.AddDays(1))
-                    {
-                        if (day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-                            continue;
-
-                        if (HolidayHelper.IsCzechHoliday(day))
-                            continue;
-
-                        AdjustDaySettingsForDay(day);
-                        await _eventService.TrimOvertimeByAutoBlocksAsync(_employeeId, day);
-                    }
-
-                    _reportStatus?.Invoke($"Provádím vyvážení pro rok {year}…");
-                    await _eventService.BalanceForChangedRangeAsync(yearStart, yearEnd, _employeeId);
+                    await autoGen.RegenerateRangeEventsAsync(yearStart, yearEnd, preserveUserSettings: false);
                 }
-            }
 
-            if (importStart <= importEnd)
-            {
-                _reportStatus?.Invoke("Dokončuji vyvážení importovaného rozsahu…");
-                await _eventService.BalanceForChangedRangeAsync(importStart, importEnd, _employeeId);
+                _reportStatus?.Invoke("Dolaďuji změněné dny…");
+                for (var day = rangeStart.Value.Date; day <= rangeEnd.Value.Date; day = day.AddDays(1))
+                {
+                    if (day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+                        continue;
+
+                    if (HolidayHelper.IsCzechHoliday(day))
+                        continue;
+
+                    AdjustDaySettingsForDay(day);
+                    await _eventService.TrimOvertimeByAutoBlocksAsync(_employeeId, day);
+                }
+
+                _reportStatus?.Invoke("Provádím vyvážení změněného rozsahu…");
+               
             }
 
             _reportStatus?.Invoke("Dokončeno.");
 
             MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
             MessageBus.Current.SendMessage(new EpdGeneratedMessage());
-
+          
             return new EpdImportReport(
                 Events: eventsOut,
                 TotalRows: totalRows,
@@ -290,8 +315,8 @@ namespace TeacherScheduleApp.Services
                 SkippedRows: skipped,
                 Errors: errors,
                 UsedEncoding: usedEnc,
-                RangeStart: importStart == DateTime.MaxValue ? null : importStart,
-                RangeEnd: importEnd == DateTime.MinValue ? null : importEnd,
+                RangeStart: rangeStart,
+                RangeEnd: rangeEnd,
                 BatchId: batchId,
                 BatchLabel: batchName
             );

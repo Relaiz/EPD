@@ -25,6 +25,14 @@ namespace TeacherScheduleApp.Services
 
     public class PdfService : IPdfPreviewService
     {
+        private const int QUANTUM_MIN = 5;
+
+        private static int RoundDownToQuantum(int minutes)
+            => minutes - minutes % QUANTUM_MIN;
+
+        private static int ToWholeMinutes(double hours)
+            => (int)Math.Round(hours * 60.0);
+
         private static readonly HashSet<EventType> SpecialTypes = new()
         {
             EventType.DayOff,
@@ -56,41 +64,20 @@ namespace TeacherScheduleApp.Services
                                    ?? GlobalSettingsService.GetDefaultSettings(year, semester, employeeId);
 
             var calc = new WorkingHoursCalculatorService();
+            var eventService = new EventService();
 
             int daysInMonth = DateTime.DaysInMonth(year, month);
 
+            var monthStart = new DateTime(year, month, 1);
+            var monthEndExclusive = monthStart.AddMonths(1);
+
             var monthEvents = events
-                .Where(e => !e.IsDeleted &&
-                            e.EmployeeId == employeeId &&
-                            e.StartTime.Year == year &&
-                            e.StartTime.Month == month)
+                .Where(e => !e.IsDeleted)
+                .Where(e => e.StartTime < monthEndExclusive && e.EndTime >= monthStart)
                 .ToList();
 
-            var eventsByDay = monthEvents
-                .GroupBy(e => e.StartTime.Day)
-                .ToDictionary(g => g.Key, g => g.ToList());
+            var monthPdfComp = eventService.BuildMonthPdfCompensation(year, month, employeeId);
 
-            var weekHasLocked = new Dictionary<DateTime, bool>();
-
-            for (int d = 1; d <= daysInMonth; d++)
-            {
-                var date = new DateTime(year, month, d);
-                var monday = MondayOf(date);
-
-                if (!weekHasLocked.ContainsKey(monday))
-                {
-                    bool anyLocked = Enumerable.Range(0, 7)
-                        .Select(i => monday.AddDays(i))
-                        .Where(dt => dt.Month == month)
-                        .Any(dt =>
-                        {
-                            var list = eventsByDay.TryGetValue(dt.Day, out var evs) ? evs : new List<Event>();
-                            return IsLockedDay(list);
-                        });
-
-                    weekHasLocked[monday] = anyLocked;
-                }
-            }
 
             int workDays = Enumerable.Range(1, daysInMonth)
                 .Select(d => new DateTime(year, month, d))
@@ -189,6 +176,7 @@ namespace TeacherScheduleApp.Services
 
                             for (int d = 1; d <= daysInMonth; d++)
                             {
+
                                 var date = new DateTime(year, month, d);
                                 bool isHoliday = HolidayHelper.IsCzechHoliday(date);
                                 bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
@@ -209,50 +197,65 @@ namespace TeacherScheduleApp.Services
                                         table.Cell().Border(1).Background("#F0F0F0").Text("");
                                     continue;
                                 }
-
+                                var dayEvents = monthEvents
+                                    .Where(e => !e.IsDeleted)
+                                    .Where(e => e.StartTime.Date <= date.Date && e.EndTime.Date >= date.Date)
+                                    .ToList();
                                 var dm = calc.DailyMetrics(date, monthEvents, employeeId);
 
-                                var dayEvents = eventsByDay.GetValueOrDefault(d) ?? new List<Event>();
+                                var comp = monthPdfComp.TryGetValue(date.Date, out var c)
+                                    ? c
+                                    : new EventService.PdfDayCompensation();
 
-                                bool weekLocked = weekHasLocked[MondayOf(date)];
-                                bool dayLocked = IsLockedDay(dayEvents);
+                                int workedMin = GetActualWorkedMinutesForPdf(date, dayEvents);
 
-                                double workedShown = dayLocked ? dm.credited : dm.worked;
-                                double overShown = weekLocked ? 0.0 : dm.over;
-                                double neodShown = weekLocked ? 0.0 : dm.under;
+                                int extraMin = RoundDownToQuantum(ToWholeMinutes(dm.over));
+                                int underMin = RoundDownToQuantum(ToWholeMinutes(dm.under));
 
-                                sumWorked += workedShown;
-                                if (!weekLocked) sumOvers += overShown;
-                                if (!weekLocked) sumNeod += neodShown;
-                                sumCtrlWorked += workedShown;
+                                extraMin = Math.Max(0, extraMin - comp.ExtraOffsetMinutes);
+                                underMin = Math.Max(0, underMin - comp.UnderOffsetMinutes);
 
-                                var resolved = SettingsService.GetResolvedDaySettings(date, employeeId);
-                                var dayStart = resolved.ArrivalTime;
-                                var dayEnd = resolved.DepartureTime;
+                                sumWorked += workedMin / 60.0;
+                                sumOvers += extraMin / 60.0;
+                                sumNeod += underMin / 60.0;
+                                sumCtrlWorked += workedMin / 60.0;
+
+                                var (actualStart, actualEnd) = GetActualDayWindow(date, dayEvents);
 
                                 var lunches = dayEvents
                                     .Where(e => e.EventType == EventType.Lunch && !e.IsDeleted)
+                                    .Select(e => new
+                                    {
+                                        Original = e,
+                                        Clip = ClipToDay(date, e.StartTime, e.EndTime)
+                                    })
+                                    .Where(x => x.Clip.HasValue)
+                                    .Select(x => new Event
+                                    {
+                                        StartTime = x.Clip!.Value.s,
+                                        EndTime = x.Clip!.Value.e,
+                                        EventType = EventType.Lunch
+                                    })
                                     .OrderBy(e => e.StartTime)
                                     .ToList();
 
-                                string note = string.Join("+",
-                                    dayEvents
-                                        .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch && !e.IsDeleted)
-                                        .Select(e => CodeFor(e.EventType))
-                                        .Where(s => !string.IsNullOrWhiteSpace(s))
-                                        .Distinct());
+                                string note = string.Join("+", dayEvents
+                                    .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch && !e.IsDeleted)
+                                    .Select(e => CodeFor(e.EventType))
+                                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                                    .Distinct());
 
                                 table.Cell().Border(1).Text($"{d}.");
-                                table.Cell().Border(1).Text(dayStart.ToString(@"hh\:mm"));
+                                table.Cell().Border(1).Text(actualStart?.ToString(@"hh\:mm") ?? "");
                                 table.Cell().Border(1).Text(lunches.ElementAtOrDefault(0)?.StartTime.TimeOfDay.ToString(@"hh\:mm") ?? "");
                                 table.Cell().Border(1).Text(lunches.ElementAtOrDefault(0)?.EndTime.TimeOfDay.ToString(@"hh\:mm") ?? "");
                                 table.Cell().Border(1).Text(lunches.ElementAtOrDefault(1)?.StartTime.TimeOfDay.ToString(@"hh\:mm") ?? "");
                                 table.Cell().Border(1).Text(lunches.ElementAtOrDefault(1)?.EndTime.TimeOfDay.ToString(@"hh\:mm") ?? "");
-                                table.Cell().Border(1).Text(dayEnd.ToString(@"hh\:mm"));
+                                table.Cell().Border(1).Text(actualEnd?.ToString(@"hh\:mm") ?? "");
 
-                                table.Cell().Border(1).Text($"{TimeSpan.FromHours(workedShown):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text(weekLocked ? "00:00:00" : $"{TimeSpan.FromHours(overShown):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text(weekLocked ? "00:00:00" : $"{TimeSpan.FromHours(neodShown):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text($"{TimeSpan.FromMinutes(workedMin):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text($"{TimeSpan.FromMinutes(extraMin):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text($"{TimeSpan.FromMinutes(underMin):hh\\:mm\\:ss}");
                                 table.Cell().Border(1).Text(note);
                             }
 
@@ -425,11 +428,78 @@ namespace TeacherScheduleApp.Services
                 try { Directory.Delete(tmp, recursive: true); } catch { }
             }
         }
+        private static (DateTime s, DateTime e)? ClipToDay(DateTime day, DateTime s, DateTime e)
+        {
+            var ds = day.Date;
+            var de = ds.AddDays(1);
 
+            var cs = s < ds ? ds : s;
+            var ce = e > de ? de : e;
+
+            return ce > cs ? (cs, ce) : null;
+        }
         private class PdfRenderException : Exception
         {
             public PdfRenderException(string message) : base(message) { }
             public PdfRenderException(string message, Exception inner) : base(message, inner) { }
+        }
+        private static bool IsCreditedForPdf(Event e)
+        {
+            if (e.IsDeleted || e.EventType == EventType.Lunch)
+                return false;
+
+            return IsWorkLike(e) || SpecialTypes.Contains(e.EventType);
+        }
+
+        private static (TimeSpan? start, TimeSpan? end) GetActualDayWindow(DateTime day, IEnumerable<Event> dayEvents)
+        {
+            var credited = dayEvents
+                .Where(IsCreditedForPdf)
+                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .OrderBy(x => x.s)
+                .ToList();
+
+            if (credited.Count == 0)
+                return (null, null);
+
+            return (
+                credited.First().s.TimeOfDay,
+                credited.Last().e.TimeOfDay
+            );
+        }
+
+        private static int GetActualWorkedMinutesForPdf(DateTime day, IEnumerable<Event> dayEvents)
+        {
+            var intervals = dayEvents
+                .Where(IsCreditedForPdf)
+                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .Where(x => x.e > x.s)
+                .OrderBy(x => x.s)
+                .ToList();
+
+            if (intervals.Count == 0)
+                return 0;
+
+            var merged = new List<(DateTime s, DateTime e)>();
+
+            foreach (var iv in intervals)
+            {
+                if (merged.Count == 0 || merged[^1].e < iv.s)
+                {
+                    merged.Add(iv);
+                }
+                else if (iv.e > merged[^1].e)
+                {
+                    merged[^1] = (merged[^1].s, iv.e);
+                }
+            }
+
+            int minutes = merged.Sum(x => (int)(x.e - x.s).TotalMinutes);
+            return RoundDownToQuantum(minutes);
         }
     }
 }

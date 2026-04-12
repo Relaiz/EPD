@@ -22,65 +22,71 @@
 										 FalseBrush="{StaticResource NormalForegroundBrush}" />
 
 		<DataTemplate x:Key="DayCellTemplate" DataType="{x:Type vm:MonthViewModel+MonthDayInfo}">
-			<Border BorderBrush="#DDDDDD" BorderThickness="1" Padding="5"
-					Background="{Binding DayBackground}">
-				<i:Interaction.Behaviors>
-					<behaviors:DayCellClickBehavior/>
-				</i:Interaction.Behaviors>
-				<StackPanel Orientation="Vertical" Spacing="4">
-					<TextBlock Text="{Binding DayNumber}"
-							   Foreground="{Binding DayNumberForeground}"
-							   FontWeight="Bold"
-							   HorizontalAlignment="Right"/>
-					<ScrollViewer VerticalScrollBarVisibility="Auto"
-											 MaxHeight="60">
-					<ItemsControl ItemsSource="{Binding Events}">
-						<ItemsControl.ItemTemplate>
-							<DataTemplate>
-								<Border BorderBrush="{Binding Converter={StaticResource EventBrushConverter}}"
-										BorderThickness="1"
-										CornerRadius="4"
-										Background="White"
-										Padding="4"
-										Margin="2">
-									<StackPanel Orientation="Horizontal" Spacing="6">
-										<i:Interaction.Behaviors>
-											<behaviors:EventClickBehavior/>
-										</i:Interaction.Behaviors>
-										<Ellipse Width="8"
-												 Height="8"
-												 Fill="{Binding Converter={StaticResource EventBrushConverter}}"
-												 VerticalAlignment="Center"/>
-
-										<StackPanel Orientation="Vertical" Spacing="2">
-											<TextBlock>
-												<TextBlock.Text>
-													<MultiBinding StringFormat="{}{0:HH:mm} {1}">
-														<Binding Path="StartTime"/>
-														<Binding Path="Title"/>
-													</MultiBinding>
-												</TextBlock.Text>
-												<TextBlock.FontWeight>Bold</TextBlock.FontWeight>
-												<TextBlock.Foreground>Black</TextBlock.Foreground>
-												<TextBlock.TextWrapping>Wrap</TextBlock.TextWrapping>
-											</TextBlock>	
-										</StackPanel>
-									</StackPanel>
-
-									<ToolTip.Tip>
-										<MultiBinding StringFormat="{}{0} {1}">
-											<Binding Path="Title"/>
-											<Binding Path="Description"/>
-										</MultiBinding>
-									</ToolTip.Tip>			
-								</Border>						
-							</DataTemplate>
-						</ItemsControl.ItemTemplate>
-					</ItemsControl>
-					</ScrollViewer>			
-				</StackPanel>
-			</Border>
-		</DataTemplate>
+        	<Border BorderBrush="#DDDDDD"
+        			BorderThickness="1"
+        			Padding="5"
+        			Background="{Binding DayBackground}"
+        			ClipToBounds="True">
+        		<i:Interaction.Behaviors>
+        			<behaviors:DayCellClickBehavior/>
+        		</i:Interaction.Behaviors>
+        
+        		<Grid RowDefinitions="Auto,*" MinHeight="0">
+        			<TextBlock Grid.Row="0"
+        					   Text="{Binding DayNumber}"
+        					   Foreground="{Binding DayNumberForeground}"
+        					   FontWeight="Bold"
+        					   HorizontalAlignment="Right"/>
+        
+        			<ScrollViewer Grid.Row="1"
+        						  MinHeight="0"
+        						  VerticalScrollBarVisibility="Auto"
+        						  HorizontalScrollBarVisibility="Disabled">
+        				<ItemsControl ItemsSource="{Binding Events}">
+        					<ItemsControl.ItemTemplate>
+        						<DataTemplate>
+        							<Border BorderBrush="{Binding Converter={StaticResource EventBrushConverter}}"
+        									BorderThickness="1"
+        									CornerRadius="4"
+        									Background="White"
+        									Padding="4"
+        									Margin="2">
+        								<i:Interaction.Behaviors>
+        									<behaviors:EventClickBehavior/>
+        								</i:Interaction.Behaviors>
+        
+        								<StackPanel Orientation="Horizontal" Spacing="6">
+        									<Ellipse Width="8"
+        											 Height="8"
+        											 Fill="{Binding Converter={StaticResource EventBrushConverter}}"
+        											 VerticalAlignment="Center"/>
+        
+        									<TextBlock FontWeight="Bold"
+        											   Foreground="Black"
+        											   TextWrapping="Wrap">
+        										<TextBlock.Text>
+        											<MultiBinding StringFormat="{}{0:HH:mm} {1}">
+        												<Binding Path="StartTime"/>
+        												<Binding Path="Title"/>
+        											</MultiBinding>
+        										</TextBlock.Text>
+        									</TextBlock>
+        								</StackPanel>
+        
+        								<ToolTip.Tip>
+        									<MultiBinding StringFormat="{}{0} {1}">
+        										<Binding Path="Title"/>
+        										<Binding Path="Description"/>
+        									</MultiBinding>
+        								</ToolTip.Tip>
+        							</Border>
+        						</DataTemplate>
+        					</ItemsControl.ItemTemplate>
+        				</ItemsControl>
+        			</ScrollViewer>
+        		</Grid>
+        	</Border>
+        </DataTemplate>
 	</UserControl.Resources>
 
 		<Grid RowDefinitions="Auto, Auto, *">

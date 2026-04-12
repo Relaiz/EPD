@@ -21,10 +21,14 @@ namespace TeacherScheduleApp.Helpers
         {
             var p = FilePath(employeeId, isoYear, isoWeek);
             if (!File.Exists(p))
+            {
                 return false;
+            }
 
             var saved = File.ReadAllText(p);
-            return string.Equals(saved, fingerprint, StringComparison.Ordinal);
+            var result = string.Equals(saved, fingerprint, StringComparison.Ordinal);
+
+            return result;
         }
 
         public static void Save(int employeeId, int isoYear, int isoWeek, string fingerprint)

@@ -1,10 +1,15 @@
-﻿using ReactiveUI;
+﻿using Avalonia.Controls;
+using MsBox.Avalonia.Dto;
+using MsBox.Avalonia.Enums;
+using MsBox.Avalonia;
+using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Threading.Tasks;
 using TeacherScheduleApp.Controls;
 using TeacherScheduleApp.Helpers;
 using TeacherScheduleApp.Messages;
@@ -284,7 +289,22 @@ namespace TeacherScheduleApp.ViewModels
                 var ev = await dlg.ShowDialog<Event?>(win);
                 if (ev == null)
                     return;
+                if (ev.EventType == EventType.Lunch && !ev.IsDeleted)
+                {
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService,
+                        prompt => AskCollisionAsync(prompt),
+                        _employeeId);
 
+                    var prep = await generator.PrepareManualLunchAsync(ev);
+                    if (!prep.Ok || prep.Event == null)
+                    {
+                        await ShowErrorAsync(prep.Error ?? "Oběd se nepodařilo vytvořit.");
+                        return;
+                    }
+
+                    ev = prep.Event;
+                }
                 if (ev.IsDeleted)
                 {
                     if (ev.ParentEventId == null)
@@ -310,12 +330,12 @@ namespace TeacherScheduleApp.ViewModels
                     _eventService.CreateEvent(ev);
                 }
 
-                var generator = new AutomaticEventsGeneratorService(
+                var generators = new AutomaticEventsGeneratorService(
                     _eventService,
-                    _ => System.Threading.Tasks.Task.FromResult(true),
+                    prompt => AskCollisionAsync(prompt),
                     _employeeId);
 
-                await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
+                await generators.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
 
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(CurrentDate));
                 MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
@@ -352,7 +372,22 @@ namespace TeacherScheduleApp.ViewModels
                 var ev = await dlg.ShowDialog<Event?>(win);
                 if (ev == null)
                     return;
+                if (ev.EventType == EventType.Lunch && !ev.IsDeleted)
+                {
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService,
+                        prompt => AskCollisionAsync(prompt),
+                        _employeeId);
 
+                    var prep = await generator.PrepareManualLunchAsync(ev);
+                    if (!prep.Ok || prep.Event == null)
+                    {
+                        await ShowErrorAsync(prep.Error ?? "Oběd se nepodařilo uložit.");
+                        return;
+                    }
+
+                    ev = prep.Event;
+                }
                 var oldStart = existing.StartTime.Date;
                 var oldEnd = existing.EndTime.Date;
 
@@ -398,7 +433,7 @@ namespace TeacherScheduleApp.ViewModels
 
                         var generator = new AutomaticEventsGeneratorService(
                             _eventService,
-                            _ => System.Threading.Tasks.Task.FromResult(true),
+                            prompt => AskCollisionAsync(prompt),
                             _employeeId);
 
                         await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
@@ -416,7 +451,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     var generator2 = new AutomaticEventsGeneratorService(
                         _eventService,
-                        _ => System.Threading.Tasks.Task.FromResult(true),
+                        prompt => AskCollisionAsync(prompt),
                         _employeeId);
 
                     await generator2.RegenerateRangeEventsAsync(from, to);
@@ -440,7 +475,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     var generator = new AutomaticEventsGeneratorService(
                         _eventService,
-                        _ => System.Threading.Tasks.Task.FromResult(true),
+                        prompt => AskCollisionAsync(prompt),
                         _employeeId);
 
                     await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
@@ -454,6 +489,43 @@ namespace TeacherScheduleApp.ViewModels
             {
                 _isDialogOpen = false;
             }
+        }
+
+        private async Task<bool> AskCollisionAsync(string message)
+        {
+            var win = Helper.GetMainWindow();
+            if (win == null)
+                return false;
+
+            var msgBox = MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+            {
+                ButtonDefinitions = ButtonEnum.YesNo,
+                ContentTitle = "Kolize s obědem",
+                ContentMessage = message,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Icon = Icon.Warning
+            });
+
+            var result = await msgBox.ShowWindowDialogAsync(win);
+            return result == ButtonResult.Yes;
+        }
+
+        private async Task ShowErrorAsync(string message)
+        {
+            var win = Helper.GetMainWindow();
+            if (win == null)
+                return;
+
+            var msgBox = MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+            {
+                ButtonDefinitions = ButtonEnum.Ok,
+                ContentTitle = "Chyba",
+                ContentMessage = message,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Icon = Icon.Warning
+            });
+
+            await msgBox.ShowWindowDialogAsync(win);
         }
 
         private static bool Intersects(DateTime a0, DateTime a1, DateTime b0, DateTime b1)

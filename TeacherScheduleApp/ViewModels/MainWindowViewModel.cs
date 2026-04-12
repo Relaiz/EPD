@@ -48,6 +48,48 @@ namespace TeacherScheduleApp.ViewModels
             }
         }
 
+        private int _dayActualMinutes;
+        public int DayActualMinutes
+        {
+            get => _dayActualMinutes;
+            set => this.RaiseAndSetIfChanged(ref _dayActualMinutes, value);
+        }
+
+        private int _dayExpectedMinutes;
+        public int DayExpectedMinutes
+        {
+            get => _dayExpectedMinutes;
+            set => this.RaiseAndSetIfChanged(ref _dayExpectedMinutes, value);
+        }
+
+        private int _weekActualMinutes;
+        public int WeekActualMinutes
+        {
+            get => _weekActualMinutes;
+            set => this.RaiseAndSetIfChanged(ref _weekActualMinutes, value);
+        }
+
+        private int _weekExpectedMinutes;
+        public int WeekExpectedMinutes
+        {
+            get => _weekExpectedMinutes;
+            set => this.RaiseAndSetIfChanged(ref _weekExpectedMinutes, value);
+        }
+
+        private int _monthActualMinutes;
+        public int MonthActualMinutes
+        {
+            get => _monthActualMinutes;
+            set => this.RaiseAndSetIfChanged(ref _monthActualMinutes, value);
+        }
+
+        private int _monthExpectedMinutes;
+        public int MonthExpectedMinutes
+        {
+            get => _monthExpectedMinutes;
+            set => this.RaiseAndSetIfChanged(ref _monthExpectedMinutes, value);
+        }
+
         private string _busyText = "Načítám…";
         public string BusyText
         {
@@ -166,27 +208,6 @@ namespace TeacherScheduleApp.ViewModels
             }
         }
 
-        private double _dailyHours;
-        public double DailyHours
-        {
-            get => _dailyHours;
-            set => this.RaiseAndSetIfChanged(ref _dailyHours, value);
-        }
-
-        private double _weeklyHours;
-        public double WeeklyHours
-        {
-            get => _weeklyHours;
-            set => this.RaiseAndSetIfChanged(ref _weeklyHours, value);
-        }
-
-        private double _monthlyHours;
-        public double MonthlyHours
-        {
-            get => _monthlyHours;
-            set => this.RaiseAndSetIfChanged(ref _monthlyHours, value);
-        }
-
         private string _arrivalTime = "08:00";
         public string ArrivalTime
         {
@@ -194,7 +215,6 @@ namespace TeacherScheduleApp.ViewModels
             set
             {
                 this.RaiseAndSetIfChanged(ref _arrivalTime, value);
-                this.RaisePropertyChanged(nameof(DayHours));
             }
         }
 
@@ -205,7 +225,6 @@ namespace TeacherScheduleApp.ViewModels
             set
             {
                 this.RaiseAndSetIfChanged(ref _departureTime, value);
-                this.RaisePropertyChanged(nameof(DayHours));
             }
         }
 
@@ -217,7 +236,6 @@ namespace TeacherScheduleApp.ViewModels
             {
                 this.RaiseAndSetIfChanged(ref _lunchStartTime, value);
                 this.RaisePropertyChanged(nameof(LunchMinutes));
-                this.RaisePropertyChanged(nameof(DayHours));
             }
         }
 
@@ -229,7 +247,6 @@ namespace TeacherScheduleApp.ViewModels
             {
                 this.RaiseAndSetIfChanged(ref _lunchEndTime, value);
                 this.RaisePropertyChanged(nameof(LunchMinutes));
-                this.RaisePropertyChanged(nameof(DayHours));
             }
         }
 
@@ -329,66 +346,100 @@ namespace TeacherScheduleApp.ViewModels
                     if (SelectedMonth == null)
                         return;
 
-                    var owner = Helper.GetMainWindow();
-                    var eventService = new EventService();
+                    var selectedMonth = SelectedMonth.Value;
+                    var year = selectedMonth.Year;
+                    var month = selectedMonth.Month;
 
-                    var year = SelectedMonth.Value.Year;
-                    var month = SelectedMonth.Value.Month;
-
-                    var monthDays = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
-                        .Select(d => new DateTime(year, month, d))
-                        .Where(d => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
-                                 && !HolidayHelper.IsCzechHoliday(d))
-                        .ToList();
-
-                    var weekGroups = monthDays
-                        .GroupBy(d => (ISOYear: System.Globalization.ISOWeek.GetYear(d),
-                                       ISOWeek: System.Globalization.ISOWeek.GetWeekOfYear(d)))
-                        .OrderBy(g => g.Key.ISOYear)
-                        .ThenBy(g => g.Key.ISOWeek)
-                        .ToList();
-
-                    foreach (var g in weekGroups)
+                    await RunBusyAsync("Připravuji PDF náhled…", async () =>
                     {
-                        var anyDay = g.First();
+                        var eventService = new EventService();
 
-                        var fpBefore = Helpers.BalanceFingerprint.ForWeek(
-                            eventService, _employeeId, anyDay);
-
-                        if (!Helpers.WeekBalanceStore.IsBalanced(
-                                _employeeId,
-                                g.Key.ISOYear,
-                                g.Key.ISOWeek,
-                                fpBefore))
+                        await Task.Run(async () =>
                         {
-                            await eventService.BalanceWeekForDateAsync(anyDay, _employeeId);
+                            var monthDays = Enumerable.Range(1, DateTime.DaysInMonth(year, month))
+                                .Select(d => new DateTime(year, month, d))
+                                .Where(d => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
+                                         && !HolidayHelper.IsCzechHoliday(d))
+                                .ToList();
 
-                            var fpAfter = Helpers.BalanceFingerprint.ForWeek(
-                                eventService, _employeeId, anyDay);
+                            var weekGroups = monthDays
+                                .GroupBy(d => (ISOYear: System.Globalization.ISOWeek.GetYear(d),
+                                               ISOWeek: System.Globalization.ISOWeek.GetWeekOfYear(d)))
+                                .OrderBy(g => g.Key.ISOYear)
+                                .ThenBy(g => g.Key.ISOWeek)
+                                .ToList();
 
-                            Helpers.WeekBalanceStore.Save(
-                                _employeeId,
-                                g.Key.ISOYear,
-                                g.Key.ISOWeek,
-                                fpAfter);
-                        }
-                    }
+                            foreach (var g in weekGroups)
+                            {
+                                SetBusyTextSafe($"Vyvažuji týden {g.Key.ISOWeek:D2}…");
 
-                    var vm = new PdfPreviewViewModel(
-                        new PdfService(),
-                        eventService,
-                        SelectedMonth.Value,
-                        _employeeId);
+                                var anyDay = g.First();
 
-                    await vm.LoadInitialAsync();
+                                var fpBefore = Helpers.BalanceFingerprint.ForWeek(
+                                    eventService, _employeeId, anyDay);
 
-                    var win = new PdfPreviewWindow
-                    {
-                        DataContext = vm,
-                        WindowStartupLocation = WindowStartupLocation.CenterOwner
-                    };
+                                bool isBalanced = Helpers.WeekBalanceStore.IsBalanced(
+                                    _employeeId,
+                                    g.Key.ISOYear,
+                                    g.Key.ISOWeek,
+                                    fpBefore);
 
-                    win.Show(owner);
+                                if (!isBalanced)
+                                {
+                                    await eventService.BalanceWeekForDateAsync(anyDay, _employeeId);
+
+                                    var weekDays = Enumerable.Range(0, 7)
+                                        .Select(i =>
+                                        {
+                                            var d = anyDay.Date;
+                                            int delta = ((int)d.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+                                            var monday = d.AddDays(-delta);
+                                            return monday.AddDays(i).Date;
+                                        })
+                                        .Where(EventService.IsWorkday)
+                                        .ToList();
+
+                                    if (eventService.IsScopeReallyBalanced(weekDays, _employeeId))
+                                    {
+                                        var fpAfter = Helpers.BalanceFingerprint.ForWeek(eventService, _employeeId, anyDay);
+
+                                        Helpers.WeekBalanceStore.Save(
+                                            _employeeId,
+                                            System.Globalization.ISOWeek.GetYear(anyDay),
+                                            System.Globalization.ISOWeek.GetWeekOfYear(anyDay),
+                                            fpAfter);
+                                    }
+                                    else
+                                    {
+                                        Helpers.WeekBalanceStore.Invalidate(
+                                            _employeeId,
+                                            System.Globalization.ISOWeek.GetYear(anyDay),
+                                            System.Globalization.ISOWeek.GetWeekOfYear(anyDay));
+                                    }
+                                }
+                            }
+                        });
+
+                        SetBusyTextSafe("Generuji náhled PDF…");
+
+                        var owner = Helper.GetMainWindow();
+
+                        var vm = new PdfPreviewViewModel(
+                            new PdfService(),
+                            eventService,
+                            selectedMonth,
+                            _employeeId);
+
+                        await vm.LoadInitialAsync();
+
+                        var win = new PdfPreviewWindow
+                        {
+                            DataContext = vm,
+                            WindowStartupLocation = WindowStartupLocation.CenterOwner
+                        };
+
+                        win.Show(owner);
+                    });
                 }
                 catch (PdfRenderException ex)
                 {
@@ -420,12 +471,11 @@ namespace TeacherScheduleApp.ViewModels
 
             RegenerateAllCommand = ReactiveCommand.CreateFromTask(async () =>
             {
-                IsBusy = true;
-                try
+                await RunBusyBackgroundAsync("Přegenerovávám automatické události pro celý rok…", async () =>
                 {
                     var generator = new AutomaticEventsGeneratorService(
                         new EventService(),
-                        prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask(),
+                        prompt => AskCollisionOnUiAsync(prompt),
                         _employeeId);
 
                     var yearStart = new DateTime(DateTime.Now.Year, 1, 1);
@@ -433,11 +483,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     await generator.RegenerateRangeEventsAsync(yearStart, yearEnd);
                     MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
-                }
-                finally
-                {
-                    IsBusy = false;
-                }
+                });
             }, outputScheduler: RxApp.TaskpoolScheduler);
 
             ShowCollisionMessage.RegisterHandler(async interaction =>
@@ -470,8 +516,13 @@ namespace TeacherScheduleApp.ViewModels
                 .Subscribe(_ =>
                 {
                     _events = _eventService.LoadEvents(_employeeId);
+                
+                    RefreshSelectedDaySettingsPanel();
                     RecalculateWorkingHours();
-                    CurrentViewModel = CurrentViewModel;
+                
+                    if (IsDayViewVisible) OpenDayView();
+                    else if (IsWeekViewVisible) OpenWeekView();
+                    else if (IsMonthViewVisible) OpenMonthView();
                 });
 
             MessageBus.Current
@@ -485,8 +536,11 @@ namespace TeacherScheduleApp.ViewModels
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(_ =>
                 {
-                    RefreshImportBatches();
-
+                    RefreshImportBatchesAsync();
+                
+                    RefreshSelectedDaySettingsPanel();
+                    RecalculateWorkingHours();
+                
                     if (IsDayViewVisible) OpenDayView();
                     else if (IsWeekViewVisible) OpenWeekView();
                     else if (IsMonthViewVisible) OpenMonthView();
@@ -546,37 +600,66 @@ namespace TeacherScheduleApp.ViewModels
                 if (ev == null)
                     return;
 
-                ev.EmployeeId = _employeeId;
-
-                if (ev.IsDeleted)
+                if (ev.EventType == EventType.Lunch)
                 {
-                    _eventService.DeleteEvent(ev.Id, _employeeId);
+                    var lunchGenerator = new AutomaticEventsGeneratorService(
+                        _eventService,
+                        prompt => AskCollisionOnUiAsync(prompt),
+                        _employeeId);
+
+                    var lunchPrep = await lunchGenerator.PrepareManualLunchAsync(ev);
+
+                    if (!lunchPrep.Ok)
+                    {
+                        await MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+                        {
+                            ContentHeader = "Nelze vytvořit oběd",
+                            ContentMessage = lunchPrep.Error ?? "Neznámá chyba.",
+                            ButtonDefinitions = ButtonEnum.Ok,
+                            Icon = Icon.Warning,
+                            WindowStartupLocation = WindowStartupLocation.CenterOwner
+                        }).ShowWindowDialogAsync(main);
+
+                        return;
+                    }
+
+                    ev = lunchPrep.Event!;
                 }
-                else if (ev.Id != 0)
+
+                await RunBusyBackgroundAsync("Ukládám událost a aktualizuji den…", async () =>
                 {
-                    ev.IsAutoGenerated = false;
-                    _eventService.UpdateEvent(ev);
-                }
-                else
-                {
-                    _eventService.CreateEvent(ev);
-                }
+                    ev.EmployeeId = _employeeId;
 
-                var generator = new AutomaticEventsGeneratorService(
-                    _eventService,
-                    prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask(),
-                    _employeeId);
+                    if (ev.IsDeleted)
+                    {
+                        _eventService.DeleteEvent(ev.Id, _employeeId);
+                    }
+                    else if (ev.Id != 0)
+                    {
+                        ev.IsAutoGenerated = false;
+                        _eventService.UpdateEvent(ev);
+                    }
+                    else
+                    {
+                        _eventService.CreateEvent(ev);
+                    }
 
-                await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService,
+                        prompt => AskCollisionOnUiAsync(prompt),
+                        _employeeId);
 
-                MessageBus.Current.SendMessage(new UserSettingsChangedMessage(day));
-                MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
+                    await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
 
-                _events = _eventService.LoadEvents(_employeeId);
-                RecalculateWorkingHours();
-                CurrentViewModel = CurrentViewModel;
+                    MessageBus.Current.SendMessage(new UserSettingsChangedMessage(day));
+                    MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
+
+                    _events = _eventService.LoadEvents(_employeeId);
+                    RecalculateWorkingHours();
+                    CurrentViewModel = CurrentViewModel;
+                });
             });
-
+            
             GenerateEPDCommand = ReactiveCommand.CreateFromTask(GenerateEPDAsync);
 
             ShowDayCommand = ReactiveCommand.Create(() =>
@@ -745,12 +828,11 @@ namespace TeacherScheduleApp.ViewModels
 
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(date));
 
-                IsBusy = true;
-                try
+                await RunBusyBackgroundAsync("Ukládám nastavení dne a přegenerovávám události…", async () =>
                 {
                     var generator = new AutomaticEventsGeneratorService(
                         _eventService,
-                        prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask(),
+                        prompt => AskCollisionOnUiAsync(prompt),
                         _employeeId);
 
                     await generator.RegenerateDailyEventsAsync(date, preserveUserSettings: true);
@@ -760,14 +842,10 @@ namespace TeacherScheduleApp.ViewModels
                     _events = _eventService.LoadEvents(_employeeId);
                     RecalculateWorkingHours();
                     CurrentViewModel = CurrentViewModel;
-                }
-                finally
-                {
-                    IsBusy = false;
-                }
+                });
             });
 
-            RefreshImportBatches();
+            RefreshImportBatchesAsync();
             RxApp.MainThreadScheduler.ScheduleAsync(async (_, __) =>
             {
                 await InitializeAutoEventsAsync();
@@ -792,8 +870,7 @@ namespace TeacherScheduleApp.ViewModels
 
         private async Task InitializeAutoEventsAsync()
         {
-            IsBusy = true;
-            try
+            await RunBusyBackgroundAsync("Inicializuji automatické události…", async () =>
             {
                 EnsureInitialDefaults();
 
@@ -809,32 +886,26 @@ namespace TeacherScheduleApp.ViewModels
                 await generator.RegenerateRangeEventsAsync(from, to);
 
                 _events = _eventService.LoadEvents(_employeeId);
-                RefreshImportBatches();
+                RefreshImportBatchesAsync();
                 RecalculateWorkingHours();
 
                 MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
-            }
-            finally
-            {
-                IsBusy = false;
-            }
+            });
         }
 
-        public double LunchMinutes
+        public int LunchMinutes
         {
             get
             {
-                if (TimeSpan.TryParse(LunchEndTime, out var end) &&
-                    TimeSpan.TryParse(LunchStartTime, out var start))
-                {
-                    return (end - start).TotalMinutes;
-                }
+                if (!TimeSpan.TryParse(LunchEndTime, out var end) ||
+                    !TimeSpan.TryParse(LunchStartTime, out var start))
+                    return 0;
 
-                return 0;
+                return Math.Max(0, (int)(end - start).TotalMinutes);
             }
         }
 
-        public double DayHours
+        public int ConfiguredDayMinutes
         {
             get
             {
@@ -842,42 +913,69 @@ namespace TeacherScheduleApp.ViewModels
                     !TimeSpan.TryParse(DepartureTime, out var departure))
                     return 0;
 
-                double total = (departure - arrival).TotalHours;
-                double lunchDuration = LunchMinutes / 60.0;
-                double netHours = total - lunchDuration;
-                return netHours < 0 ? 0 : netHours;
+                var totalMinutes = (int)(departure - arrival).TotalMinutes;
+                var netMinutes = totalMinutes - LunchMinutes;
+                return Math.Max(0, netMinutes);
             }
         }
 
-        public string DayDisplay => $"{DailyHours:F1} / 8";
+        private static string FormatMinutes(int totalMinutes)
+        {
+            string sign = totalMinutes < 0 ? "-" : "";
+            totalMinutes = Math.Abs(totalMinutes);
+
+            int hours = totalMinutes / 60;
+            int minutes = totalMinutes % 60;
+
+            return $"{sign}{hours:00}:{minutes:00}";
+        }
+
+        public string ConfiguredDayDisplay => FormatMinutes(ConfiguredDayMinutes);
+
+        public string DayDisplay
+        {
+            get
+            {
+                if (!SelectedDate.HasValue)
+                    return string.Empty;
+
+                return $"{FormatMinutes(DayActualMinutes)} / {FormatMinutes(DayExpectedMinutes)}";
+            }
+        }
 
         public string WeekDisplay
         {
             get
             {
-                if (!SelectedWeek.HasValue) return string.Empty;
+                if (!SelectedWeek.HasValue)
+                    return string.Empty;
 
                 var weekEvents = _eventService.GetEventsForWeek(_employeeId, SelectedWeek.Value);
-                if (!weekEvents.Any()) return string.Empty;
+                if (!weekEvents.Any())
+                    return string.Empty;
 
-                var byMonth = _hoursCalculator.WeeklyMetricsByMonth(SelectedWeek.Value, weekEvents);
+                var byMonth = _hoursCalculator.WeeklyDisplayMetricsByMonth(
+                    SelectedWeek.Value,
+                    weekEvents,
+                    _employeeId);
 
                 if (byMonth.Count == 1)
                 {
                     var only = byMonth.First().Value;
-                    return $"{only.worked:F1} / {only.expected:F0}";
+                    return $"{FormatMinutes(only.ActualMinutes)} / {FormatMinutes(only.ExpectedMinutes)}";
                 }
 
                 var parts = byMonth
-                    .OrderBy(kv => kv.Key)
+                    .OrderBy(kv => kv.Key.Year)
+                    .ThenBy(kv => kv.Key.Month)
                     .Select(kv =>
                     {
-                        var m = kv.Key;
+                        var key = kv.Key;
                         var v = kv.Value;
-                        var monthName = new DateTime(SelectedWeek.Value.Year, m, 1)
+                        var monthName = new DateTime(key.Year, key.Month, 1)
                             .ToString("MMMM", System.Globalization.CultureInfo.CurrentCulture);
 
-                        return $"{monthName}: {v.worked:F1} / {v.expected:F0}";
+                        return $"{monthName}: {FormatMinutes(v.ActualMinutes)} / {FormatMinutes(v.ExpectedMinutes)}";
                     });
 
                 return string.Join(" | ", parts);
@@ -888,9 +986,10 @@ namespace TeacherScheduleApp.ViewModels
         {
             get
             {
-                if (!SelectedMonth.HasValue) return string.Empty;
-                var norm = MonthlyNorm;
-                return $"{MonthlyHours:F1} / {norm:F1}";
+                if (!SelectedMonth.HasValue)
+                    return string.Empty;
+
+                return $"{FormatMinutes(MonthActualMinutes)} / {FormatMinutes(MonthExpectedMinutes)}";
             }
         }
 
@@ -943,20 +1042,28 @@ namespace TeacherScheduleApp.ViewModels
             if (!SelectedDate.HasValue || !SelectedWeek.HasValue || !SelectedMonth.HasValue)
                 return;
 
-            DateTime selected = SelectedDate.Value;
-            DateTime selectedWeek = SelectedWeek.Value;
-            DateTime selectedMonth = SelectedMonth.Value;
+            var selectedDate = SelectedDate.Value.Date;
+            var selectedWeek = SelectedWeek.Value.Date;
+            var selectedMonth = SelectedMonth.Value;
 
-            var day = _hoursCalculator.DailyMetrics(selected, _events);
-            DailyHours = day.credited;
+            var day = _hoursCalculator.DailyDisplayMetrics(selectedDate, _events, _employeeId);
+            DayActualMinutes = day.ActualMinutes;
+            DayExpectedMinutes = day.ExpectedMinutes;
 
-            DateTime weekStart = selectedWeek.AddDays(-(int)(selectedWeek.DayOfWeek - DayOfWeek.Monday));
-            var week = _hoursCalculator.WeeklyMetrics(weekStart, _events);
-            WeeklyHours = week.worked;
+            var week = _hoursCalculator.WeeklyDisplayMetrics(selectedWeek, _events, _employeeId);
+            WeekActualMinutes = week.ActualMinutes;
+            WeekExpectedMinutes = week.ExpectedMinutes;
 
-            var month = _hoursCalculator.MonthlyMetrics(selectedMonth.Year, selectedMonth.Month, _events);
-            MonthlyHours = month.worked - month.over + month.under;
+            var month = _hoursCalculator.MonthlyDisplayMetrics(
+                selectedMonth.Year,
+                selectedMonth.Month,
+                _events,
+                _employeeId);
 
+            MonthActualMinutes = month.ActualMinutes;
+            MonthExpectedMinutes = month.ExpectedMinutes;
+
+            this.RaisePropertyChanged(nameof(ConfiguredDayDisplay));
             this.RaisePropertyChanged(nameof(DayDisplay));
             this.RaisePropertyChanged(nameof(WeekDisplay));
             this.RaisePropertyChanged(nameof(MonthDisplay));
@@ -1036,58 +1143,57 @@ namespace TeacherScheduleApp.ViewModels
             {
                 var mainWindow = Helpers.Helper.GetMainWindow();
                 if (mainWindow == null)
+                {
                     return;
+                }
 
                 var openFileDialog = new OpenFileDialog
                 {
                     Title = "Vyberte soubor pro generování EPD",
                     AllowMultiple = false,
                     Filters =
-            {
-                new FileDialogFilter
-                {
-                    Name = "CSV soubory",
-                    Extensions = { "csv" }
-                },
-                new FileDialogFilter
-                {
-                    Name = "Všechny soubory",
-                    Extensions = { "*" }
-                }
-            }
+                    {
+                        new FileDialogFilter
+                        {
+                            Name = "CSV soubory",
+                            Extensions = { "csv" }
+                        },
+                        new FileDialogFilter
+                        {
+                            Name = "Všechny soubory",
+                            Extensions = { "*" }
+                        }
+                    }
                 };
 
                 var result = await openFileDialog.ShowAsync(mainWindow);
+
                 if (result == null || result.Length == 0)
+                {
                     return;
+                }
 
                 var teacherScheduleCsvPath = result[0];
+
                 if (!File.Exists(teacherScheduleCsvPath))
+                {
                     return;
+                }
 
-                IsBusy = true;
-                BusyText = "Načítám rozvrh…";
-
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
-                    () => { },
-                    Avalonia.Threading.DispatcherPriority.Background);
-
-                try
+                await RunBusyAsync("Načítám rozvrh…", async () =>
                 {
                     var epdGenerator = new EPDGenerator(
                         _eventService,
                         prompt => AskCollisionOnUiAsync(prompt),
                         _employeeId,
-                        status =>
-                        {
-                            Avalonia.Threading.Dispatcher.UIThread.Post(() => BusyText = status);
-                        });
+                        status => SetBusyTextSafe(status));
 
-                    var report = await epdGenerator.GenerateEPDEventsWithReportAsync(teacherScheduleCsvPath);
+                    var report = await Task.Run(() =>
+                        epdGenerator.GenerateEPDEventsWithReportAsync(teacherScheduleCsvPath));
 
-                    BusyText = "Obnovuji zobrazení…";
+                    SetBusyTextSafe("Obnovuji zobrazení…");
 
-                    RefreshImportBatches();
+                    RefreshImportBatchesAsync();
                     _events = _eventService.LoadEvents(_employeeId);
                     RecalculateWorkingHours();
 
@@ -1113,12 +1219,7 @@ namespace TeacherScheduleApp.ViewModels
                             WindowStartupLocation = WindowStartupLocation.CenterOwner
                         })
                         .ShowWindowDialogAsync(mainWindow);
-                }
-                finally
-                {
-                    IsBusy = false;
-                    BusyText = "Načítám…";
-                }
+                });
             }
             catch (Exception ex)
             {
@@ -1137,17 +1238,30 @@ namespace TeacherScheduleApp.ViewModels
 
         private Task<bool> AskCollisionOnUiAsync(string prompt)
         {
-            var tcs = new TaskCompletionSource<bool>();
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
             {
                 try
                 {
-                    var result = await ShowCollisionMessage
-                        .Handle(prompt)
-                        .FirstAsync();
+                    var owner =
+                        (Avalonia.Application.Current?.ApplicationLifetime
+                            as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?
+                        .Windows?.FirstOrDefault(w => w.IsActive)
+                        ?? Helpers.Helper.GetMainWindow();
 
-                    tcs.TrySetResult(result);
+                    var msgBox = MessageBoxManager.GetMessageBoxStandard(
+                        new MessageBoxStandardParams
+                        {
+                            ButtonDefinitions = ButtonEnum.YesNo,
+                            Icon = Icon.Question,
+                            ContentHeader = "Kolize s obědem",
+                            ContentMessage = prompt,
+                            WindowStartupLocation = WindowStartupLocation.CenterOwner
+                        });
+
+                    var result = await msgBox.ShowWindowDialogAsync(owner);
+                    tcs.TrySetResult(result == ButtonResult.Yes);
                 }
                 catch (Exception ex)
                 {
@@ -1176,41 +1290,33 @@ namespace TeacherScheduleApp.ViewModels
             if (res != ButtonResult.Yes)
                 return;
 
-            IsBusy = true;
-            BusyText = "Mažu načtený rozvrh…";
-
-            await Task.Yield();
-
-            try
+            await RunBusyBackgroundAsync("Mažu načtený rozvrh…", async () =>
             {
-                await Task.Run(async () =>
-                {
-                    await _eventService.DeleteEventsByImportIdFastAsync(item.Id, _employeeId);
-                });
+                await _eventService.DeleteEventsByImportIdFastAsync(item.Id, _employeeId);
 
-                BusyText = "Obnovuji zobrazení…";
+                SetBusyTextSafe("Obnovuji zobrazení…");
 
-                RefreshImportBatches();
+                RefreshImportBatchesAsync();
                 _events = _eventService.LoadEvents(_employeeId);
                 RecalculateWorkingHours();
                 CurrentViewModel = CurrentViewModel;
-            }
-            finally
-            {
-                IsBusy = false;
-                BusyText = "Načítám…";
-            }
+            });
         }
 
-        public void RefreshImportBatches()
+        private async Task RefreshImportBatchesAsync()
         {
-            ImportBatches.Clear();
+            var rows = await Task.Run(() =>
+                _eventService.GetImportBatches(_employeeId)
+                             .OrderByDescending(x => x.RangeStart)
+                             .ToList());
 
-            foreach (var b in _eventService.GetImportBatches(_employeeId)
-                                           .OrderByDescending(x => x.RangeStart))
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                ImportBatches.Add(new ImportBatchItemViewModel(b, this));
-            }
+                ImportBatches.Clear();
+
+                foreach (var b in rows)
+                    ImportBatches.Add(new ImportBatchItemViewModel(b, this));
+            });
         }
 
         private int GetWorkingDaysInMonth(int year, int month)
@@ -1242,6 +1348,67 @@ namespace TeacherScheduleApp.ViewModels
                 int workingDays = GetWorkingDaysInMonth(SelectedMonth.Value.Year, SelectedMonth.Value.Month);
                 return workingDays * 8;
             }
+        }
+
+        private int _busyCounter = 0;
+        private int _busySuspendCounter = 0;
+        private async Task RunBusyAsync(string initialText, Func<Task> action)
+        {
+            _busyCounter++;
+            IsBusy = true;
+            BusyText = initialText;
+
+            await Task.Yield();
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                () => { },
+                Avalonia.Threading.DispatcherPriority.Background);
+
+            try
+            {
+                await action();
+            }
+            finally
+            {
+                _busyCounter--;
+
+                if (_busyCounter <= 0)
+                {
+                    _busyCounter = 0;
+                    BusyText = "Načítám…";
+                    IsBusy = false;
+                }
+            }
+        }
+
+        private void SetBusyTextSafe(string text)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                BusyText = text;
+            });
+        }
+
+        private void RefreshSelectedDaySettingsPanel()
+        {
+            if (!SelectedDate.HasValue)
+                return;
+
+            LoadUserSettingsForDate(SelectedDate.Value);
+
+            this.RaisePropertyChanged(nameof(ArrivalTime));
+            this.RaisePropertyChanged(nameof(DepartureTime));
+            this.RaisePropertyChanged(nameof(LunchStartTime));
+            this.RaisePropertyChanged(nameof(LunchEndTime));
+            this.RaisePropertyChanged(nameof(LunchMinutes));
+            this.RaisePropertyChanged(nameof(IsLunchEnabled));
+        }
+
+        private async Task RunBusyBackgroundAsync(string initialText, Func<Task> backgroundAction)
+        {
+            await RunBusyAsync(initialText, async () =>
+            {
+                await Task.Run(backgroundAction);
+            });
         }
     }
 }

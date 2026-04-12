@@ -16,6 +16,8 @@ namespace TeacherScheduleApp.Data
         public DbSet<DaySettings> DaySettings { get; set; }
         public DbSet<ImportBatch> ImportBatches { get; set; }
         public DbSet<Event> Events { get; set; }
+        public DbSet<BalanceSelfTrim> BalanceSelfTrims { get; set; }
+        public DbSet<BalanceTransfer> BalanceTransfers { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -204,6 +206,35 @@ namespace TeacherScheduleApp.Data
                     .WithMany(x => x.Events)
                     .HasForeignKey(x => x.ImportBatchId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<BalanceSelfTrim>(b =>
+            {
+                b.HasKey(x => x.Id);
+
+                b.HasIndex(x => new { x.EmployeeId, x.Day, x.Edge })
+                    .IsUnique();
+
+                b.Property(x => x.Minutes).IsRequired();
+                b.Property(x => x.Day).IsRequired();
+                b.Property(x => x.Edge).IsRequired();
+                b.Property(x => x.CreatedAtUtc).IsRequired();
+                b.Property(x => x.UpdatedAtUtc).IsRequired();
+            });
+
+            modelBuilder.Entity<BalanceTransfer>(b =>
+            {
+                b.HasKey(x => x.Id);
+
+                b.HasIndex(x => new { x.EmployeeId, x.FromDay, x.ToDay, x.Edge })
+                    .IsUnique();
+
+                b.Property(x => x.Minutes).IsRequired();
+                b.Property(x => x.FromDay).IsRequired();
+                b.Property(x => x.ToDay).IsRequired();
+                b.Property(x => x.Edge).IsRequired();
+                b.Property(x => x.CreatedAtUtc).IsRequired();
+                b.Property(x => x.UpdatedAtUtc).IsRequired();
             });
 
             base.OnModelCreating(modelBuilder);

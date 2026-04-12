@@ -7,23 +7,27 @@
              xmlns:i="clr-namespace:Avalonia.Xaml.Interactivity;assembly=Avalonia.Xaml.Interactivity"
              x:Class="TeacherScheduleApp.Views.DayView"
              x:DataType="vm:DayViewModel"
-             Background="White">
+             Background="White"
+             UseLayoutRounding="True">
+
 	<UserControl.Resources>
 		<SolidColorBrush x:Key="WorkingBrush" Color="#FFF5F5F5"/>
 		<converters:DayToCanvasLeftConverter x:Key="DayToCanvasLeft"/>
 		<converters:DayToColumnWidthConverter x:Key="DayToColumnWidth"/>
 		<converters:BoolToBrushConverter
-		  x:Key="WorkBrush"
-		  TrueBrush="White"
-		  FalseBrush="#FFEEEEEE"/>
+			x:Key="WorkBrush"
+			TrueBrush="White"
+			FalseBrush="#FFEEEEEE"/>
 	</UserControl.Resources>
+
 	<UserControl.KeyBindings>
-		<KeyBinding Gesture="Left"  Command="{Binding PreviousDayCommand}"/>
+		<KeyBinding Gesture="Left" Command="{Binding PreviousDayCommand}"/>
 		<KeyBinding Gesture="Right" Command="{Binding NextDayCommand}"/>
 		<KeyBinding Gesture="Ctrl+T" Command="{Binding TodayCommand}"/>
 	</UserControl.KeyBindings>
-	<DockPanel>
-		<Grid DockPanel.Dock="Top" Classes="navbar">
+
+	<Grid RowDefinitions="Auto,*">
+		<Grid Grid.Row="0" Classes="navbar">
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="*"/>
 				<ColumnDefinition Width="Auto"/>
@@ -36,21 +40,27 @@
 						VerticalAlignment="Center"
 						HorizontalAlignment="Center">
 				<Button Classes="nav" Content="←" Command="{Binding PreviousDayCommand}"/>
-				<TextBlock FontSize="16" Foreground="Black" VerticalAlignment="Center"
+				<TextBlock FontSize="16"
+						   Foreground="Black"
+						   VerticalAlignment="Center"
 						   Text="{Binding CurrentDate, StringFormat='Den: {0:dd MMM yyyy}'}"/>
 				<Button Classes="nav" Content="→" Command="{Binding NextDayCommand}"/>
 				<Button Classes="nav" Content="Dnes" Command="{Binding TodayCommand}"/>
 			</StackPanel>
 		</Grid>
 
-		<ScrollViewer DockPanel.Dock="Bottom" VerticalScrollBarVisibility="Auto" Background="White">
-			<Grid>
+		<ScrollViewer Grid.Row="1"
+					  VerticalScrollBarVisibility="Auto"
+					  HorizontalScrollBarVisibility="Disabled"
+					  Background="White">
+			<Grid UseLayoutRounding="True" Background="White">
 				<Grid.ColumnDefinitions>
 					<ColumnDefinition Width="60"/>
 					<ColumnDefinition Width="*"/>
 				</Grid.ColumnDefinitions>
 
-				<ItemsControl ItemsSource="{Binding Hours}" Grid.Column="0">
+				<ItemsControl Grid.Column="0"
+							  ItemsSource="{Binding Hours}">
 					<ItemsControl.ItemsPanel>
 						<ItemsPanelTemplate>
 							<UniformGrid Rows="24" Columns="1"/>
@@ -58,16 +68,25 @@
 					</ItemsControl.ItemsPanel>
 					<ItemsControl.ItemTemplate>
 						<DataTemplate>
-							<Border BorderBrush="#DDDDDD" BorderThickness="0,0,1,1">
-								<TextBlock Text="{Binding}" Foreground="Black"
-										   HorizontalAlignment="Right" VerticalAlignment="Center"
+							<Border BorderBrush="#DDDDDD"
+									BorderThickness="0,0,1,1"
+									Height="80"
+									Padding="2">
+								<TextBlock Text="{Binding}"
+										   Foreground="Black"
+										   HorizontalAlignment="Right"
+										   VerticalAlignment="Center"
 										   Margin="0,0,5,0"/>
 							</Border>
 						</DataTemplate>
 					</ItemsControl.ItemTemplate>
 				</ItemsControl>
 
-				<Grid Grid.Column="1" Background="White">
+				<Grid Grid.Column="1"
+					  Background="White"
+					  MinHeight="1920"
+					  ClipToBounds="True"
+					  UseLayoutRounding="True">
 					<ItemsControl ItemsSource="{Binding GridCells}">
 						<ItemsControl.ItemsPanel>
 							<ItemsPanelTemplate>
@@ -76,18 +95,20 @@
 						</ItemsControl.ItemsPanel>
 						<ItemsControl.ItemTemplate>
 							<DataTemplate>
-								<Border
-								  Background="Transparent"
-								  BorderBrush="#DDDDDD"
-								  BorderThickness="0,0,1,1"/>
+								<Border Background="Transparent"
+										BorderBrush="#DDDDDD"
+										BorderThickness="0,0,1,1"
+										Height="80"/>
 							</DataTemplate>
-							</ItemsControl.ItemTemplate>
-						</ItemsControl>
-				
+						</ItemsControl.ItemTemplate>
+					</ItemsControl>
+
 					<local:CalendarPanel x:Name="CalendarCanvas"
 										 DaysCount="1"
 										 HoursCount="24"
-										 Background="Transparent">
+										 Background="Transparent"
+										 HorizontalAlignment="Stretch"
+										 VerticalAlignment="Stretch">
 						<i:Interaction.Behaviors>
 							<behaviors:AttachCalendarPanelBehavior/>
 						</i:Interaction.Behaviors>
@@ -95,5 +116,5 @@
 				</Grid>
 			</Grid>
 		</ScrollViewer>
-	</DockPanel>
+	</Grid>
 </UserControl>

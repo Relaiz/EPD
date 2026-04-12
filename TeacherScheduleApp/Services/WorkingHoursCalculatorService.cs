@@ -9,6 +9,13 @@ namespace TeacherScheduleApp.Services
     public class WorkingHoursCalculatorService
     {
         private const double DayNorm = 8.0;
+        private const int QUANTUM_MIN = 5;
+
+        public readonly record struct DisplayMetrics(
+            int ActualMinutes,
+            int ExpectedMinutes,
+            int OverMinutes,
+            int UnderMinutes);
 
         private static readonly HashSet<EventType> SpecialNonPc = new()
         {
@@ -23,6 +30,15 @@ namespace TeacherScheduleApp.Services
         private static bool IsWorkday(DateTime d)
             => d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday
                && !HolidayHelper.IsCzechHoliday(d);
+
+        private static int RoundDownToQuantum(int minutes)
+            => minutes - minutes % QUANTUM_MIN;
+
+        private static int ToWholeMinutes(double hours)
+            => (int)Math.Round(hours * 60.0);
+
+        private static int ToDisplayMinutes(double hours)
+            => Math.Max(0, RoundDownToQuantum(ToWholeMinutes(hours)));
 
         private static (TimeSpan arr, TimeSpan dep, TimeSpan ls, TimeSpan le) GetWindow(DateTime day, int employeeId)
         {
@@ -80,9 +96,7 @@ namespace TeacherScheduleApp.Services
                    .Where(x => x.e > x.s)
             );
 
-            var creditedIv = MergeIv(
-                specialIv.Concat(workIv)
-            );
+            var creditedIv = MergeIv(specialIv.Concat(workIv));
 
             var specialNonPc = specialIv.Sum(x => (x.e - x.s).TotalHours);
             var workInclBT = workIv.Sum(x => (x.e - x.s).TotalHours);
@@ -96,94 +110,96 @@ namespace TeacherScheduleApp.Services
             return (worked, expected, over, under, specialNonPc, workInclBT, credited);
         }
 
-        public (double worked, double expected, double over, double under)
-            WeeklyMetrics(DateTime anyDate, IEnumerable<Event> all, int employeeId = EventService.DefaultEmployeeId)
+        public DisplayMetrics DailyDisplayMetrics(
+            DateTime day,
+            IEnumerable<Event> all,
+            int employeeId = EventService.DefaultEmployeeId)
+        {
+            var m = DailyMetrics(day, all, employeeId);
+
+            return new DisplayMetrics(
+                ActualMinutes: ToDisplayMinutes(m.credited),
+                ExpectedMinutes: ToDisplayMinutes(m.expected),
+                OverMinutes: ToDisplayMinutes(m.over),
+                UnderMinutes: ToDisplayMinutes(m.under));
+        }
+
+        public DisplayMetrics WeeklyDisplayMetrics(
+            DateTime anyDate,
+            IEnumerable<Event> all,
+            int employeeId = EventService.DefaultEmployeeId)
         {
             int delta = ((int)anyDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
             var weekStart = anyDate.Date.AddDays(-delta);
 
-            var days = Enumerable.Range(0, 7)
+            int actual = 0, expected = 0, over = 0, under = 0;
+
+            foreach (var d in Enumerable.Range(0, 7).Select(i => weekStart.AddDays(i)).Where(IsWorkday))
+            {
+                var m = DailyDisplayMetrics(d, all, employeeId);
+                actual += m.ActualMinutes;
+                expected += m.ExpectedMinutes;
+                over += m.OverMinutes;
+                under += m.UnderMinutes;
+            }
+
+            return new DisplayMetrics(actual, expected, over, under);
+        }
+
+        public DisplayMetrics MonthlyDisplayMetrics(
+            int year,
+            int month,
+            IEnumerable<Event> all,
+            int employeeId = EventService.DefaultEmployeeId)
+        {
+            int actual = 0, expected = 0, over = 0, under = 0;
+
+            foreach (var d in Enumerable.Range(1, DateTime.DaysInMonth(year, month))
+                                        .Select(i => new DateTime(year, month, i))
+                                        .Where(IsWorkday))
+            {
+                var m = DailyDisplayMetrics(d, all, employeeId);
+                actual += m.ActualMinutes;
+                expected += m.ExpectedMinutes;
+                over += m.OverMinutes;
+                under += m.UnderMinutes;
+            }
+
+            return new DisplayMetrics(actual, expected, over, under);
+        }
+
+        public Dictionary<(int Year, int Month), DisplayMetrics> WeeklyDisplayMetricsByMonth(
+            DateTime anyDate,
+            IEnumerable<Event> all,
+            int employeeId = EventService.DefaultEmployeeId)
+        {
+            int delta = ((int)anyDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
+            var weekStart = anyDate.Date.AddDays(-delta);
+
+            var result = new Dictionary<(int Year, int Month), DisplayMetrics>();
+
+            var groups = Enumerable.Range(0, 7)
                 .Select(i => weekStart.AddDays(i))
-                .Where(IsWorkday);
+                .Where(IsWorkday)
+                .GroupBy(d => (d.Year, d.Month));
 
-            double w = 0, e = 0, o = 0, u = 0;
-
-            foreach (var d in days)
+            foreach (var g in groups)
             {
-                var m = DailyMetrics(d, all, employeeId);
-                w += m.worked;
-                e += m.expected;
-                o += m.over;
-                u += m.under;
+                int actual = 0, expected = 0, over = 0, under = 0;
+
+                foreach (var d in g)
+                {
+                    var m = DailyDisplayMetrics(d, all, employeeId);
+                    actual += m.ActualMinutes;
+                    expected += m.ExpectedMinutes;
+                    over += m.OverMinutes;
+                    under += m.UnderMinutes;
+                }
+
+                result[g.Key] = new DisplayMetrics(actual, expected, over, under);
             }
 
-            return (w, e, o, u);
-        }
-
-        public (double worked, double expected, double over, double under)
-            MonthlyMetrics(int year, int month, IEnumerable<Event> all, int employeeId = EventService.DefaultEmployeeId)
-        {
-            int daysInMonth = DateTime.DaysInMonth(year, month);
-
-            var days = Enumerable.Range(1, daysInMonth)
-                .Select(i => new DateTime(year, month, i))
-                .Where(IsWorkday);
-
-            double w = 0, e = 0, o = 0, u = 0;
-
-            foreach (var d in days)
-            {
-                var m = DailyMetrics(d, all, employeeId);
-                w += m.worked;
-                e += m.expected;
-                o += m.over;
-                u += m.under;
-            }
-
-            return (w, e, o, u);
-        }
-
-        public (double worked, double expected, double over, double under)
-            WeeklyMetricsForMonthSlice(DateTime anyDate, int month, IEnumerable<Event> all, int employeeId = EventService.DefaultEmployeeId)
-        {
-            int delta = ((int)anyDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
-            var weekStart = anyDate.Date.AddDays(-delta);
-
-            double w = 0, e = 0, o = 0, u = 0;
-
-            for (int i = 0; i < 7; i++)
-            {
-                var d = weekStart.AddDays(i);
-                if (d.Month != month) continue;
-                if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
-                if (HolidayHelper.IsCzechHoliday(d)) continue;
-
-                var m = DailyMetrics(d, all, employeeId);
-                w += m.worked;
-                e += m.expected;
-                o += m.over;
-                u += m.under;
-            }
-
-            return (w, e, o, u);
-        }
-
-        public Dictionary<int, (double worked, double expected, double over, double under)>
-            WeeklyMetricsByMonth(DateTime anyDate, IEnumerable<Event> all, int employeeId = EventService.DefaultEmployeeId)
-        {
-            int delta = ((int)anyDate.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
-            var weekStart = anyDate.Date.AddDays(-delta);
-
-            var monthsInWeek = Enumerable.Range(0, 7)
-                .Select(i => weekStart.AddDays(i).Month)
-                .Distinct();
-
-            var dict = new Dictionary<int, (double worked, double expected, double over, double under)>();
-
-            foreach (var m in monthsInWeek)
-                dict[m] = WeeklyMetricsForMonthSlice(anyDate, m, all, employeeId);
-
-            return dict;
+            return result;
         }
     }
 }

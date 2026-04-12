@@ -9,6 +9,12 @@ using System.Linq;
 using System.Reactive.Linq;
 using TeacherScheduleApp.Messages;
 using TeacherScheduleApp.Helpers;
+using Avalonia.Controls;
+using MsBox.Avalonia.Dto;
+using MsBox.Avalonia.Enums;
+using MsBox.Avalonia;
+using System.Threading.Tasks;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace TeacherScheduleApp.ViewModels
 {
@@ -199,7 +205,22 @@ namespace TeacherScheduleApp.ViewModels
                 var ev = await dlg.ShowDialog<Event>(main);
                 if (ev == null)
                     return;
+                if (ev.EventType == EventType.Lunch && !ev.IsDeleted)
+                {
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService,
+                        prompt => AskCollisionAsync(prompt),
+                    _employeeId);
 
+                    var prep = await generator.PrepareManualLunchAsync(ev);
+                    if (!prep.Ok || prep.Event == null)
+                    {
+                        await ShowErrorAsync(prep.Error ?? "Oběd se nepodařilo uložit.");
+                        return;
+                    }
+
+                    ev = prep.Event;
+                }
                 ev.EmployeeId = _employeeId;
 
                 if (ev.IsDeleted)
@@ -208,7 +229,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     await new AutomaticEventsGeneratorService(
                         _eventService,
-                        _ => System.Threading.Tasks.Task.FromResult(true),
+                        prompt => AskCollisionAsync(prompt),
                         _employeeId)
                         .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
                 }
@@ -218,7 +239,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     await new AutomaticEventsGeneratorService(
                         _eventService,
-                        _ => System.Threading.Tasks.Task.FromResult(true),
+                        prompt => AskCollisionAsync(prompt),
                         _employeeId)
                         .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
                 }
@@ -228,9 +249,10 @@ namespace TeacherScheduleApp.ViewModels
 
                     await new AutomaticEventsGeneratorService(
                         _eventService,
-                        _ => System.Threading.Tasks.Task.FromResult(true),
+                        prompt => AskCollisionAsync(prompt),
                         _employeeId)
                         .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
+
                 }
 
                 MessageBus.Current.SendMessage(new UserSettingsChangedMessage(ev.StartTime.Date));
@@ -279,7 +301,22 @@ namespace TeacherScheduleApp.ViewModels
                 var updated = await dlg.ShowDialog<Event>(main);
                 if (updated == null)
                     return;
+                if (updated.EventType == EventType.Lunch && !updated.IsDeleted)
+                {
+                    var generator = new AutomaticEventsGeneratorService(
+                        _eventService,
+                        prompt => AskCollisionAsync(prompt),
+                        _employeeId);
 
+                    var prep = await generator.PrepareManualLunchAsync(updated);
+                    if (!prep.Ok || prep.Event == null)
+                    {
+                        await ShowErrorAsync(prep.Error ?? "Oběd se nepodařilo uložit.");
+                        return;
+                    }
+
+                    updated = prep.Event;
+                }
                 updated.EmployeeId = _employeeId;
 
                 if (updated.IsDeleted)
@@ -298,7 +335,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     var generator = new AutomaticEventsGeneratorService(
                         _eventService,
-                        _ => System.Threading.Tasks.Task.FromResult(true),
+                        prompt => AskCollisionAsync(prompt),
                         _employeeId);
 
                     await generator.RegenerateRangeEventsAsync(from, to);
@@ -309,7 +346,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     var generator = new AutomaticEventsGeneratorService(
                         _eventService,
-                        _ => System.Threading.Tasks.Task.FromResult(true),
+                        prompt => AskCollisionAsync(prompt),
                         _employeeId);
 
                     await generator.RegenerateRangeEventsAsync(updated.StartTime.Date, updated.EndTime.Date);
@@ -323,6 +360,43 @@ namespace TeacherScheduleApp.ViewModels
             {
                 _isDialogOpen = false;
             }
+        }
+
+        private async Task<bool> AskCollisionAsync(string message)
+        {
+            var win = Helper.GetMainWindow();
+            if (win == null)
+                return false;
+
+            var msgBox = MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+            {
+                ButtonDefinitions = ButtonEnum.YesNo,
+                ContentTitle = "Kolize s obědem",
+                ContentMessage = message,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Icon = Icon.Warning
+            });
+
+            var result = await msgBox.ShowWindowDialogAsync(win);
+            return result == ButtonResult.Yes;
+        }
+
+        private async Task ShowErrorAsync(string message)
+        {
+            var win = Helper.GetMainWindow();
+            if (win == null)
+                return;
+
+            var msgBox = MessageBoxManager.GetMessageBoxStandard(new MessageBoxStandardParams
+            {
+                ButtonDefinitions = ButtonEnum.Ok,
+                ContentTitle = "Chyba",
+                ContentMessage = message,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Icon = Icon.Warning
+            });
+
+            await msgBox.ShowWindowDialogAsync(win);
         }
 
         public class MonthDayInfo : ReactiveObject
