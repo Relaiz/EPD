@@ -2,10 +2,9 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using ReactiveUI;
 using TeacherScheduleApp.Helpers;
-using TeacherScheduleApp.Messages;
 using TeacherScheduleApp.Models;
 
 namespace TeacherScheduleApp.Services
@@ -17,6 +16,7 @@ namespace TeacherScheduleApp.Services
         private bool? _moveAllLunchesForAllDays = null;
         private readonly int _employeeId;
         private sealed record ManualSlice(Event Event, DateTime S, DateTime E);
+        private const int QUANTUM_MIN = 5;
 
         public AutomaticEventsGeneratorService(
             EventService eventService,
@@ -78,15 +78,8 @@ namespace TeacherScheduleApp.Services
                 return new LunchPreparationResult(false, null, "Konec oběda musí být po začátku.");
 
             var day = proposed.StartTime.Date;
+            await NormalizeLongManualWorkEventsAsync(day);
             var resolved = SettingsService.GetResolvedDaySettings(day, _employeeId);
-
-            var arrival = day + resolved.ArrivalTime;
-            var departure = day + resolved.DepartureTime;
-            var gross = departure - arrival;
-
-            int targetLunchCount = GetTargetLunchCount(gross);
-            if (targetLunchCount == 0)
-                return new LunchPreparationResult(false, null, "Pro den kratší než 8 hodin se oběd nevytváří.");
 
             var duration = proposed.EndTime - proposed.StartTime;
             var maxLunchLen = ParseDurationOrDefault(resolved.MaxBreakDuration, TimeSpan.FromMinutes(30));
@@ -105,39 +98,6 @@ namespace TeacherScheduleApp.Services
                 .OrderBy(e => e.StartTime)
                 .ToList();
 
-            int existingLunchCount = dayEvents.Count(e => e.EventType == EventType.Lunch);
-            if (existingLunchCount >= targetLunchCount)
-            {
-                return new LunchPreparationResult(
-                    false,
-                    null,
-                    targetLunchCount == 1
-                        ? "V tomto dni už jeden oběd existuje."
-                        : "V tomto dni už existují dva obědy.");
-            }
-
-            DateTime minStartByRule =
-                existingLunchCount == 0
-                    ? Max(arrival.AddHours(4), day + resolved.LunchStart)
-                    : dayEvents
-                        .Where(e => e.EventType == EventType.Lunch)
-                        .Max(e => e.EndTime)
-                        .AddHours(4);
-
-            var desiredStart = proposed.StartTime < minStartByRule
-                ? minStartByRule
-                : proposed.StartTime;
-
-            var desiredEnd = desiredStart + duration;
-
-            if (desiredEnd > departure)
-            {
-                return new LunchPreparationResult(
-                    false,
-                    null,
-                    "Pro oběd už v rámci pracovní doby nezbývá místo.");
-            }
-
             static (DateTime S, DateTime E) ClipToDay(DateTime ds, DateTime de, DateTime s, DateTime e)
             {
                 var cs = s < ds ? ds : s;
@@ -154,6 +114,67 @@ namespace TeacherScheduleApp.Services
                 })
                 .Where(x => x.E > x.S)
                 .ToList();
+
+            var lunchWindow = GetLunchPolicyWindow(day, resolved, manual);
+            DateTime arrival = lunchWindow.Arrival;
+            DateTime departure = lunchWindow.Departure;
+
+            var gross = departure - arrival;
+            int targetLunchCount = GetTargetLunchCount(gross);
+
+            if (targetLunchCount == 0)
+                return new LunchPreparationResult(false, null, "Pro den kratší než 8 hodin se oběd nevytváří.");
+
+            var lunchLen = GetLunchLength(resolved);
+
+            if (IsFullSpecialDayCore(day, arrival, departure, targetLunchCount, lunchLen, manual))
+            {
+                return new LunchPreparationResult(
+                    false,
+                    null,
+                    "Při celodenní zvláštní události se oběd nevytváří.");
+            }
+
+            int existingLunchCount = dayEvents.Count(e => e.EventType == EventType.Lunch);
+            if (existingLunchCount >= targetLunchCount)
+            {
+                return new LunchPreparationResult(
+                    false,
+                    null,
+                    targetLunchCount == 1
+                        ? "V tomto dni už jeden oběd existuje."
+                        : "V tomto dni už existují dva obědy.");
+            }
+
+            DateTime minStartByRule =
+                existingLunchCount == 0 ? GetPreferredFirstLunchStart(day, arrival, resolved, manual)
+                    : dayEvents
+                        .Where(e => e.EventType == EventType.Lunch)
+                        .Max(e => e.EndTime)
+                        .AddHours(4);
+
+            if (existingLunchCount == 0)
+            {
+                minStartByRule = FindFirstPossibleLunchStart(
+                    minStartByRule,
+                    departure,
+                    duration,
+                    manual);
+            }
+
+            var desiredStart = proposed.StartTime < minStartByRule
+                ? minStartByRule
+                : proposed.StartTime;
+
+            var desiredEnd = desiredStart + duration;
+
+            if (desiredEnd > departure)
+            {
+                return new LunchPreparationResult(
+                    false,
+                    null,
+                    "Pro oběd už v rámci pracovní doby nezbývá místo.");
+            }
 
             var placement = await ResolveLunchPlacementAsync(
                 day,
@@ -204,6 +225,8 @@ namespace TeacherScheduleApp.Services
                 .OrderBy(d => d)
                 .ToList();
 
+            using var _cache = _eventService.BeginEventReadCache(_employeeId, allDates);
+
             foreach (var date in allDates)
                 await RegenerateDailyEventsAsync(date);
         }
@@ -212,11 +235,14 @@ namespace TeacherScheduleApp.Services
         {
             _moveAllLunchesForAllDays = null;
 
+            var days = Enumerable.Range(0, (end.Date - start.Date).Days + 1)
+                .Select(i => start.Date.AddDays(i))
+                .ToList();
+
+            using var _cache = _eventService.BeginEventReadCache(_employeeId, days);
+
             for (var d = start.Date; d <= end.Date; d = d.AddDays(1))
                 await RegenerateDailyEventsAsync(d, preserveUserSettings);
-
-           // await _eventService.BalanceForChangedRangeAsync(start, end, _employeeId);
-            MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
         }
 
         public async Task RegenerateDailyEventsAsync(DateTime date, bool preserveUserSettings = false)
@@ -244,7 +270,7 @@ namespace TeacherScheduleApp.Services
                     .ToList();
 
                 foreach (var ev in manualFullDay)
-                    _eventService.DeleteEvent(ev.Id);
+                    _eventService.DeleteEventRaw(ev.Id, _employeeId);
 
                 return;
             }
@@ -272,6 +298,8 @@ namespace TeacherScheduleApp.Services
                 .Where(x => x.E > x.S)
                 .ToList();
 
+            var collidingManualIds = new HashSet<int>();
+
             for (int i = 0; i < manual.Count; i++)
             {
                 for (int j = i + 1; j < manual.Count; j++)
@@ -280,76 +308,46 @@ namespace TeacherScheduleApp.Services
                         manual[i].S.TimeOfDay, manual[i].E.TimeOfDay,
                         manual[j].S.TimeOfDay, manual[j].E.TimeOfDay))
                     {
-                        manual[j].Event.HasCollision = true;
-                        _eventService.UpdateEvent(manual[j].Event, suppressRegen: true);
+                        collidingManualIds.Add(manual[i].Event.Id);
+                        collidingManualIds.Add(manual[j].Event.Id);
                     }
                 }
             }
 
-            DateTime arrival = day + resolved.ArrivalTime;
-            DateTime departure = day + resolved.DepartureTime;
-
-            var manualWork = manual.Where(x => IsWorkLike(x.Event.EventType)).ToList();
-
-            if (manualWork.Any())
+            foreach (var slice in manual)
             {
-                var first = manualWork.Min(x => x.S);
-                var last = manualWork.Max(x => x.E);
-
-                if (first < arrival) arrival = first;
-                if (last > departure) departure = last;
+                var shouldHaveCollision = collidingManualIds.Contains(slice.Event.Id);
+                if (slice.Event.HasCollision != shouldHaveCollision)
+                    _eventService.UpdateEventCollisionRaw(slice.Event.Id, shouldHaveCollision, _employeeId);
             }
 
-            var specials = manual
-                .Where(x => IsSpecial(x.Event.EventType))
-                .Select(x => (S: x.S, E: x.E, T: x.Event.EventType))
-                .ToList();
+            var lunchWindow = GetLunchPolicyWindow(day, resolved, manual);
+            DateTime arrival = lunchWindow.Arrival;
+            DateTime departure = lunchWindow.Departure;
 
-            TimeSpan IntersectLen((DateTime S, DateTime E, EventType T) e)
-            {
-                var s = e.S < arrival ? arrival : e.S;
-                var ee = e.E > departure ? departure : e.E;
-                return ee > s ? (ee - s) : TimeSpan.Zero;
-            }
-
+            var lunchLen = GetLunchLength(resolved);
             var gross = departure - arrival;
-            var eight = TimeSpan.FromHours(8);
 
-            var configuredLunchLen =
-                resolved.LunchEnd > resolved.LunchStart
-                    ? resolved.LunchEnd - resolved.LunchStart
-                    : TimeSpan.FromMinutes(30);
+            int targetLunchCount = GetStableTargetLunchCount(day, arrival, departure, resolved);
 
-            var maxLunchLen = ParseDurationOrDefault(resolved.MaxBreakDuration, TimeSpan.FromMinutes(30));
-            var lunchLen = configuredLunchLen <= TimeSpan.Zero ? TimeSpan.FromMinutes(30) : configuredLunchLen;
-            if (lunchLen > maxLunchLen)
-                lunchLen = maxLunchLen;
-
-            int targetLunchCount =
-                dayOverride != null && dayOverride.LunchStart == dayOverride.LunchEnd
-                    ? 0
-                    : GetTargetLunchCount(gross);
-
-            bool hasManualWorkLike = manual.Any(x => IsWorkLike(x.Event.EventType));
-
-            bool fullSpecialDay =
-                !hasManualWorkLike &&
-                (
-                    specials.Any(sp => sp.T == EventType.Vacation && IntersectLen(sp) >= eight) ||
-                    specials.Any(sp => sp.T != EventType.Vacation &&
-                                       IntersectLen(sp) >= (gross - TimeSpan.FromTicks(lunchLen.Ticks * Math.Max(1, targetLunchCount))))
-                );
+            bool fullSpecialDay = IsFullSpecialDayCore(
+                day,
+                arrival,
+                departure,
+                targetLunchCount,
+                lunchLen,
+                manual);
 
             if (fullSpecialDay)
             {
                 foreach (var e in _eventService.GetEventsForDay(_employeeId, day)
-                             .Where(e => e.EventType == EventType.Lunch && !e.IsAutoGenerated)
-                             .ToList())
+                    .Where(e => e.EventType == EventType.Lunch && !e.IsAutoGenerated)
+                    .ToList())
                 {
-                    _eventService.DeleteEvent(e.Id);
+                    _eventService.DeleteEventRaw(e.Id, _employeeId);
                 }
 
-                SaveDaySettingsFromEvents(day);
+                SaveDaySettingsFromEvents(day, forceOverwriteManual: !preserveUserSettings);
                 return;
             }
 
@@ -377,7 +375,11 @@ namespace TeacherScheduleApp.Services
             {
                 DateTime desiredStart =
                     lunches.Count == 0
-                        ? Max(arrival.AddHours(4), day + resolved.LunchStart)
+                        ? FindFirstPossibleLunchStart(
+                            GetPreferredFirstLunchStart(day, arrival, resolved, manual),
+                            departure,
+                            lunchLen,
+                            manual)
                         : lunches.OrderBy(x => x.E).Last().E.AddHours(4);
 
                 DateTime desiredEnd = desiredStart + lunchLen;
@@ -472,8 +474,12 @@ namespace TeacherScheduleApp.Services
                 });
             }
 
-            foreach (var ev in newEvents.Where(x => (x.EndTime - x.StartTime) > TimeSpan.FromMinutes(1)))
-                _eventService.CreateAutoEvent(ev);
+            var autoEventsToCreate = newEvents
+                .Where(x => (x.EndTime - x.StartTime) > TimeSpan.FromMinutes(1))
+                .ToList();
+
+            if (autoEventsToCreate.Count > 0)
+                _eventService.CreateAutoEventsBulk(autoEventsToCreate);
 
             var dm0 = calc.DailyMetrics(day, _eventService.GetEventsForDay(_employeeId, day));
             var net0 = dm0.workInclBT;
@@ -483,8 +489,10 @@ namespace TeacherScheduleApp.Services
                 await _eventService.TrimOvertimeByAutoBlocksAsync(_employeeId, day, preserveUserSettings);
             }
 
+            await _eventService.EnsureLunchInsideWorkWindowAsync(_employeeId, day, callRegenerate: false);
+
             if (!preserveUserSettings)
-                SaveDaySettingsFromEvents(day);
+                SaveDaySettingsFromEvents(day, forceOverwriteManual: true);
         }
 
         private async Task<(DateTime start, DateTime end, bool wasCollision)> ResolveLunchPlacementAsync(
@@ -586,7 +594,7 @@ namespace TeacherScheduleApp.Services
             }
         }
 
-        private void SaveDaySettingsFromEvents(DateTime day)
+        private void SaveDaySettingsFromEvents(DateTime day, bool forceOverwriteManual = false)
         {
             var evs = _eventService.GetEventsForDay(_employeeId, day)
                 .Where(e => !e.IsDeleted)
@@ -604,7 +612,24 @@ namespace TeacherScheduleApp.Services
                 (IsWorkLike(e) || IsSpecial(e));
 
             var manualCredited = evs.Where(IsCreditedManual).ToList();
-            var manualSpecials = manualCredited.Where(IsSpecial).ToList();
+
+            static (DateTime S, DateTime E) ClipToDay(DateTime ds, DateTime de, DateTime s, DateTime e)
+            {
+                var cs = s < ds ? ds : s;
+                var ce = e > de ? de : e;
+                return ce > cs ? (cs, ce) : (cs, cs);
+            }
+
+            var manualSlices = evs
+                .Where(e => !e.IsDeleted && !e.IsAutoGenerated)
+                .Select(e =>
+                {
+                    var c = ClipToDay(day, day.AddDays(1), e.StartTime, e.EndTime);
+                    return new ManualSlice(e, c.S, c.E);
+                })
+                .Where(x => x.E > x.S)
+                .ToList();
+
             var manualLunch = evs
                .Where(e => !e.IsDeleted && e.EventType == EventType.Lunch)
                .OrderBy(e => e.StartTime)
@@ -622,35 +647,29 @@ namespace TeacherScheduleApp.Services
                 if (maxManual > dep) dep = maxManual;
             }
 
-            bool isFullManualSpecialDay()
-            {
-                if (manualSpecials.Count == 0)
-                    return false;
+            var baseArrival = day + baseResolved.ArrivalTime;
+            var baseDeparture = day + baseResolved.DepartureTime;
+            var baseGross = baseDeparture - baseArrival;
 
-                var winS = day + baseResolved.ArrivalTime;
-                var winE = day + baseResolved.DepartureTime;
-                var eight = TimeSpan.FromHours(8);
+            int targetLunchCount =
+                manualOverride != null && manualOverride.LunchStart == manualOverride.LunchEnd
+                    ? 0
+                    : GetTargetLunchCount(baseGross);
 
-                foreach (var s in manualSpecials)
-                {
-                    var ss = s.StartTime < winS ? winS : s.StartTime;
-                    var se = s.EndTime > winE ? winE : s.EndTime;
-                    var len = se > ss ? se - ss : TimeSpan.Zero;
+            var lunchLen = GetLunchLength(baseResolved);
 
-                    if (s.EventType == EventType.Vacation && len >= eight)
-                        return true;
-
-                    if (len >= (winE - winS))
-                        return true;
-                }
-
-                return false;
-            }
+            bool isFullManualSpecialDay = IsFullSpecialDayCore(
+                day,
+                baseArrival,
+                baseDeparture,
+                targetLunchCount,
+                lunchLen,
+                manualSlices);
 
             TimeSpan ls = TimeSpan.Zero;
             TimeSpan le = TimeSpan.Zero;
 
-            if (!isFullManualSpecialDay())
+            if (!isFullManualSpecialDay)
             {
                 if (manualLunch != null)
                 {
@@ -680,7 +699,7 @@ namespace TeacherScheduleApp.Services
                 }
             }
 
-            SettingsService.SaveDaySettingsForDate(day, arr, dep, ls, le, _employeeId);
+            SettingsService.SaveDaySettingsForDate(day, arr, dep, ls, le, _employeeId, isManualOverride: false, forceOverwriteExistingManual: forceOverwriteManual);
         }
 
         private static bool Overlaps(TimeSpan a0, TimeSpan a1, TimeSpan b0, TimeSpan b1)
@@ -714,6 +733,262 @@ namespace TeacherScheduleApp.Services
         private async Task NormalizeLongManualWorkEventsAsync(DateTime day)
         {
             await Task.CompletedTask;
-        }    
+
+            var resolved = SettingsService.GetResolvedDaySettingsIgnoringComputed(day, _employeeId);
+            var lunchLen = GetLunchLength(resolved);
+
+            var dayEvents = _eventService.GetEventsForDay(_employeeId, day)
+                .Where(e => !e.IsDeleted && !e.IsAutoGenerated)
+                .OrderBy(e => e.StartTime)
+                .ToList();
+
+            if (dayEvents.Any(e => e.EventType == EventType.Lunch))
+                return;
+
+            static (DateTime S, DateTime E) ClipToDay(DateTime ds, DateTime de, DateTime s, DateTime e)
+            {
+                var cs = s < ds ? ds : s;
+                var ce = e > de ? de : e;
+                return ce > cs ? (cs, ce) : (cs, cs);
+            }
+
+            var manual = dayEvents
+                .Select(e =>
+                {
+                    var c = ClipToDay(day, day.AddDays(1), e.StartTime, e.EndTime);
+                    return new ManualSlice(e, c.S, c.E);
+                })
+                .Where(x => x.E > x.S)
+                .ToList();
+
+            DateTime arrival = day + resolved.ArrivalTime;
+            DateTime departure = day + resolved.DepartureTime;
+
+            var manualWork = manual.Where(x => IsWorkLike(x.Event.EventType)).ToList();
+            if (manualWork.Any())
+            {
+                var first = manualWork.Min(x => x.S);
+                var last = manualWork.Max(x => x.E);
+
+                if (first < arrival) arrival = first;
+                if (last > departure) departure = last;
+            }
+
+            int targetLunchCount = GetTargetLunchCount(departure - arrival);
+            if (targetLunchCount <= 0)
+                return;
+
+            var desiredLunchStart = GetPreferredFirstLunchStart(day, arrival, resolved, manual);
+            var desiredLunchEnd = desiredLunchStart + lunchLen;
+
+            if (desiredLunchEnd > departure)
+                return;
+
+            var candidate = dayEvents
+                .Where(e =>
+                    !e.AllDay &&
+                    e.StartTime.Date == e.EndTime.Date &&
+                    IsWorkLike(e.EventType) &&
+                    e.ImportBatchId == null &&
+                    e.ParentEventId == null &&
+                    (e.EndTime - e.StartTime) >= TimeSpan.FromHours(8) &&
+                    e.StartTime < desiredLunchStart &&
+                    e.EndTime > desiredLunchEnd &&
+                    (desiredLunchStart - e.StartTime) >= TimeSpan.FromHours(4))
+                .OrderBy(e => e.StartTime)
+                .FirstOrDefault();
+
+            if (candidate == null)
+                return;
+
+            var originalEnd = candidate.EndTime;
+
+            candidate.EndTime = desiredLunchStart;
+            _eventService.UpdateEventRaw(candidate);
+
+            var continuation = new Event
+            {
+                EmployeeId = candidate.EmployeeId,
+                Title = candidate.Title,
+                Description = candidate.Description,
+                EventType = candidate.EventType,
+                AllDay = false,
+                StartTime = desiredLunchEnd,
+                EndTime = originalEnd,
+                ParentEventId = null,
+                IsAutoGenerated = false,
+                ImportBatchId = null,
+                IsDeleted = false,
+                HasCollision = candidate.HasCollision,
+                AutoGeneratedForDate = null
+            };
+
+            _eventService.CreateEventRaw(continuation);
+        }
+
+        private bool IsFullSpecialDayCore(
+            DateTime day,
+            DateTime arrival,
+            DateTime departure,
+            int targetLunchCount,
+            TimeSpan lunchLen,
+            List<ManualSlice> manual)
+        {
+            bool hasManualWorkLike = manual.Any(x => IsWorkLike(x.Event.EventType));
+            if (hasManualWorkLike)
+                return false;
+
+            var specials = manual
+                .Where(x => IsSpecial(x.Event.EventType))
+                .Select(x => (S: x.S, E: x.E, T: x.Event.EventType))
+                .ToList();
+
+            if (specials.Count == 0)
+                return false;
+
+            TimeSpan IntersectLen((DateTime S, DateTime E, EventType T) e)
+            {
+                var s = e.S < arrival ? arrival : e.S;
+                var ee = e.E > departure ? departure : e.E;
+                return ee > s ? (ee - s) : TimeSpan.Zero;
+            }
+
+            var gross = departure - arrival;
+            var eight = TimeSpan.FromHours(8);
+
+            var specialDayThreshold =
+                gross - TimeSpan.FromTicks(lunchLen.Ticks * Math.Max(1, targetLunchCount));
+
+            if (specialDayThreshold < TimeSpan.Zero)
+                specialDayThreshold = TimeSpan.Zero;
+
+            return
+                specials.Any(sp => sp.T == EventType.Vacation && IntersectLen(sp) >= eight) ||
+                specials.Any(sp => sp.T != EventType.Vacation && IntersectLen(sp) >= specialDayThreshold);
+        }
+
+        private static TimeSpan GetLunchLength(ResolvedDaySettings resolved)
+        {
+            var configuredLunchLen =
+                resolved.LunchEnd > resolved.LunchStart
+                    ? resolved.LunchEnd - resolved.LunchStart
+                    : TimeSpan.FromMinutes(30);
+
+            var maxLunchLen = ParseDurationOrDefault(
+                resolved.MaxBreakDuration,
+                TimeSpan.FromMinutes(30));
+
+            var lunchLen = configuredLunchLen <= TimeSpan.Zero
+                ? TimeSpan.FromMinutes(30)
+                : configuredLunchLen;
+
+            if (lunchLen > maxLunchLen)
+                lunchLen = maxLunchLen;
+
+            return lunchLen;
+        }
+
+        private DateTime GetPreferredFirstLunchStart(
+            DateTime day,
+            DateTime arrival,
+            ResolvedDaySettings resolved,
+            List<ManualSlice> manual)
+        {
+            return arrival.AddHours(4);
+        }
+
+        private DateTime FindFirstPossibleLunchStart(
+            DateTime anchorStart,
+            DateTime departure,
+            TimeSpan lunchLen,
+            List<ManualSlice> manual)
+        {
+            var blockers = manual
+                .Where(x => x.Event.EventType != EventType.Lunch)
+                .OrderBy(x => x.S)
+                .ToList();
+
+            var probe = anchorStart;
+
+            while (probe + lunchLen <= departure)
+            {
+                var probeEnd = probe + lunchLen;
+                ManualSlice? blocker = null;
+
+                foreach (var item in blockers)
+                {
+                    if (Overlaps(probe, probeEnd, item.S, item.E))
+                    {
+                        blocker = item;
+                        break;
+                    }
+                }
+
+                if (blocker == null)
+                    return probe;
+
+                probe = blocker.E > probe
+                    ? blocker.E
+                    : probe.AddMinutes(QUANTUM_MIN);
+            }
+
+            return anchorStart;
+        }
+
+        private static bool IsCreditedForLunchWindow(EventType t)
+            => IsWorkLike(t) || IsSpecial(t);
+
+        private static (DateTime Arrival, DateTime Departure) GetLunchPolicyWindow(
+            DateTime day,
+            ResolvedDaySettings resolved,
+            List<ManualSlice> manual)
+        {
+            DateTime arrival = day + resolved.ArrivalTime;
+            DateTime departure = day + resolved.DepartureTime;
+
+            var credited = manual
+                .Where(x => IsCreditedForLunchWindow(x.Event.EventType))
+                .ToList();
+
+            if (credited.Any())
+            {
+                var first = credited.Min(x => x.S);
+                var last = credited.Max(x => x.E);
+
+                if (first < arrival) arrival = first;
+                if (last > departure) departure = last;
+            }
+
+            return (arrival, departure);
+        }
+
+        private int GetStableTargetLunchCount(
+            DateTime day,
+            DateTime arrival,
+            DateTime departure,
+            ResolvedDaySettings resolved)
+        {
+            var manualOverride = SettingsService.GetManualDaySettingsForDate(day, _employeeId);
+
+            if (manualOverride != null &&
+                manualOverride.LunchStart == manualOverride.LunchEnd)
+                return 0;
+
+            int currentTarget = GetTargetLunchCount(departure - arrival);
+
+            var baseResolved = SettingsService.GetResolvedDaySettingsIgnoringComputed(day, _employeeId);
+            int baseTarget = GetTargetLunchCount(
+                (day + baseResolved.DepartureTime) - (day + baseResolved.ArrivalTime));
+
+            bool hasLunchPolicy =
+                (manualOverride != null && manualOverride.LunchEnd > manualOverride.LunchStart) ||
+                (resolved.LunchEnd > resolved.LunchStart) ||
+                (baseResolved.LunchEnd > baseResolved.LunchStart);
+
+            if (!hasLunchPolicy)
+                return currentTarget;
+
+            return Math.Max(currentTarget, baseTarget);
+        }
     }
 }

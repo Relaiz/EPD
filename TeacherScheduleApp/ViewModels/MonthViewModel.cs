@@ -162,16 +162,19 @@ namespace TeacherScheduleApp.ViewModels
                 }
             }
 
+            bool IsWorkLike(Event e) => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
+            bool IsSpecial(Event e) => e.EventType != EventType.Lunch && !IsWorkLike(e);
+
             foreach (var cell in Days)
             {
                 var specials = cell.Events
-                    .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch)
+                    .Where(IsSpecial)
                     .Select(e => (e.StartTime, e.EndTime))
                     .ToList();
 
                 foreach (var e in cell.Events)
                 {
-                    bool isSpecial = e.EventType != EventType.Work && e.EventType != EventType.Lunch;
+                    bool isSpecial = IsSpecial(e);
                     e.IsInactive = !isSpecial && specials.Any(sp => e.StartTime < sp.EndTime && sp.StartTime < e.EndTime);
                 }
             }
@@ -221,43 +224,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     ev = prep.Event;
                 }
-                ev.EmployeeId = _employeeId;
-
-                if (ev.IsDeleted)
-                {
-                    _eventService.DeleteEvent(ev.Id, _employeeId);
-
-                    await new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId)
-                        .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
-                }
-                else if (ev.Id != 0)
-                {
-                    _eventService.UpdateEvent(ev);
-
-                    await new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId)
-                        .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
-                }
-                else
-                {
-                    _eventService.CreateEvent(ev);
-
-                    await new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId)
-                        .RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
-
-                }
-
-                MessageBus.Current.SendMessage(new UserSettingsChangedMessage(ev.StartTime.Date));
-                MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
-                LoadEvents();
+                await ApplyEventChangeAsync(ev, null);
             }
             finally
             {
@@ -317,44 +284,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     updated = prep.Event;
                 }
-                updated.EmployeeId = _employeeId;
-
-                if (updated.IsDeleted)
-                {
-                    if (updated.ParentEventId == null)
-                        _eventService.DeleteEventCascadeAndCleanup(updated.Id, _employeeId);
-                    else
-                        _eventService.DeleteEvent(updated.Id, _employeeId);
-                }
-                else if (updated.Id != 0)
-                {
-                    _eventService.UpdateEvent(updated);
-
-                    var from = oldStart < updated.StartTime.Date ? oldStart : updated.StartTime.Date;
-                    var to = oldEnd > updated.EndTime.Date ? oldEnd : updated.EndTime.Date;
-
-                    var generator = new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId);
-
-                    await generator.RegenerateRangeEventsAsync(from, to);
-                }
-                else
-                {
-                    _eventService.CreateEvent(updated);
-
-                    var generator = new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId);
-
-                    await generator.RegenerateRangeEventsAsync(updated.StartTime.Date, updated.EndTime.Date);
-                }
-
-                MessageBus.Current.SendMessage(new UserSettingsChangedMessage((updated ?? ev).StartTime.Date));
-                MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
-                LoadEvents();
+                await ApplyEventChangeAsync(updated, ev);
             }
             finally
             {
@@ -379,6 +309,39 @@ namespace TeacherScheduleApp.ViewModels
 
             var result = await msgBox.ShowWindowDialogAsync(win);
             return result == ButtonResult.Yes;
+        }
+
+        private async Task ApplyEventChangeAsync(Event edited, Event? original)
+        {
+            edited.EmployeeId = _employeeId;
+
+            ChangedRange changedRange;
+
+            if (edited.IsDeleted)
+            {
+                bool cascadeDelete = original?.ParentEventId == null;
+                changedRange = cascadeDelete
+                    ? _eventService.DeleteEventCascadeRaw(edited.Id, _employeeId)
+                    : _eventService.DeleteEventRaw(edited.Id, _employeeId);
+            }
+            else if (edited.Id != 0)
+            {
+                edited.IsAutoGenerated = false;
+                changedRange = _eventService.UpdateEventRaw(edited);
+            }
+            else
+            {
+                changedRange = _eventService.CreateEventRaw(edited);
+            }
+
+            var processor = new ScheduleChangeProcessor(
+                _eventService,
+                prompt => AskCollisionAsync(prompt),
+                _employeeId);
+
+            await processor.ApplyAsync(
+                changedRange,
+                preserveUserSettings: false);
         }
 
         private async Task ShowErrorAsync(string message)

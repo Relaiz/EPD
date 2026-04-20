@@ -207,47 +207,7 @@ namespace TeacherScheduleApp.ViewModels
                     ev = prep.Event;
                 }
 
-                ev.EmployeeId = _employeeId;
-
-                if (ev.IsDeleted)
-                {
-                    if (ev.ParentEventId == null)
-                        _eventService.DeleteEventCascadeAndCleanup(ev.Id, _employeeId);
-                    else
-                        _eventService.DeleteEvent(ev.Id, _employeeId);
-                }
-                else if (ev.Id != 0)
-                {
-                    var oldStart = existing?.StartTime.Date ?? ev.StartTime.Date;
-                    var oldEnd = existing?.EndTime.Date ?? ev.EndTime.Date;
-
-                    _eventService.UpdateEvent(ev);
-
-                    var from = oldStart < ev.StartTime.Date ? oldStart : ev.StartTime.Date;
-                    var to = oldEnd > ev.EndTime.Date ? oldEnd : ev.EndTime.Date;
-
-                    var generator = new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId);
-
-                    await generator.RegenerateRangeEventsAsync(from, to);
-                }
-                else
-                {
-                    _eventService.CreateEvent(ev);
-
-                    var generator = new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId);
-
-                    await generator.RegenerateRangeEventsAsync(ev.StartTime.Date, ev.EndTime.Date);
-                }
-
-                MessageBus.Current.SendMessage(new UserSettingsChangedMessage(ev.StartTime.Date));
-                MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
-                LoadEvents();
+                await ApplyEventChangeAsync(ev, existing);
             }
             finally
             {
@@ -303,44 +263,7 @@ namespace TeacherScheduleApp.ViewModels
 
                     updated = prep.Event;
                 }
-                updated.EmployeeId = _employeeId;
-
-                if (updated.IsDeleted)
-                {
-                    if (updated.ParentEventId == null)
-                        _eventService.DeleteEventCascadeAndCleanup(updated.Id, _employeeId);
-                    else
-                        _eventService.DeleteEvent(updated.Id, _employeeId);
-                }
-                else if (updated.Id != 0)
-                {
-                    _eventService.UpdateEvent(updated);
-
-                    var from = oldStart < updated.StartTime.Date ? oldStart : updated.StartTime.Date;
-                    var to = oldEnd > updated.EndTime.Date ? oldEnd : updated.EndTime.Date;
-
-                    var generator = new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId);
-
-                    await generator.RegenerateRangeEventsAsync(from, to);
-                }
-                else
-                {
-                    _eventService.CreateEvent(updated);
-
-                    var generator = new AutomaticEventsGeneratorService(
-                        _eventService,
-                        prompt => AskCollisionAsync(prompt),
-                        _employeeId);
-
-                    await generator.RegenerateRangeEventsAsync(updated.StartTime.Date, updated.EndTime.Date);
-                }
-
-                MessageBus.Current.SendMessage(new UserSettingsChangedMessage((updated ?? ev).StartTime.Date));
-                MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
-                LoadEvents();
+                await ApplyEventChangeAsync(updated, ev);
             }
             finally
             {
@@ -442,14 +365,17 @@ namespace TeacherScheduleApp.ViewModels
                 .Where(e => !(e.ParentEventId == null && parentsWithChildren.Contains(e.Id)))
                 .ToList();
 
+            bool IsWorkLike(Event e) => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
+            bool IsSpecial(Event e) => e.EventType != EventType.Lunch && !IsWorkLike(e);
+
             var specials = events
-                .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch)
+                .Where(IsSpecial)
                 .Select(e => (e.StartTime, e.EndTime))
                 .ToList();
 
             foreach (var e in events)
             {
-                bool isSpecial = e.EventType != EventType.Work && e.EventType != EventType.Lunch;
+                bool isSpecial = IsSpecial(e);
                 e.IsInactive = !isSpecial && specials.Any(sp => e.StartTime < sp.EndTime && sp.StartTime < e.EndTime);
             }
 
@@ -589,6 +515,39 @@ namespace TeacherScheduleApp.ViewModels
                     IsToday = d.Date == DateTime.Today
                 });
             }
+        }
+
+        private async Task ApplyEventChangeAsync(Event edited, Event? original)
+        {
+            edited.EmployeeId = _employeeId;
+
+            ChangedRange changedRange;
+
+            if (edited.IsDeleted)
+            {
+                bool cascadeDelete = original?.ParentEventId == null;
+                changedRange = cascadeDelete
+                    ? _eventService.DeleteEventCascadeRaw(edited.Id, _employeeId)
+                    : _eventService.DeleteEventRaw(edited.Id, _employeeId);
+            }
+            else if (edited.Id != 0)
+            {
+                edited.IsAutoGenerated = false;
+                changedRange = _eventService.UpdateEventRaw(edited);
+            }
+            else
+            {
+                changedRange = _eventService.CreateEventRaw(edited);
+            }
+
+            var processor = new ScheduleChangeProcessor(
+                _eventService,
+                prompt => AskCollisionAsync(prompt),
+                _employeeId);
+
+            await processor.ApplyAsync(
+                changedRange,
+                preserveUserSettings: false);
         }
 
         private static DateTime StartOfWeeks(DateTime date)

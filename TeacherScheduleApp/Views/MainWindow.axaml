@@ -10,10 +10,12 @@
         Title="Kalendář"
 		WindowState="Maximized"
         Width="1200"
-        Height="800">
-	<i:Interaction.Behaviors>
-		
+        Height="800"
+		Focusable="True">
+
+	<i:Interaction.Behaviors>	
 		<beh:ShowCollisionMessageBehavior />
+		<beh:WindowNavigationBehavior />
 	</i:Interaction.Behaviors>
 	<Window.Styles>
 		<Style Selector="Calendar">

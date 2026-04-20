@@ -16,7 +16,7 @@ namespace TeacherScheduleApp.Services
             SemesterSettings settings,
             int employeeId = 1)
         {
-            using var db = new AppDbContext();
+            await using var db = new AppDbContext();
 
             var existing = await db.SemesterSettings
                 .Include(x => x.WeekdaySettings)
@@ -31,11 +31,11 @@ namespace TeacherScheduleApp.Services
                 {
                     EmployeeId = employeeId,
                     Year = year,
-                    Semester = semester
+                    Semester = semester,
+                    WeekdaySettings = new List<WeekdaySettings>()
                 };
 
                 db.SemesterSettings.Add(existing);
-                await db.SaveChangesAsync();
             }
 
             existing.GlobalStartTime = settings.GlobalStartTime;
@@ -46,26 +46,42 @@ namespace TeacherScheduleApp.Services
             existing.AutoEventNameLunch = settings.AutoEventNameLunch;
             existing.AutoEventNamePostLunch = settings.AutoEventNamePostLunch;
 
-            await db.SaveChangesAsync();
+            existing.WeekdaySettings ??= new List<WeekdaySettings>();
 
-            var currentWeekdays = await db.WeekdaySettings
-                .Where(x => x.SemesterSettingsId == existing.Id)
-                .ToListAsync();
+            var incomingByDay = settings.WeekdaySettings
+                .OrderBy(x => x.DayOfWeek)
+                .ToDictionary(x => x.DayOfWeek);
 
-            db.WeekdaySettings.RemoveRange(currentWeekdays);
-            await db.SaveChangesAsync();
+            var currentByDay = existing.WeekdaySettings
+                .ToDictionary(x => x.DayOfWeek);
 
-            foreach (var wd in settings.WeekdaySettings.OrderBy(x => x.DayOfWeek))
+            var toRemove = existing.WeekdaySettings
+                .Where(x => !incomingByDay.ContainsKey(x.DayOfWeek))
+                .ToList();
+
+            if (toRemove.Count > 0)
+                db.WeekdaySettings.RemoveRange(toRemove);
+
+            foreach (var kv in incomingByDay)
             {
-                db.WeekdaySettings.Add(new WeekdaySettings
+                if (currentByDay.TryGetValue(kv.Key, out var row))
                 {
-                    SemesterSettingsId = existing.Id,
-                    DayOfWeek = wd.DayOfWeek,
-                    ArrivalTime = wd.ArrivalTime,
-                    DepartureTime = wd.DepartureTime,
-                    LunchStart = wd.LunchStart,
-                    LunchEnd = wd.LunchEnd
-                });
+                    row.ArrivalTime = kv.Value.ArrivalTime;
+                    row.DepartureTime = kv.Value.DepartureTime;
+                    row.LunchStart = kv.Value.LunchStart;
+                    row.LunchEnd = kv.Value.LunchEnd;
+                }
+                else
+                {
+                    existing.WeekdaySettings.Add(new WeekdaySettings
+                    {
+                        DayOfWeek = kv.Value.DayOfWeek,
+                        ArrivalTime = kv.Value.ArrivalTime,
+                        DepartureTime = kv.Value.DepartureTime,
+                        LunchStart = kv.Value.LunchStart,
+                        LunchEnd = kv.Value.LunchEnd
+                    });
+                }
             }
 
             await db.SaveChangesAsync();
@@ -99,25 +115,45 @@ namespace TeacherScheduleApp.Services
         {
             using var db = new AppDbContext();
 
-            return db.SemesterSettings
-                .AsNoTracking()
-                .Where(x => x.EmployeeId == employeeId)
-                .Select(x => x.Year)
-                .Concat(
-                    db.Events.AsNoTracking()
-                        .Where(e => !e.IsDeleted && e.EmployeeId == employeeId)
-                        .Select(e => e.StartTime.Year))
-                .Concat(
-                    db.Events.AsNoTracking()
-                        .Where(e => !e.IsDeleted && e.EmployeeId == employeeId)
-                        .Select(e => e.EndTime.Year))
-                .Concat(
-                    db.DaySettings.AsNoTracking()
-                        .Where(x => x.EmployeeId == employeeId)
-                        .Select(x => x.Date.Year))
-                .Distinct()
-                .OrderBy(x => x)
-                .ToList();
+            var years = new HashSet<int>();
+
+            foreach (var y in db.SemesterSettings
+                         .AsNoTracking()
+                         .Where(x => x.EmployeeId == employeeId)
+                         .Select(x => x.Year)
+                         .ToList())
+            {
+                years.Add(y);
+            }
+
+            foreach (var dt in db.Events
+                         .AsNoTracking()
+                         .Where(e => !e.IsDeleted && e.EmployeeId == employeeId)
+                         .Select(e => e.StartTime)
+                         .ToList())
+            {
+                years.Add(dt.Year);
+            }
+
+            foreach (var dt in db.Events
+                         .AsNoTracking()
+                         .Where(e => !e.IsDeleted && e.EmployeeId == employeeId)
+                         .Select(e => e.EndTime)
+                         .ToList())
+            {
+                years.Add(dt.Year);
+            }
+
+            foreach (var dt in db.DaySettings
+                         .AsNoTracking()
+                         .Where(x => x.EmployeeId == employeeId)
+                         .Select(x => x.Date)
+                         .ToList())
+            {
+                years.Add(dt.Year);
+            }
+
+            return years.OrderBy(x => x).ToList();
         }
 
         public static Employee EnsureDefaultEmployee(int employeeId = 1)
@@ -140,9 +176,10 @@ namespace TeacherScheduleApp.Services
 
             return employee;
         }
+
         public static async Task SaveEmployeeInfoAsync(int employeeId, string fullName, string department)
         {
-            using var db = new AppDbContext();
+            await using var db = new AppDbContext();
 
             var employee = await db.Employees.FirstOrDefaultAsync(x => x.Id == employeeId);
             if (employee == null)
@@ -166,8 +203,6 @@ namespace TeacherScheduleApp.Services
 
         public static SemesterSettings GetDefaultSettings(int year, SemesterType semester, int employeeId = 1)
         {
-            EnsureDefaultEmployee(employeeId);
-
             if (semester == SemesterType.Winter)
             {
                 return new SemesterSettings
@@ -218,13 +253,16 @@ namespace TeacherScheduleApp.Services
 
         public static async Task EnsureDefaultSemesterSettingsAsync(int year, SemesterType semester, int employeeId = 1)
         {
-            using var db = new AppDbContext();
+            await using var db = new AppDbContext();
 
             var exists = await db.SemesterSettings
+                .AsNoTracking()
                 .AnyAsync(x => x.EmployeeId == employeeId && x.Year == year && x.Semester == semester);
 
             if (exists)
                 return;
+
+            EnsureDefaultEmployee(employeeId);
 
             var defaults = GetDefaultSettings(year, semester, employeeId);
             await SaveSemesterSettingsAsync(year, semester, defaults, employeeId);

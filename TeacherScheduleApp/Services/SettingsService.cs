@@ -12,31 +12,37 @@ namespace TeacherScheduleApp.Services
     {
         public static DaySettings? GetDaySettingsForDate(DateTime date, int employeeId = 1)
         {
+            var day = date.Date;
+
             using var db = new AppDbContext();
 
             return db.DaySettings
                 .AsNoTracking()
-                .FirstOrDefault(x => x.EmployeeId == employeeId && x.Date.Date == date.Date);
+                .FirstOrDefault(x => x.EmployeeId == employeeId && x.Date == day);
         }
 
         public static DaySettings? GetManualDaySettingsForDate(DateTime day, int employeeId = 1)
         {
+            var d = day.Date;
+
             using var db = new AppDbContext();
 
             return db.DaySettings
                 .AsNoTracking()
                 .FirstOrDefault(x =>
                     x.EmployeeId == employeeId &&
-                    x.Date.Date == day.Date &&
+                    x.Date == d &&
                     x.IsManualOverride);
         }
 
         public static void DeleteDaySettingsForDate(DateTime date, int employeeId = 1)
         {
+            var day = date.Date;
+
             using var db = new AppDbContext();
 
             var existing = db.DaySettings
-                .FirstOrDefault(x => x.EmployeeId == employeeId && x.Date.Date == date.Date);
+                .FirstOrDefault(x => x.EmployeeId == employeeId && x.Date == day);
 
             if (existing == null)
                 return;
@@ -47,11 +53,13 @@ namespace TeacherScheduleApp.Services
 
         public static void DeleteComputedDaySettingsForDate(DateTime day, int employeeId = 1)
         {
+            var d = day.Date;
+
             using var db = new AppDbContext();
 
             var row = db.DaySettings.FirstOrDefault(x =>
                 x.EmployeeId == employeeId &&
-                x.Date.Date == day.Date &&
+                x.Date == d &&
                 !x.IsManualOverride);
 
             if (row == null)
@@ -62,17 +70,29 @@ namespace TeacherScheduleApp.Services
         }
 
         public static async Task DeleteComputedDaySettingsInRangeAsync(
-           DateTime from,
-           DateTime to,
-           int employeeId = 1)
+            DateTime from,
+            DateTime to,
+            int employeeId = 1)
         {
+            var start = from.Date;
+            var endExclusive = to.Date.AddDays(1);
+
             await using var db = new AppDbContext();
 
+#if NET7_0_OR_GREATER
+            await db.DaySettings
+                .Where(x =>
+                    x.EmployeeId == employeeId &&
+                    x.Date >= start &&
+                    x.Date < endExclusive &&
+                    !x.IsManualOverride)
+                .ExecuteDeleteAsync();
+#else
             var rows = await db.DaySettings
                 .Where(x =>
                     x.EmployeeId == employeeId &&
-                    x.Date.Date >= from.Date &&
-                    x.Date.Date <= to.Date &&
+                    x.Date >= start &&
+                    x.Date < endExclusive &&
                     !x.IsManualOverride)
                 .ToListAsync();
 
@@ -81,6 +101,7 @@ namespace TeacherScheduleApp.Services
 
             db.DaySettings.RemoveRange(rows);
             await db.SaveChangesAsync();
+#endif
         }
 
         public static void SaveDaySettingsForDate(
@@ -90,21 +111,24 @@ namespace TeacherScheduleApp.Services
             TimeSpan lunchStart,
             TimeSpan lunchEnd,
             int employeeId = 1,
-            bool isManualOverride = false)
+            bool isManualOverride = false,
+            bool forceOverwriteExistingManual = false)
         {
+            var d = day.Date;
+
             using var db = new AppDbContext();
 
             var existing = db.DaySettings
                 .FirstOrDefault(x =>
                     x.EmployeeId == employeeId &&
-                    x.Date.Date == day.Date);
+                    x.Date == d);
 
             if (existing == null)
             {
                 db.DaySettings.Add(new DaySettings
                 {
                     EmployeeId = employeeId,
-                    Date = day.Date,
+                    Date = d,
                     ArrivalTime = arrival,
                     DepartureTime = departure,
                     LunchStart = lunchStart,
@@ -116,48 +140,73 @@ namespace TeacherScheduleApp.Services
                 return;
             }
 
-            if (existing.IsManualOverride && !isManualOverride)
+            if (existing.IsManualOverride && !isManualOverride && !forceOverwriteExistingManual)
                 return;
+
+            bool newManualFlag = forceOverwriteExistingManual
+                ? isManualOverride
+                : (isManualOverride || existing.IsManualOverride);
+
+            if (existing.ArrivalTime == arrival &&
+                existing.DepartureTime == departure &&
+                existing.LunchStart == lunchStart &&
+                existing.LunchEnd == lunchEnd &&
+                existing.IsManualOverride == newManualFlag)
+            {
+                return;
+            }
 
             existing.ArrivalTime = arrival;
             existing.DepartureTime = departure;
             existing.LunchStart = lunchStart;
             existing.LunchEnd = lunchEnd;
-            existing.IsManualOverride = isManualOverride || existing.IsManualOverride;
+            existing.IsManualOverride = newManualFlag;
 
             db.SaveChanges();
         }
 
         public static ResolvedDaySettings GetResolvedDaySettings(DateTime date, int employeeId = 1)
+            => ResolveDaySettingsCore(date, employeeId, ignoreComputed: false);
+
+        public static ResolvedDaySettings GetResolvedDaySettingsIgnoringComputed(DateTime date, int employeeId = 1)
+            => ResolveDaySettingsCore(date, employeeId, ignoreComputed: true);
+
+        private static ResolvedDaySettings ResolveDaySettingsCore(DateTime date, int employeeId, bool ignoreComputed)
         {
+            var day = date.Date;
+
             using var db = new AppDbContext();
 
-            var semester = GlobalSettingsService.GetSemesterForDate(date);
+            var semester = GlobalSettingsService.GetSemesterForDate(day);
 
             var semesterSettings = db.SemesterSettings
                 .AsNoTracking()
+                .Include(x => x.WeekdaySettings)
                 .FirstOrDefault(x =>
                     x.EmployeeId == employeeId &&
-                    x.Year == date.Year &&
+                    x.Year == day.Year &&
                     x.Semester == semester);
 
             var dayOverride = db.DaySettings
                 .AsNoTracking()
-                .FirstOrDefault(x => x.EmployeeId == employeeId && x.Date.Date == date.Date);
+                .FirstOrDefault(x =>
+                    x.EmployeeId == employeeId &&
+                    x.Date == day &&
+                    (!ignoreComputed || x.IsManualOverride));
 
             var baseSettings = semesterSettings
-                ?? GlobalSettingsService.GetDefaultSettings(date.Year, semester, employeeId);
+                ?? GlobalSettingsService.GetDefaultSettings(day.Year, semester, employeeId);
 
-            bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
-            bool isHoliday = HolidayHelper.IsCzechHoliday(date);
+            bool isWeekend = day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+            bool isHoliday = HolidayHelper.IsCzechHoliday(day);
 
             if (isWeekend || isHoliday)
             {
                 return new ResolvedDaySettings
                 {
                     EmployeeId = employeeId,
-                    Date = date.Date,
-                    Year = date.Year,
+                    Date = day,
+                    Year = day.Year,
                     Semester = semester,
 
                     ArrivalTime = dayOverride?.ArrivalTime ?? TimeSpan.Zero,
@@ -173,33 +222,20 @@ namespace TeacherScheduleApp.Services
                 };
             }
 
-            var weekdayNumber = MapDayOfWeek(date.DayOfWeek);
+            var weekdayNumber = MapDayOfWeek(day.DayOfWeek);
 
-            WeekdaySettings? weekdaySettings;
-
-            if (semesterSettings == null)
-            {
-                weekdaySettings = baseSettings.WeekdaySettings
-                    .FirstOrDefault(x => x.DayOfWeek == weekdayNumber);
-            }
-            else
-            {
-                weekdaySettings = db.WeekdaySettings
-                    .AsNoTracking()
-                    .FirstOrDefault(x =>
-                        x.SemesterSettingsId == semesterSettings.Id &&
-                        x.DayOfWeek == weekdayNumber);
-            }
+            var weekdaySettings = baseSettings.WeekdaySettings
+                .FirstOrDefault(x => x.DayOfWeek == weekdayNumber);
 
             if (weekdaySettings == null)
                 throw new InvalidOperationException(
-                    $"WeekdaySettings not found for {date:yyyy-MM-dd}, employeeId={employeeId}");
+                    $"WeekdaySettings not found for {day:yyyy-MM-dd}, employeeId={employeeId}");
 
             return new ResolvedDaySettings
             {
                 EmployeeId = employeeId,
-                Date = date.Date,
-                Year = date.Year,
+                Date = day,
+                Year = day.Year,
                 Semester = semester,
 
                 ArrivalTime = dayOverride?.ArrivalTime ?? weekdaySettings.ArrivalTime,
@@ -225,96 +261,6 @@ namespace TeacherScheduleApp.Services
                 DayOfWeek.Thursday => 4,
                 DayOfWeek.Friday => 5,
                 _ => throw new InvalidOperationException("Weekend does not have weekday settings.")
-            };
-        }
-
-        public static ResolvedDaySettings GetResolvedDaySettingsIgnoringComputed(DateTime date, int employeeId = 1)
-        {
-            using var db = new AppDbContext();
-
-            var semester = GlobalSettingsService.GetSemesterForDate(date);
-
-            var semesterSettings = db.SemesterSettings
-                .AsNoTracking()
-                .FirstOrDefault(x =>
-                    x.EmployeeId == employeeId &&
-                    x.Year == date.Year &&
-                    x.Semester == semester);
-
-            var manualOverride = db.DaySettings
-                .AsNoTracking()
-                .FirstOrDefault(x =>
-                    x.EmployeeId == employeeId &&
-                    x.Date.Date == date.Date &&
-                    x.IsManualOverride);
-
-            var baseSettings = semesterSettings
-                ?? GlobalSettingsService.GetDefaultSettings(date.Year, semester, employeeId);
-
-            bool isWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
-            bool isHoliday = HolidayHelper.IsCzechHoliday(date);
-
-            if (isWeekend || isHoliday)
-            {
-                return new ResolvedDaySettings
-                {
-                    EmployeeId = employeeId,
-                    Date = date.Date,
-                    Year = date.Year,
-                    Semester = semester,
-
-                    ArrivalTime = manualOverride?.ArrivalTime ?? TimeSpan.Zero,
-                    DepartureTime = manualOverride?.DepartureTime ?? TimeSpan.Zero,
-                    LunchStart = manualOverride?.LunchStart ?? TimeSpan.Zero,
-                    LunchEnd = manualOverride?.LunchEnd ?? TimeSpan.Zero,
-
-                    AutoEventNamePreLunch = baseSettings.AutoEventNamePreLunch,
-                    AutoEventNameLunch = baseSettings.AutoEventNameLunch,
-                    AutoEventNamePostLunch = baseSettings.AutoEventNamePostLunch,
-                    MinBreakDuration = baseSettings.MinBreakDuration,
-                    MaxBreakDuration = baseSettings.MaxBreakDuration
-                };
-            }
-
-            var weekdayNumber = MapDayOfWeek(date.DayOfWeek);
-
-            WeekdaySettings? weekdaySettings;
-
-            if (semesterSettings == null)
-            {
-                weekdaySettings = baseSettings.WeekdaySettings
-                    .FirstOrDefault(x => x.DayOfWeek == weekdayNumber);
-            }
-            else
-            {
-                weekdaySettings = db.WeekdaySettings
-                    .AsNoTracking()
-                    .FirstOrDefault(x =>
-                        x.SemesterSettingsId == semesterSettings.Id &&
-                        x.DayOfWeek == weekdayNumber);
-            }
-
-            if (weekdaySettings == null)
-                throw new InvalidOperationException(
-                    $"WeekdaySettings not found for {date:yyyy-MM-dd}, employeeId={employeeId}");
-
-            return new ResolvedDaySettings
-            {
-                EmployeeId = employeeId,
-                Date = date.Date,
-                Year = date.Year,
-                Semester = semester,
-
-                ArrivalTime = manualOverride?.ArrivalTime ?? weekdaySettings.ArrivalTime,
-                DepartureTime = manualOverride?.DepartureTime ?? weekdaySettings.DepartureTime,
-                LunchStart = manualOverride?.LunchStart ?? weekdaySettings.LunchStart,
-                LunchEnd = manualOverride?.LunchEnd ?? weekdaySettings.LunchEnd,
-
-                AutoEventNamePreLunch = baseSettings.AutoEventNamePreLunch,
-                AutoEventNameLunch = baseSettings.AutoEventNameLunch,
-                AutoEventNamePostLunch = baseSettings.AutoEventNamePostLunch,
-                MinBreakDuration = baseSettings.MinBreakDuration,
-                MaxBreakDuration = baseSettings.MaxBreakDuration
             };
         }
     }

@@ -171,34 +171,18 @@ namespace TeacherScheduleApp.Services
                     errors.Add($"Řádek {i + 1}: DateTo je dříve než DateFrom ({dateFrom:dd.MM.yyyy} > {dateTo:dd.MM.yyyy}).");
                     continue;
                 }
-          
+
                 newImportStart = dateFrom.Date < newImportStart ? dateFrom.Date : newImportStart;
                 newImportEnd = dateTo.Date > newImportEnd ? dateTo.Date : newImportEnd;
 
-                for (var dt = dateFrom.Date; dt <= dateTo.Date; dt = dt.AddDays(1))
+                foreach (var dt in EnumerateScheduleDates(
+                             dateFrom,
+                             dateTo,
+                             targetDow,
+                             weekFrom,
+                             weekTo,
+                             parity))
                 {
-                    if (dt.DayOfWeek != targetDow) continue;
-
-                    int isoWeek = CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(
-                        dt,
-                        CalendarWeekRule.FirstFourDayWeek,
-                        DayOfWeek.Monday);
-
-                    if (isoWeek < weekFrom || isoWeek > weekTo) continue;
-
-                    switch (parity)
-                    {
-                        case 'L':
-                            if (isoWeek % 2 == 0) continue;
-                            break;
-                        case 'S':
-                            if (isoWeek % 2 != 0) continue;
-                            break;
-                        case 'J':
-                            if (((isoWeek - weekFrom) % 2) == 0) continue;
-                            break;
-                    }
-
                     eventsOut.Add(new Event
                     {
                         EmployeeId = _employeeId,
@@ -218,6 +202,7 @@ namespace TeacherScheduleApp.Services
 
             DateTime? rangeStart = null;
             DateTime? rangeEnd = null;
+            ChangedRange changedRange = ChangedRange.Empty;
 
             if (newImportStart != DateTime.MaxValue && newImportEnd != DateTime.MinValue)
             {
@@ -236,7 +221,7 @@ namespace TeacherScheduleApp.Services
                 }
                 .Where(x => x.HasValue)
                 .Min()!.Value.Date;
-                
+
                 rangeEnd = new[]
                 {
                     oldImportEnd,
@@ -244,15 +229,22 @@ namespace TeacherScheduleApp.Services
                 }
                 .Where(x => x.HasValue)
                 .Max()!.Value.Date;
+
+                changedRange = new ChangedRange(rangeStart.Value, rangeEnd.Value);
             }
-           
+
             if (newImportStart != DateTime.MaxValue && newImportEnd != DateTime.MinValue)
             {
                 _reportStatus?.Invoke("Mažu původní import…");
-                await _eventService.BulkSoftDeleteImportedInRangeAsync(newImportStart, newImportEnd, _employeeId);
 
+                var deletedRange = await _eventService.BulkSoftDeleteImportedInRangeRawAsync(
+                    newImportStart,
+                    newImportEnd,
+                    _employeeId);
+
+                changedRange = changedRange.Merge(deletedRange);
             }
-          
+
             if (eventsOut.Count > 0)
             {
                 _reportStatus?.Invoke("Ukládám události…");
@@ -270,44 +262,30 @@ namespace TeacherScheduleApp.Services
                     ev.ImportBatchId = batchId;
 
                 _eventService.CreateEventsBulk(eventsOut);
+
+                changedRange = changedRange.Merge(
+                    ChangedRange.FromDates(eventsOut.Select(e => e.StartTime.Date)));
             }
 
-            if (rangeStart.HasValue && rangeEnd.HasValue)
+            if (changedRange.HasValue)
             {
-                var autoGen = new AutomaticEventsGeneratorService(_eventService, _askCollision, _employeeId);
+                _reportStatus?.Invoke("Přegenerovávám automatické události…");
 
-                for (int year = rangeStart.Value.Year; year <= rangeEnd.Value.Year; year++)
-                {
-                    var yearStart = new DateTime(year, 1, 1);
-                    var yearEnd = new DateTime(year, 12, 31);
+                var processor = new ScheduleChangeProcessor(
+                    _eventService,
+                    _askCollision,
+                    _employeeId);
 
-                    _reportStatus?.Invoke($"Generuji auto-události pro rok {year}…");
-
-                    await autoGen.RegenerateRangeEventsAsync(yearStart, yearEnd, preserveUserSettings: false);
-                }
-
-                _reportStatus?.Invoke("Dolaďuji změněné dny…");
-                for (var day = rangeStart.Value.Date; day <= rangeEnd.Value.Date; day = day.AddDays(1))
-                {
-                    if (day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-                        continue;
-
-                    if (HolidayHelper.IsCzechHoliday(day))
-                        continue;
-
-                    AdjustDaySettingsForDay(day);
-                    await _eventService.TrimOvertimeByAutoBlocksAsync(_employeeId, day);
-                }
-
-                _reportStatus?.Invoke("Provádím vyvážení změněného rozsahu…");
-               
+                await processor.ApplyAsync(
+                    changedRange,
+                    preserveUserSettings: false,
+                    expandToFullYearIfYearHasNoAuto: true);
             }
 
             _reportStatus?.Invoke("Dokončeno.");
 
-            MessageBus.Current.SendMessage(new AutoEventsGeneratedMessage());
             MessageBus.Current.SendMessage(new EpdGeneratedMessage());
-          
+
             return new EpdImportReport(
                 Events: eventsOut,
                 TotalRows: totalRows,
@@ -320,6 +298,44 @@ namespace TeacherScheduleApp.Services
                 BatchId: batchId,
                 BatchLabel: batchName
             );
+        }
+
+        private static DateTime FirstOnOrAfter(DateTime start, DayOfWeek targetDow)
+        {
+            int delta = ((int)targetDow - (int)start.DayOfWeek + 7) % 7;
+            return start.AddDays(delta);
+        }
+
+        private static IEnumerable<DateTime> EnumerateScheduleDates(
+            DateTime dateFrom,
+            DateTime dateTo,
+            DayOfWeek targetDow,
+            int weekFrom,
+            int weekTo,
+            char parity)
+        {
+            for (var dt = FirstOnOrAfter(dateFrom.Date, targetDow); dt <= dateTo.Date; dt = dt.AddDays(7))
+            {
+                int isoWeek = System.Globalization.ISOWeek.GetWeekOfYear(dt);
+
+                if (isoWeek < weekFrom || isoWeek > weekTo)
+                    continue;
+
+                switch (parity)
+                {
+                    case 'L':
+                        if (isoWeek % 2 == 0) continue;
+                        break;
+                    case 'S':
+                        if (isoWeek % 2 != 0) continue;
+                        break;
+                    case 'J':
+                        if (((isoWeek - weekFrom) % 2) == 0) continue;
+                        break;
+                }
+
+                yield return dt;
+            }
         }
 
         private static (string[] lines, Encoding used) ReadAllLinesSmart(string path)

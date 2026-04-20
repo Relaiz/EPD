@@ -119,9 +119,8 @@ namespace TeacherScheduleApp.ViewModels
 
             var images = await Task.Run(() =>
             {
-                var events = _eventService.GetEventsForMonth(_employeeId, new DateTime(year, month, 1));
-                var refreshedEvents = _eventService.LoadEvents(_employeeId);
-                var pdfBytes = _pdfService.GenerateMonthReport(year, month, refreshedEvents, _employeeId);
+                var monthEvents = _eventService.GetEventsForMonth(_employeeId, new DateTime(year, month, 1));
+                var pdfBytes = _pdfService.GenerateMonthReport(year, month, monthEvents, _employeeId);
                 return _pdfService.RenderPdfPages(pdfBytes).ToList();
             });
 

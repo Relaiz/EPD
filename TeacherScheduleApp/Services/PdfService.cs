@@ -44,6 +44,16 @@ namespace TeacherScheduleApp.Services
             EventType.Holiday
         };
 
+        private static readonly HashSet<EventType> PaidSpecialTypes = new()
+        {
+            EventType.DayOff,
+            EventType.Illness,
+            EventType.Vacation,
+            EventType.Ocr,
+            EventType.Doctor,
+            EventType.Holiday
+        };
+
         private static string CodeFor(EventType t) => t switch
         {
             EventType.Vacation => "D",
@@ -55,6 +65,57 @@ namespace TeacherScheduleApp.Services
             EventType.DayOff => "S",
             _ => ""
         };
+
+        private static bool IsPaidSpecialForPdf(Event e)
+        {
+            if (e.IsDeleted || e.EventType == EventType.Lunch)
+                return false;
+
+            return PaidSpecialTypes.Contains(e.EventType);
+        }
+
+        private static bool IsCreditedForPdf(Event e)
+        {
+            if (e.IsDeleted || e.EventType == EventType.Lunch)
+                return false;
+
+            return IsWorkLike(e) || IsPaidSpecialForPdf(e);
+        }
+
+        private static int GetMergedMinutesForPdf(
+            DateTime day,
+            IEnumerable<Event> dayEvents,
+            Func<Event, bool> predicate)
+        {
+            var intervals = dayEvents
+                .Where(predicate)
+                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .Where(x => x.e > x.s)
+                .OrderBy(x => x.s)
+                .ToList();
+
+            if (intervals.Count == 0)
+                return 0;
+
+            var merged = new List<(DateTime s, DateTime e)>();
+
+            foreach (var iv in intervals)
+            {
+                if (merged.Count == 0 || merged[^1].e < iv.s)
+                {
+                    merged.Add(iv);
+                }
+                else if (iv.e > merged[^1].e)
+                {
+                    merged[^1] = (merged[^1].s, iv.e);
+                }
+            }
+
+            int minutes = merged.Sum(x => (int)(x.e - x.s).TotalMinutes);
+            return RoundDownToQuantum(minutes);
+        }
 
         public byte[] GenerateMonthReport(int year, int month, IEnumerable<Event> events, int employeeId = EventService.DefaultEmployeeId)
         {
@@ -207,18 +268,21 @@ namespace TeacherScheduleApp.Services
                                     ? c
                                     : new EventService.PdfDayCompensation();
 
-                                int workedMin = GetActualWorkedMinutesForPdf(date, dayEvents);
+                                int actualWorkedMin = GetActualWorkedMinutesForPdf(date, dayEvents);
+                                int specialPaidMin = GetPaidSpecialMinutesForPdf(date, dayEvents);
 
                                 int extraMin = RoundDownToQuantum(ToWholeMinutes(dm.over));
-                                int underMin = RoundDownToQuantum(ToWholeMinutes(dm.under));
+                                int realUnderMin = RoundDownToQuantum(ToWholeMinutes(dm.under));
 
                                 extraMin = Math.Max(0, extraMin - comp.ExtraOffsetMinutes);
-                                underMin = Math.Max(0, underMin - comp.UnderOffsetMinutes);
+                                realUnderMin = Math.Max(0, realUnderMin - comp.UnderOffsetMinutes);
 
-                                sumWorked += workedMin / 60.0;
+                                int displayUnderMin = specialPaidMin + realUnderMin;
+
+                                sumWorked += actualWorkedMin / 60.0;
                                 sumOvers += extraMin / 60.0;
-                                sumNeod += underMin / 60.0;
-                                sumCtrlWorked += workedMin / 60.0;
+                                sumNeod += displayUnderMin / 60.0;
+                                sumCtrlWorked += actualWorkedMin / 60.0;
 
                                 var (actualStart, actualEnd) = GetActualDayWindow(date, dayEvents);
 
@@ -253,9 +317,9 @@ namespace TeacherScheduleApp.Services
                                 table.Cell().Border(1).Text(lunches.ElementAtOrDefault(1)?.EndTime.TimeOfDay.ToString(@"hh\:mm") ?? "");
                                 table.Cell().Border(1).Text(actualEnd?.ToString(@"hh\:mm") ?? "");
 
-                                table.Cell().Border(1).Text($"{TimeSpan.FromMinutes(workedMin):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text($"{TimeSpan.FromMinutes(actualWorkedMin):hh\\:mm\\:ss}");
                                 table.Cell().Border(1).Text($"{TimeSpan.FromMinutes(extraMin):hh\\:mm\\:ss}");
-                                table.Cell().Border(1).Text($"{TimeSpan.FromMinutes(underMin):hh\\:mm\\:ss}");
+                                table.Cell().Border(1).Text($"{TimeSpan.FromMinutes(displayUnderMin):hh\\:mm\\:ss}");
                                 table.Cell().Border(1).Text(note);
                             }
 
@@ -443,13 +507,6 @@ namespace TeacherScheduleApp.Services
             public PdfRenderException(string message) : base(message) { }
             public PdfRenderException(string message, Exception inner) : base(message, inner) { }
         }
-        private static bool IsCreditedForPdf(Event e)
-        {
-            if (e.IsDeleted || e.EventType == EventType.Lunch)
-                return false;
-
-            return IsWorkLike(e) || SpecialTypes.Contains(e.EventType);
-        }
 
         private static (TimeSpan? start, TimeSpan? end) GetActualDayWindow(DateTime day, IEnumerable<Event> dayEvents)
         {
@@ -472,34 +529,18 @@ namespace TeacherScheduleApp.Services
 
         private static int GetActualWorkedMinutesForPdf(DateTime day, IEnumerable<Event> dayEvents)
         {
-            var intervals = dayEvents
-                .Where(IsCreditedForPdf)
-                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
-                .Where(x => x.HasValue)
-                .Select(x => x!.Value)
-                .Where(x => x.e > x.s)
-                .OrderBy(x => x.s)
-                .ToList();
+            return GetMergedMinutesForPdf(
+                day,
+                dayEvents,
+                e => !e.IsDeleted && IsWorkLike(e));
+        }
 
-            if (intervals.Count == 0)
-                return 0;
-
-            var merged = new List<(DateTime s, DateTime e)>();
-
-            foreach (var iv in intervals)
-            {
-                if (merged.Count == 0 || merged[^1].e < iv.s)
-                {
-                    merged.Add(iv);
-                }
-                else if (iv.e > merged[^1].e)
-                {
-                    merged[^1] = (merged[^1].s, iv.e);
-                }
-            }
-
-            int minutes = merged.Sum(x => (int)(x.e - x.s).TotalMinutes);
-            return RoundDownToQuantum(minutes);
+        private static int GetPaidSpecialMinutesForPdf(DateTime day, IEnumerable<Event> dayEvents)
+        {
+            return GetMergedMinutesForPdf(
+                day,
+                dayEvents,
+                IsPaidSpecialForPdf);
         }
     }
 }
