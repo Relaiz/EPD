@@ -24,18 +24,9 @@ namespace TeacherScheduleApp.Data
             if (optionsBuilder.IsConfigured)
                 return;
 
-            string baseDir;
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                baseDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            else
-                baseDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    ".config");
-
-            var appDir = Path.Combine(baseDir, "TeacherScheduleApp");
-            Directory.CreateDirectory(appDir);
-
+            var appDir = AppContext.BaseDirectory;
             var dbPath = Path.Combine(appDir, "teacherapp.db");
+
             optionsBuilder.UseSqlite($"Data Source={dbPath}");
         }
 

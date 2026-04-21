@@ -791,7 +791,6 @@ namespace TeacherScheduleApp.Services
                     IsWorkLike(e.EventType) &&
                     e.ImportBatchId == null &&
                     e.ParentEventId == null &&
-                    (e.EndTime - e.StartTime) >= TimeSpan.FromHours(8) &&
                     e.StartTime < desiredLunchStart &&
                     e.EndTime > desiredLunchEnd &&
                     (desiredLunchStart - e.StartTime) >= TimeSpan.FromHours(4))
@@ -972,7 +971,7 @@ namespace TeacherScheduleApp.Services
 
             if (manualOverride != null &&
                 manualOverride.LunchStart == manualOverride.LunchEnd)
-                return 0;
+                    return 0;
 
             int currentTarget = GetTargetLunchCount(departure - arrival);
 
