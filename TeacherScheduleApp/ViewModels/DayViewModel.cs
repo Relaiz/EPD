@@ -161,30 +161,19 @@ namespace TeacherScheduleApp.ViewModels
                 .Where(e => !e.IsDeleted)
                 .ToList();
 
-            bool IsWorkLike(Event e) => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
-            bool IsSpecial(Event e) => e.EventType != EventType.Lunch && !IsWorkLike(e);
-
-            var specialIntervals = events
-                .Where(IsSpecial)
-                .Select(e => new
-                {
-                    S = e.StartTime,
-                    E = e.EndTime
-                })
-                .ToList();
-
             foreach (var e in events)
             {
-                if (e.EventType == EventType.Lunch || IsSpecial(e))
+                if (e.EventType == EventType.Lunch)
                 {
                     e.IsInactive = false;
                     continue;
                 }
 
-                var s = e.StartTime;
-                var ee = e.EndTime;
-
-                e.IsInactive = specialIntervals.Any(sp => Intersects(s, ee, sp.S, sp.E));
+                e.IsInactive = events.Any(other =>
+                    other.Id != e.Id &&
+                    other.StartTime < e.EndTime &&
+                    e.StartTime < other.EndTime &&
+                    other.EventType.GetOverlayPriority() > e.EventType.GetOverlayPriority());
             }
 
             var segments = new List<(Event ev, double sh, double eh)>();
@@ -239,7 +228,11 @@ namespace TeacherScheduleApp.ViewModels
 
                 foreach (var seg in cluster)
                 {
-                    seg.ev.HasCollision = colCount > 1;
+                    seg.ev.HasCollision = cluster.Any(other =>
+                        !ReferenceEquals(other.ev, seg.ev) &&
+                        other.sh < seg.eh &&
+                        seg.sh < other.eh &&
+                        seg.ev.EventType.ShouldShowCollisionAgainst(other.ev.EventType));
 
                     var ctrl = new CalendarEventControl(seg.ev)
                     {

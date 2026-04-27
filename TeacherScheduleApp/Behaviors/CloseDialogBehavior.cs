@@ -13,6 +13,9 @@ namespace TeacherScheduleApp.Behaviors
         protected override void OnAttached()
         {
             base.OnAttached();
+            if (AssociatedObject is null)
+                return;
+
             if (AssociatedObject.DataContext is CreateEventDialogViewModel vm )
             {
                 RegisterClose(vm);
@@ -23,9 +26,9 @@ namespace TeacherScheduleApp.Behaviors
             }
         }
 
-        private void AssociatedObject_DataContextChanged(object sender, EventArgs e)
+        private void AssociatedObject_DataContextChanged(object? sender, EventArgs e)
         {
-            if (AssociatedObject.DataContext is CreateEventDialogViewModel vm)
+            if (AssociatedObject?.DataContext is CreateEventDialogViewModel vm)
             {
                 RegisterClose(vm);
                 AssociatedObject.DataContextChanged -= AssociatedObject_DataContextChanged;
@@ -36,7 +39,7 @@ namespace TeacherScheduleApp.Behaviors
         {
             vm.RequestClose.RegisterHandler(interaction =>
             {
-                AssociatedObject.Close(interaction.Input);
+                AssociatedObject?.Close(interaction.Input);
                 interaction.SetOutput(Unit.Default);
             });
         }

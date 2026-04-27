@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Avalonia.Media.Imaging;
 using Ghostscript.NET;
 using Ghostscript.NET.Rasterizer;
@@ -168,14 +169,14 @@ namespace TeacherScheduleApp.Services
 
                         h.Item().Row(r =>
                         {
-                            r.RelativeColumn(1).Column(c =>
+                            r.RelativeItem(1).Column(c =>
                             {
                                 c.Item().PaddingBottom(2).Text("Fakulta elektrotechniky a informatiky").FontSize(9);
                                 c.Item().PaddingBottom(2).Text($"jméno: {employee.FullName}").FontSize(9);
                                 c.Item().Text($"útvar: {employee.Department}").FontSize(9);
                             });
 
-                            r.RelativeColumn(1).Column(c =>
+                            r.RelativeItem(1).Column(c =>
                             {
                                 c.Item().PaddingBottom(1)
                                     .Text($"pracovní doba: {semesterSettings.GlobalStartTime}–{semesterSettings.GlobalEndTime} hod.")
@@ -185,7 +186,7 @@ namespace TeacherScheduleApp.Services
                                     .FontSize(9);
                             });
 
-                            r.ConstantColumn(120).Border(1).Padding(4).Column(q =>
+                            r.ConstantItem(120).Border(1).Padding(4).Column(q =>
                             {
                                 q.Item().Text("Fond prac. doby:").Bold().FontSize(9);
                                 q.Item().Text($"{monthQuota:F0} hodin").FontSize(9);
@@ -269,7 +270,7 @@ namespace TeacherScheduleApp.Services
                                     : new EventService.PdfDayCompensation();
 
                                 int actualWorkedMin = GetActualWorkedMinutesForPdf(date, dayEvents);
-                                int specialPaidMin = GetPaidSpecialMinutesForPdf(date, dayEvents);
+                                int specialPaidMin = GetPaidSpecialMinutesForPdf(date, dayEvents, employeeId);
 
                                 int extraMin = RoundDownToQuantum(ToWholeMinutes(dm.over));
                                 int realUnderMin = RoundDownToQuantum(ToWholeMinutes(dm.under));
@@ -284,7 +285,7 @@ namespace TeacherScheduleApp.Services
                                 sumNeod += displayUnderMin / 60.0;
                                 sumCtrlWorked += actualWorkedMin / 60.0;
 
-                                var (actualStart, actualEnd) = GetActualDayWindow(date, dayEvents);
+                                var (actualStart, actualEnd) = GetActualDayWindow(date, dayEvents, employeeId);
 
                                 var lunches = dayEvents
                                     .Where(e => e.EventType == EventType.Lunch && !e.IsDeleted)
@@ -304,7 +305,10 @@ namespace TeacherScheduleApp.Services
                                     .ToList();
 
                                 string note = string.Join("+", dayEvents
-                                    .Where(e => e.EventType != EventType.Work && e.EventType != EventType.Lunch && !e.IsDeleted)
+                                    .Where(e => e.EventType != EventType.Work &&
+                                                e.EventType != EventType.Teaching &&
+                                                e.EventType != EventType.Lunch &&
+                                                !e.IsDeleted)
                                     .Select(e => CodeFor(e.EventType))
                                     .Where(s => !string.IsNullOrWhiteSpace(s))
                                     .Distinct());
@@ -351,8 +355,8 @@ namespace TeacherScheduleApp.Services
 
                         col.Item().PaddingTop(6).Row(r =>
                         {
-                            r.RelativeColumn().Text("podpis zaměstnance:");
-                            r.RelativeColumn().Text("podpis nadřízeného pracovníka:");
+                            r.RelativeItem().Text("podpis zaměstnance:");
+                            r.RelativeItem().Text("podpis nadřízeného pracovníka:");
                         });
 
                         col.Item().PaddingTop(4)
@@ -367,7 +371,9 @@ namespace TeacherScheduleApp.Services
         }
 
         private static bool IsWorkLike(Event e)
-            => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
+            => e.EventType == EventType.Work ||
+               e.EventType == EventType.BusinessTrip ||
+               e.EventType == EventType.Teaching;
 
         private static bool IsLockedDay(IEnumerable<Event> dayEvents)
         {
@@ -400,8 +406,10 @@ namespace TeacherScheduleApp.Services
 
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                     return RenderOnLinuxWithGsBinary(pdfBytes, dpi);
-                else
+                if (OperatingSystem.IsWindows())
                     return RenderOnWindowsWithGhostscriptNet(pdfBytes, dpi);
+
+                throw new PlatformNotSupportedException("Náhled PDF je podporovaný jen na Windows nebo Linuxu.");
             }
             catch (Exception ex)
             {
@@ -410,6 +418,7 @@ namespace TeacherScheduleApp.Services
             }
         }
 
+        [SupportedOSPlatform("windows")]
         public IReadOnlyList<Bitmap> RenderOnWindowsWithGhostscriptNet(byte[] pdfBytes, int dpi = 300)
         {
             try
@@ -509,12 +518,13 @@ namespace TeacherScheduleApp.Services
         }
 
         private static (TimeSpan? start, TimeSpan? end) GetActualDayWindow(DateTime day, IEnumerable<Event> dayEvents)
+            => GetActualDayWindow(day, dayEvents, EventService.DefaultEmployeeId);
+
+        private static (TimeSpan? start, TimeSpan? end) GetActualDayWindow(DateTime day, IEnumerable<Event> dayEvents, int employeeId)
         {
-            var credited = dayEvents
-                .Where(IsCreditedForPdf)
-                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
-                .Where(x => x.HasValue)
-                .Select(x => x!.Value)
+            var credited = GetPaidSpecialCreditIntervalsForPdf(day, dayEvents, employeeId)
+                .Concat(GetEffectiveWorkIntervalsForPdf(day, dayEvents))
+                .Where(x => x.e > x.s)
                 .OrderBy(x => x.s)
                 .ToList();
 
@@ -529,18 +539,150 @@ namespace TeacherScheduleApp.Services
 
         private static int GetActualWorkedMinutesForPdf(DateTime day, IEnumerable<Event> dayEvents)
         {
-            return GetMergedMinutesForPdf(
-                day,
-                dayEvents,
-                e => !e.IsDeleted && IsWorkLike(e));
+            return SumMinutes(GetEffectiveWorkIntervalsForPdf(day, dayEvents));
         }
 
         private static int GetPaidSpecialMinutesForPdf(DateTime day, IEnumerable<Event> dayEvents)
+            => GetPaidSpecialMinutesForPdf(day, dayEvents, EventService.DefaultEmployeeId);
+
+        private static int GetPaidSpecialMinutesForPdf(DateTime day, IEnumerable<Event> dayEvents, int employeeId)
         {
-            return GetMergedMinutesForPdf(
-                day,
-                dayEvents,
-                IsPaidSpecialForPdf);
+            return SumMinutes(GetPaidSpecialCreditIntervalsForPdf(day, dayEvents, employeeId));
+        }
+
+        private static int SumMinutes(IEnumerable<(DateTime s, DateTime e)> intervals)
+        {
+            int minutes = MergeIntervals(intervals)
+                .Sum(x => (int)(x.e - x.s).TotalMinutes);
+
+            return RoundDownToQuantum(minutes);
+        }
+
+        private static List<(DateTime s, DateTime e)> GetEffectiveWorkIntervalsForPdf(
+            DateTime day,
+            IEnumerable<Event> dayEvents)
+        {
+            var events = dayEvents
+                .Where(e => !e.IsDeleted)
+                .ToList();
+
+            var work = events
+                .Where(IsWorkLike)
+                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value);
+
+            var specialBlockers = events
+                .Where(IsPaidSpecialForPdf)
+                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value);
+
+            return SubtractIntervals(work, specialBlockers);
+        }
+
+        private static List<(DateTime s, DateTime e)> GetPaidSpecialCreditIntervalsForPdf(
+            DateTime day,
+            IEnumerable<Event> dayEvents,
+            int employeeId)
+        {
+            var events = dayEvents
+                .Where(e => !e.IsDeleted && IsPaidSpecialForPdf(e))
+                .ToList();
+
+            var allDaySpecials = events
+                .Where(e => e.AllDay)
+                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value);
+
+            var timedSpecials = events
+                .Where(e => !e.AllDay)
+                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value);
+
+            var resolved = SettingsService.GetResolvedDaySettings(day, employeeId);
+            var lunch = resolved.LunchEnd > resolved.LunchStart
+                ? new[] { (s: day.Date + resolved.LunchStart, e: day.Date + resolved.LunchEnd) }
+                : Enumerable.Empty<(DateTime s, DateTime e)>();
+
+            var netNorm = (resolved.DepartureTime - resolved.ArrivalTime) -
+                          (resolved.LunchEnd - resolved.LunchStart);
+            if (netNorm < TimeSpan.Zero)
+                netNorm = TimeSpan.Zero;
+
+            var allDayCredited = new List<(DateTime s, DateTime e)>();
+            foreach (var iv in allDaySpecials)
+            {
+                if (netNorm > TimeSpan.Zero &&
+                    (iv.e - iv.s) > netNorm + TimeSpan.FromMinutes(1))
+                {
+                    allDayCredited.AddRange(SubtractIntervals(new[] { iv }, lunch));
+                }
+                else
+                {
+                    allDayCredited.Add(iv);
+                }
+            }
+
+            return MergeIntervals(allDayCredited.Concat(timedSpecials));
+        }
+
+        private static List<(DateTime s, DateTime e)> MergeIntervals(IEnumerable<(DateTime s, DateTime e)> intervals)
+        {
+            var sorted = intervals
+                .Where(x => x.e > x.s)
+                .OrderBy(x => x.s)
+                .ToList();
+
+            var merged = new List<(DateTime s, DateTime e)>();
+
+            foreach (var iv in sorted)
+            {
+                if (merged.Count == 0 || merged[^1].e < iv.s)
+                    merged.Add(iv);
+                else if (iv.e > merged[^1].e)
+                    merged[^1] = (merged[^1].s, iv.e);
+            }
+
+            return merged;
+        }
+
+        private static List<(DateTime s, DateTime e)> SubtractIntervals(
+            IEnumerable<(DateTime s, DateTime e)> source,
+            IEnumerable<(DateTime s, DateTime e)> blockers)
+        {
+            var blocked = MergeIntervals(blockers);
+            var result = new List<(DateTime s, DateTime e)>();
+
+            foreach (var seg in source.Where(x => x.e > x.s).OrderBy(x => x.s))
+            {
+                var cursor = seg.s;
+
+                foreach (var b in blocked)
+                {
+                    if (b.e <= cursor)
+                        continue;
+
+                    if (b.s >= seg.e)
+                        break;
+
+                    if (b.s > cursor)
+                        result.Add((cursor, b.s < seg.e ? b.s : seg.e));
+
+                    if (b.e > cursor)
+                        cursor = b.e > seg.e ? seg.e : b.e;
+
+                    if (cursor >= seg.e)
+                        break;
+                }
+
+                if (cursor < seg.e)
+                    result.Add((cursor, seg.e));
+            }
+
+            return MergeIntervals(result);
         }
     }
 }

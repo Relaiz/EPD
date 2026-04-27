@@ -12,17 +12,24 @@ namespace TeacherScheduleApp.Behaviors
         protected override void OnAttached()
         {
             base.OnAttached();
+            if (AssociatedObject is null)
+                return;
+
             AssociatedObject.PointerPressed += OnPointerPressed;
         }
 
         protected override void OnDetaching()
         {
-            AssociatedObject.PointerPressed -= OnPointerPressed;
+            if (AssociatedObject is not null)
+                AssociatedObject.PointerPressed -= OnPointerPressed;
             base.OnDetaching();
         }
 
-        private void OnPointerPressed(object sender, PointerPressedEventArgs e)
+        private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            if (AssociatedObject is null)
+                return;
+
             var ctrl = e.Source as Control;
             while (ctrl != null)
             {
@@ -46,7 +53,7 @@ namespace TeacherScheduleApp.Behaviors
         }
 
       
-        private ItemsControl FindItemsControl(Control start)
+        private ItemsControl? FindItemsControl(Control start)
         {
             var parent = start.Parent;
             while (parent != null)

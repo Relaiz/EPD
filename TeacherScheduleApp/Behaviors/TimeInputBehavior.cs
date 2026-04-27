@@ -40,7 +40,7 @@ namespace TeacherScheduleApp.Behaviors
 
         private void OnTextInput(object? sender, TextInputEventArgs e)
         {
-            if (!AllowedChars.IsMatch(e.Text))
+            if (!AllowedChars.IsMatch(e.Text ?? string.Empty))
             {
                 e.Handled = true;
                 return;
@@ -54,11 +54,12 @@ namespace TeacherScheduleApp.Behaviors
             if (AssociatedObject == null) return;
             if (string.IsNullOrEmpty(text)) return;
 
-            if (text!.Length == 4 && Regex.IsMatch(text, @"^\d{4}$"))
+            if (text.Length == 4 && Regex.IsMatch(text, @"^\d{4}$"))
                 AssociatedObject.Text = text.Insert(2, ":");
 
-            if (AssociatedObject.Text!.Length > 5)
-                AssociatedObject.Text = AssociatedObject.Text.Substring(0, 5);
+            var currentText = AssociatedObject.Text;
+            if ((currentText?.Length ?? 0) > 5)
+                AssociatedObject.Text = currentText!.Substring(0, 5);
         }
 
         private void OnLostFocus(object? sender, RoutedEventArgs e)

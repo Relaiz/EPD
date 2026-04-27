@@ -365,18 +365,19 @@ namespace TeacherScheduleApp.ViewModels
                 .Where(e => !(e.ParentEventId == null && parentsWithChildren.Contains(e.Id)))
                 .ToList();
 
-            bool IsWorkLike(Event e) => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
-            bool IsSpecial(Event e) => e.EventType != EventType.Lunch && !IsWorkLike(e);
-
-            var specials = events
-                .Where(IsSpecial)
-                .Select(e => (e.StartTime, e.EndTime))
-                .ToList();
-
             foreach (var e in events)
             {
-                bool isSpecial = IsSpecial(e);
-                e.IsInactive = !isSpecial && specials.Any(sp => e.StartTime < sp.EndTime && sp.StartTime < e.EndTime);
+                if (e.EventType == EventType.Lunch)
+                {
+                    e.IsInactive = false;
+                    continue;
+                }
+
+                e.IsInactive = events.Any(other =>
+                    other.Id != e.Id &&
+                    other.StartTime < e.EndTime &&
+                    e.StartTime < other.EndTime &&
+                    other.EventType.GetOverlayPriority() > e.EventType.GetOverlayPriority());
             }
 
             for (int day = 0; day < 7; day++)
@@ -477,7 +478,11 @@ namespace TeacherScheduleApp.ViewModels
                         int overlapCount = colCount <= 1 ? 1 : colCount;
                         int overlapIndex = colCount <= 1 ? 0 : colIndex[seg.ev];
 
-                        seg.ev.HasCollision = colCount > 1;
+                        seg.ev.HasCollision = cluster.Any(other =>
+                            !ReferenceEquals(other.ev, seg.ev) &&
+                            other.sh < seg.eh &&
+                            seg.sh < other.eh &&
+                            seg.ev.EventType.ShouldShowCollisionAgainst(other.ev.EventType));
 
                         var ctl = new CalendarEventControl(seg.ev)
                         {

@@ -18,6 +18,9 @@ namespace TeacherScheduleApp.Behaviors
         {
             base.OnAttached();
 
+            if (AssociatedObject is null)
+                return;
+
             if (AssociatedObject.DataContext is CreateEventDialogViewModel vm)
             {
                 RegisterInteraction(vm);
@@ -28,9 +31,9 @@ namespace TeacherScheduleApp.Behaviors
             }
         }
 
-        private void AssociatedObject_DataContextChanged(object sender, EventArgs e)
+        private void AssociatedObject_DataContextChanged(object? sender, EventArgs e)
         {
-            if (AssociatedObject.DataContext is CreateEventDialogViewModel vm)
+            if (AssociatedObject?.DataContext is CreateEventDialogViewModel vm)
             {
                 RegisterInteraction(vm);
                 AssociatedObject.DataContextChanged -= AssociatedObject_DataContextChanged;

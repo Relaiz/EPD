@@ -1,6 +1,4 @@
 ﻿
-    using global::TeacherScheduleApp.Data;
-    using global::TeacherScheduleApp.Models;
     using Microsoft.EntityFrameworkCore;
     using System;
     using System.Collections.Generic;

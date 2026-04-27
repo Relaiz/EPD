@@ -12,17 +12,24 @@ namespace TeacherScheduleApp.Behaviors
         protected override void OnAttached()
         {
             base.OnAttached();
+            if (AssociatedObject is null)
+                return;
+
             AssociatedObject.PointerPressed += OnPointerPressed;
         }
 
         protected override void OnDetaching()
         {
-            AssociatedObject.PointerPressed -= OnPointerPressed;
+            if (AssociatedObject is not null)
+                AssociatedObject.PointerPressed -= OnPointerPressed;
             base.OnDetaching();
         }
 
-        private void OnPointerPressed(object sender, PointerPressedEventArgs e)
+        private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            if (AssociatedObject is null)
+                return;
+
            
             if (AssociatedObject.DataContext is Event ev)
             {
@@ -38,9 +45,9 @@ namespace TeacherScheduleApp.Behaviors
         /// <summary>
         /// Vyhledá ovládací prvek, který má ve svém rodiči datový kontext MonthViewModel.
         /// </summary>
-        private MonthViewModel FindMonthViewModel(Control start)
+        private MonthViewModel? FindMonthViewModel(Control start)
         {
-            Control current = start;
+            Control? current = start;
             while (current != null)
             {
                 if (current.DataContext is MonthViewModel vm)

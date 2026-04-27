@@ -83,10 +83,62 @@ namespace TeacherScheduleApp.Models
 
         [Display(Name = "Svátek")]
         Holiday,
+
+        [Display(Name = "Výuka")]
+        Teaching,
     }
 
     public static class EventTypeExtensions
     {
+        public static bool IsAutoAdjustableWork(this EventType type)
+            => type is EventType.Work;
+
+        public static bool IsTeaching(this EventType type)
+            => type == EventType.Teaching;
+
+        public static bool IsCreditedWorkTime(this EventType type)
+            => type.IsAutoAdjustableWork() || type.IsTeaching();
+
+        public static bool IsSpecialAbsence(this EventType type)
+            => type != EventType.Lunch && !type.IsCreditedWorkTime();
+
+        public static int GetOverlayPriority(this EventType type) => type switch
+        {
+            EventType.DayOff => 400,
+            EventType.Illness => 400,
+            EventType.Vacation => 400,
+            EventType.Ocr => 400,
+            EventType.Doctor => 400,
+            EventType.Holiday => 400,
+            EventType.Teaching => 300,
+            EventType.BusinessTrip => 200,
+            EventType.Work => 100,
+            _ => 0
+        };
+
+        public static bool ShouldShowCollisionAgainst(this EventType current, EventType other)
+        {
+            if (current == EventType.Lunch)
+                return other != EventType.Lunch;
+
+            if (other == EventType.Lunch)
+                return true;
+
+            if (current.IsTeaching() && other.IsTeaching())
+                return false;
+
+            var currentPriority = current.GetOverlayPriority();
+            var otherPriority = other.GetOverlayPriority();
+
+            if (currentPriority < otherPriority)
+                return true;
+
+            if (currentPriority > otherPriority)
+                return false;
+
+            return true;
+        }
+
         public static string ToDisplayName(this EventType type)
         {
             var member = type.GetType()

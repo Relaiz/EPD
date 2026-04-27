@@ -162,20 +162,21 @@ namespace TeacherScheduleApp.ViewModels
                 }
             }
 
-            bool IsWorkLike(Event e) => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
-            bool IsSpecial(Event e) => e.EventType != EventType.Lunch && !IsWorkLike(e);
-
             foreach (var cell in Days)
             {
-                var specials = cell.Events
-                    .Where(IsSpecial)
-                    .Select(e => (e.StartTime, e.EndTime))
-                    .ToList();
-
                 foreach (var e in cell.Events)
                 {
-                    bool isSpecial = IsSpecial(e);
-                    e.IsInactive = !isSpecial && specials.Any(sp => e.StartTime < sp.EndTime && sp.StartTime < e.EndTime);
+                    if (e.EventType == EventType.Lunch)
+                    {
+                        e.IsInactive = false;
+                        continue;
+                    }
+
+                    e.IsInactive = cell.Events.Any(other =>
+                        other.Id != e.Id &&
+                        other.StartTime < e.EndTime &&
+                        e.StartTime < other.EndTime &&
+                        other.EventType.GetOverlayPriority() > e.EventType.GetOverlayPriority());
                 }
             }
         }
@@ -252,8 +253,8 @@ namespace TeacherScheduleApp.ViewModels
                 var vm = new CreateEventDialogViewModel(ev.StartTime)
                 {
                     Id = ev.Id,
-                    Title = ev.Title,
-                    Description = ev.Description,
+                    Title = ev.Title ?? string.Empty,
+                    Description = ev.Description ?? string.Empty,
                     AllDay = ev.AllDay,
                     StartDate = ev.StartTime.Date,
                     StartTime = ev.StartTime.TimeOfDay,
@@ -387,7 +388,7 @@ namespace TeacherScheduleApp.ViewModels
                 get
                 {
                     if (IsToday) return Brushes.LightGray;
-                    if (!IsCurrentMonth) return Brushes.DarkGray;
+                    if (!IsCurrentMonth) return new SolidColorBrush(Color.FromArgb(150, 150, 158, 168));
                     if (IsWeekend) return new SolidColorBrush(Color.Parse("#EEEEEE"));
                     return Brushes.White;
                 }
@@ -397,7 +398,7 @@ namespace TeacherScheduleApp.ViewModels
             {
                 get
                 {
-                    if (!IsCurrentMonth) return Brushes.Gray;
+                    if (!IsCurrentMonth) return new SolidColorBrush(Color.Parse("#5F6874"));
                     if (IsHoliday) return Brushes.Red;
                     return Brushes.Black;
                 }

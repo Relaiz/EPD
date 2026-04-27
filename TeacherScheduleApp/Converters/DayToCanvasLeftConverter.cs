@@ -10,9 +10,9 @@ namespace TeacherScheduleApp.Converters
 {
     public class DayToCanvasLeftConverter : IValueConverter
     {
-        public object Convert(object v, Type t, object p, CultureInfo _)
+        public object Convert(object? v, Type t, object? p, CultureInfo _)
         {
-            int day = (int)v;
+            int day = System.Convert.ToInt32(v);
             return day * 100;
         }
 

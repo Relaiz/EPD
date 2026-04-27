@@ -10,7 +10,7 @@ namespace TeacherScheduleApp.Converters
 {
     public class DayToColumnWidthConverter : IValueConverter
     {
-        public object Convert(object v, Type t, object p, CultureInfo _)
+        public object Convert(object? v, Type t, object? p, CultureInfo _)
         {
             double total = 700;
             int days = System.Convert.ToInt32(p);

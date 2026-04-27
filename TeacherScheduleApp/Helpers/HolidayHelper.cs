@@ -54,7 +54,7 @@ namespace TeacherScheduleApp.Helpers
                 }) ?? new List<PublicHoliday>();
                 return list.Select(h => h.Date.Date).ToHashSet();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return new HashSet<DateTime>();
             }

@@ -100,6 +100,13 @@ namespace TeacherScheduleApp.ViewModels
             private set => this.RaiseAndSetIfChanged(ref _isBusy, value);
         }
 
+        private string _busyText = "Ukladam nastaveni...";
+        public string BusyText
+        {
+            get => _busyText;
+            private set => this.RaiseAndSetIfChanged(ref _busyText, value);
+        }
+
         public ReactiveCommand<Unit, Unit> SaveCommand { get; }
         public ReactiveCommand<Unit, Unit> GoBackCommand { get; }
 
@@ -355,6 +362,9 @@ namespace TeacherScheduleApp.ViewModels
 
         private async Task SaveAsync()
         {
+            if (IsBusy)
+                return;
+
             if (!ValidateSettings())
             {
                 await MessageBoxManager.GetMessageBoxStandard(
@@ -368,6 +378,7 @@ namespace TeacherScheduleApp.ViewModels
             }
 
             IsBusy = true;
+            BusyText = "Ukladam nastaveni...";
 
             try
             {
@@ -385,6 +396,7 @@ namespace TeacherScheduleApp.ViewModels
                     _employeeId);
 
                 var (from, to) = GetSemesterRange(ActiveYear, ActiveSemester);
+                BusyText = "Mazu vypoctena denni nastaveni...";
                 await SettingsService.DeleteComputedDaySettingsInRangeAsync(from, to, _employeeId);
 
                 var generator = new AutomaticEventsGeneratorService(
@@ -392,14 +404,17 @@ namespace TeacherScheduleApp.ViewModels
                     prompt => ShowCollisionMessage.Handle(prompt).FirstAsync().ToTask(),
                     _employeeId);
 
+                BusyText = "Prepocitavam automaticke udalosti...";
                 await generator.RegenerateRangeEventsAsync(from, to);
 
                 _originalSettings = CurrentSettings.Clone();
 
+                BusyText = "Obnovuji kalendar...";
                 MessageBus.Current.SendMessage(new GlobalSettingsChangedMessage(ActiveSemester));
             }
             finally
             {
+                BusyText = "Ukladam nastaveni...";
                 IsBusy = false;
             }
         }

@@ -19,13 +19,17 @@ namespace TeacherScheduleApp.Behaviors
         protected override void OnAttached()
         {
             base.OnAttached();
+            if (AssociatedObject is null)
+                return;
+
             TryRegister();
             AssociatedObject.DataContextChanged += (_, _) => TryRegister();
         }
 
         private void TryRegister()
         {
-            if (AssociatedObject.DataContext is MainWindowViewModel vm)
+            if (AssociatedObject is not null &&
+                AssociatedObject.DataContext is MainWindowViewModel vm)
             {
                 vm.ShowCollisionMessage.RegisterHandler(async interaction =>
                 {

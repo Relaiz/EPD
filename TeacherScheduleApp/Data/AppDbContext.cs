@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using TeacherScheduleApp.Models;
 
 namespace TeacherScheduleApp.Data

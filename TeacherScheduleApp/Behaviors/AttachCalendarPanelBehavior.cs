@@ -11,6 +11,9 @@ namespace TeacherScheduleApp.Behaviors
         protected override void OnAttached()
         {
             base.OnAttached();
+            if (AssociatedObject is null)
+                return;
+
             if (AssociatedObject.DataContext is WeekViewModel wm)
             {
                 wm.AttachCalendarPanel(AssociatedObject);
@@ -26,14 +29,14 @@ namespace TeacherScheduleApp.Behaviors
             }
         }
 
-        private void AssociatedObject_DataContextChanged(object sender, System.EventArgs e)
+        private void AssociatedObject_DataContextChanged(object? sender, System.EventArgs e)
         {
-            if (AssociatedObject.DataContext is WeekViewModel vm)
+            if (AssociatedObject?.DataContext is WeekViewModel vm)
             {
                 vm.AttachCalendarPanel(AssociatedObject);
                 AssociatedObject.DataContextChanged -= AssociatedObject_DataContextChanged;
             } 
-            else if (AssociatedObject.DataContext is DayViewModel dm)
+            else if (AssociatedObject?.DataContext is DayViewModel dm)
             {
                 dm.AttachCalendarPanel(AssociatedObject);
                 AssociatedObject.DataContextChanged -= AssociatedObject_DataContextChanged;
@@ -43,7 +46,8 @@ namespace TeacherScheduleApp.Behaviors
         protected override void OnDetaching()
         {
             base.OnDetaching();
-            AssociatedObject.DataContextChanged -= AssociatedObject_DataContextChanged;
+            if (AssociatedObject is not null)
+                AssociatedObject.DataContextChanged -= AssociatedObject_DataContextChanged;
         }
     }
 }

@@ -9,6 +9,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using ReactiveUI;
 using TeacherScheduleApp.Models;
 using TeacherScheduleApp.Services;
@@ -88,27 +89,32 @@ namespace TeacherScheduleApp.ViewModels
                     _eventService.GetEventsForMonth(_employeeId, new DateTime(year, month, 1))
                 );
 
-                var dlg = new SaveFileDialog
-                {
-                    Title = "Uložit PDF",
-                    InitialFileName = $"EPD_{month:D2}-{year:D4}.pdf",
-                    Filters =
-                    {
-                        new FileDialogFilter
-                        {
-                            Name = "PDF",
-                            Extensions = { "pdf" }
-                        }
-                    }
-                };
-
                 Window? parent = null;
                 if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                     parent = desktop.MainWindow;
 
-                var path = await dlg.ShowAsync(parent);
-                if (!string.IsNullOrWhiteSpace(path))
-                    await File.WriteAllBytesAsync(path, bytes);
+                if (parent is null)
+                    return;
+
+                var file = await parent.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+                {
+                    Title = "Uložit PDF",
+                    SuggestedFileName = $"EPD_{month:D2}-{year:D4}.pdf",
+                    FileTypeChoices = new[]
+                    {
+                        new FilePickerFileType("PDF")
+                        {
+                            Patterns = new[] { "*.pdf" },
+                            MimeTypes = new[] { "application/pdf" }
+                        }
+                    }
+                });
+
+                if (file is not null)
+                {
+                    await using var stream = await file.OpenWriteAsync();
+                    await stream.WriteAsync(bytes);
+                }
             });
         }
 

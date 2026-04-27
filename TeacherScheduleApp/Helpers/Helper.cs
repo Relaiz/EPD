@@ -12,9 +12,9 @@ namespace TeacherScheduleApp.Helpers
     {
         public static Window GetMainWindow()
         {
-            if (Avalonia.Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                return desktop.MainWindow;
-            return null;
+            if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                return desktop.MainWindow!;
+            return null!;
         }
     }
 }

@@ -334,5 +334,39 @@
 					Padding="12,8" Background="#673AB7" Foreground="White" BorderBrush="Transparent"/>
 		</StackPanel>
 
+		<Border Grid.RowSpan="3"
+				IsVisible="{Binding IsBusy}"
+				Background="#99000000"
+				ZIndex="100">
+			<Border HorizontalAlignment="Center"
+					VerticalAlignment="Center"
+					Width="360"
+					Background="White"
+					BorderBrush="#DDDDDD"
+					BorderThickness="1"
+					CornerRadius="6"
+					Padding="18">
+				<StackPanel Spacing="10">
+					<TextBlock Text="Probiha zpracovani"
+							   FontSize="16"
+							   FontWeight="SemiBold"
+							   HorizontalAlignment="Center"/>
+					<ProgressBar IsIndeterminate="True"
+								 Height="6"
+								 Width="260"
+								 HorizontalAlignment="Center"/>
+					<TextBlock Text="{Binding BusyText}"
+							   TextWrapping="Wrap"
+							   TextAlignment="Center"
+							   HorizontalAlignment="Center"/>
+					<TextBlock Text="Behem prepoctu nemenime nastaveni, aby zustal kalendar konzistentni."
+							   TextWrapping="Wrap"
+							   FontSize="12"
+							   Foreground="#666666"
+							   TextAlignment="Center"/>
+				</StackPanel>
+			</Border>
+		</Border>
+
 	</Grid>
 </UserControl>

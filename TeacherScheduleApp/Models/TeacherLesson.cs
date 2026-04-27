@@ -12,12 +12,12 @@ namespace TeacherScheduleApp.Models
         public DateTime Date { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
         public int Rok { get; set; }
         public int WeekFrom { get; set; }
         public int WeekTo { get; set; }
-        public string WeekType { get; set; } 
+        public string WeekType { get; set; } = string.Empty; 
         public int DayOfWeek { get; set; } 
     }
 }

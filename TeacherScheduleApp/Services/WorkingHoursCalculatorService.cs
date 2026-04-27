@@ -70,13 +70,49 @@ namespace TeacherScheduleApp.Services
             return res;
         }
 
+        private static List<(DateTime s, DateTime e)> SubtractIv(
+            IEnumerable<(DateTime s, DateTime e)> source,
+            IEnumerable<(DateTime s, DateTime e)> blockers)
+        {
+            var blocked = MergeIv(blockers).ToList();
+            var result = new List<(DateTime s, DateTime e)>();
+
+            foreach (var seg in source.Where(x => x.e > x.s).OrderBy(x => x.s))
+            {
+                var cursor = seg.s;
+
+                foreach (var b in blocked)
+                {
+                    if (b.e <= cursor)
+                        continue;
+
+                    if (b.s >= seg.e)
+                        break;
+
+                    if (b.s > cursor)
+                        result.Add((cursor, b.s < seg.e ? b.s : seg.e));
+
+                    if (b.e > cursor)
+                        cursor = b.e > seg.e ? seg.e : b.e;
+
+                    if (cursor >= seg.e)
+                        break;
+                }
+
+                if (cursor < seg.e)
+                    result.Add((cursor, seg.e));
+            }
+
+            return MergeIv(result);
+        }
+
         public (double worked, double expected, double over, double under, double specialNonPc, double workInclBT, double credited)
             DailyMetrics(DateTime day, IEnumerable<Event> all, int employeeId = EventService.DefaultEmployeeId)
         {
             if (!IsWorkday(day))
                 return (0, 0, 0, 0, 0, 0, 0);
 
-            var (arr, dep, _, _) = GetWindow(day, employeeId);
+            var (arr, dep, lunchStart, lunchEnd) = GetWindow(day, employeeId);
             var winS = day.Date + arr;
             var winE = day.Date + dep;
 
@@ -84,17 +120,49 @@ namespace TeacherScheduleApp.Services
                 .Where(e => !e.IsDeleted && e.StartTime.Date == day.Date)
                 .ToList();
 
-            var specialIv = MergeIv(
-                evs.Where(e => SpecialNonPc.Contains(e.EventType))
+            var lunchIv = lunchEnd > lunchStart
+                ? new[] { (s: day.Date + lunchStart, e: day.Date + lunchEnd) }
+                : Enumerable.Empty<(DateTime s, DateTime e)>();
+
+            var allDaySpecialIv = MergeIv(
+                evs.Where(e => e.AllDay && SpecialNonPc.Contains(e.EventType))
                    .Select(e => ClampTo(e.StartTime, e.EndTime, winS, winE))
                    .Where(x => x.e > x.s)
             );
 
-            var workIv = MergeIv(
-                evs.Where(e => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip)
+            var timedSpecialIv = MergeIv(
+                evs.Where(e => !e.AllDay && SpecialNonPc.Contains(e.EventType))
                    .Select(e => ClampTo(e.StartTime, e.EndTime, winS, winE))
                    .Where(x => x.e > x.s)
             );
+
+            var netNorm = (dep - arr) - (lunchEnd - lunchStart);
+            if (netNorm < TimeSpan.Zero)
+                netNorm = TimeSpan.Zero;
+
+            var allDaySpecialCreditedIv = new List<(DateTime s, DateTime e)>();
+            foreach (var iv in allDaySpecialIv)
+            {
+                if (netNorm > TimeSpan.Zero &&
+                    (iv.e - iv.s) > netNorm + TimeSpan.FromMinutes(1))
+                {
+                    allDaySpecialCreditedIv.AddRange(SubtractIv(new[] { iv }, lunchIv));
+                }
+                else
+                {
+                    allDaySpecialCreditedIv.Add(iv);
+                }
+            }
+            var specialIv = MergeIv(allDaySpecialCreditedIv.Concat(timedSpecialIv));
+
+            var workRawIv = MergeIv(
+                evs.Where(e => e.EventType.IsCreditedWorkTime())
+                   .Select(e => ClampTo(e.StartTime, e.EndTime, winS, winE))
+                   .Where(x => x.e > x.s)
+            );
+
+            var specialBlockersIv = MergeIv(allDaySpecialIv.Concat(timedSpecialIv));
+            var workIv = SubtractIv(workRawIv, specialBlockersIv);
 
             var creditedIv = MergeIv(specialIv.Concat(workIv));
 
