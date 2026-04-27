@@ -34,6 +34,36 @@ namespace TeacherScheduleApp.Services
         private static int ToWholeMinutes(double hours)
             => (int)Math.Round(hours * 60.0);
 
+        private static string FormatTotalMinutes(int totalMinutes)
+        {
+            var sign = totalMinutes < 0 ? "-" : string.Empty;
+            var absMinutes = Math.Abs(totalMinutes);
+            return $"{sign}{absMinutes / 60:00}:{absMinutes % 60:00}:00";
+        }
+
+        private static List<(DateTime s, DateTime e)> TakeUpToMinutes(IEnumerable<(DateTime s, DateTime e)> intervals, int maxMinutes)
+        {
+            var left = Math.Max(0, maxMinutes);
+            var result = new List<(DateTime s, DateTime e)>();
+
+            foreach (var iv in MergeIntervals(intervals))
+            {
+                if (left <= 0)
+                    break;
+
+                var minutes = (int)(iv.e - iv.s).TotalMinutes;
+                var take = Math.Min(minutes, left);
+
+                if (take > 0)
+                {
+                    result.Add((iv.s, iv.s.AddMinutes(take)));
+                    left -= take;
+                }
+            }
+
+            return MergeIntervals(result);
+        }
+
         private static readonly HashSet<EventType> SpecialTypes = new()
         {
             EventType.DayOff,
@@ -194,10 +224,9 @@ namespace TeacherScheduleApp.Services
                         });
                     });
 
-                    double sumWorked = 0.0;
-                    double sumOvers = 0.0;
-                    double sumNeod = 0.0;
-                    double sumCtrlWorked = 0.0;
+                    int sumOverMin = 0;
+                    int sumUnderMin = 0;
+                    int sumCtrlWorkedMin = 0;
 
                     page.Content().PaddingTop(10).Column(col =>
                     {
@@ -280,10 +309,9 @@ namespace TeacherScheduleApp.Services
 
                                 int displayUnderMin = specialPaidMin + realUnderMin;
 
-                                sumWorked += actualWorkedMin / 60.0;
-                                sumOvers += extraMin / 60.0;
-                                sumNeod += displayUnderMin / 60.0;
-                                sumCtrlWorked += actualWorkedMin / 60.0;
+                                sumOverMin += extraMin;
+                                sumUnderMin += displayUnderMin;
+                                sumCtrlWorkedMin += actualWorkedMin;
 
                                 var (actualStart, actualEnd) = GetActualDayWindow(date, dayEvents, employeeId);
 
@@ -331,26 +359,19 @@ namespace TeacherScheduleApp.Services
                             {
                                 f.Cell().ColumnSpan(7).Text("Celkem").AlignRight();
 
-                                var totalWorkedTs = TimeSpan.FromHours(sumCtrlWorked);
-                                var totalOverTs = TimeSpan.FromHours(sumOvers);
-                                var totalNeodTs = TimeSpan.FromHours(sumNeod);
-
-                                f.Cell().Border(1).Text($"{(totalWorkedTs.Days * 24 + totalWorkedTs.Hours):00}:{totalWorkedTs.Minutes:00}:{totalWorkedTs.Seconds:00}");
-                                f.Cell().Border(1).Text($"{(totalOverTs.Days * 24 + totalOverTs.Hours):00}:{totalOverTs.Minutes:00}:{totalOverTs.Seconds:00}");
-                                f.Cell().Border(1).Text($"{(totalNeodTs.Days * 24 + totalNeodTs.Hours):00}:{totalNeodTs.Minutes:00}:{totalNeodTs.Seconds:00}");
+                                f.Cell().Border(1).Text(FormatTotalMinutes(sumCtrlWorkedMin));
+                                f.Cell().Border(1).Text(FormatTotalMinutes(sumOverMin));
+                                f.Cell().Border(1).Text(FormatTotalMinutes(sumUnderMin));
                                 f.Cell().Border(1).Text("");
                             });
                         });
 
-                        var kontr = TimeSpan.FromHours(sumCtrlWorked - sumOvers + sumNeod);
-                        int kh = kontr.Days * 24 + kontr.Hours;
-                        int km = kontr.Minutes;
-                        int ks = kontr.Seconds;
+                        var controlMinutes = sumCtrlWorkedMin - sumOverMin + sumUnderMin;
 
                         col.Item().PaddingTop(8).Text(txt =>
                         {
                             txt.Span("kontr. č. Σ odprac. - přesčas + neodprac. hodin (odpovídá FPD): ").SemiBold();
-                            txt.Span($"{kh:00}:{km:00}:{ks:00}");
+                            txt.Span(FormatTotalMinutes(controlMinutes));
                         });
 
                         col.Item().PaddingTop(6).Row(r =>
@@ -590,43 +611,29 @@ namespace TeacherScheduleApp.Services
                 .Where(e => !e.IsDeleted && IsPaidSpecialForPdf(e))
                 .ToList();
 
-            var allDaySpecials = events
-                .Where(e => e.AllDay)
+            var paidAbsenceRaw = events
                 .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
                 .Where(x => x.HasValue)
                 .Select(x => x!.Value);
 
-            var timedSpecials = events
-                .Where(e => !e.AllDay)
-                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
-                .Where(x => x.HasValue)
-                .Select(x => x!.Value);
-
-            var resolved = SettingsService.GetResolvedDaySettings(day, employeeId);
+            var resolved = SettingsService.GetResolvedDaySettingsIgnoringComputed(day, employeeId);
             var lunch = resolved.LunchEnd > resolved.LunchStart
                 ? new[] { (s: day.Date + resolved.LunchStart, e: day.Date + resolved.LunchEnd) }
                 : Enumerable.Empty<(DateTime s, DateTime e)>();
 
-            var netNorm = (resolved.DepartureTime - resolved.ArrivalTime) -
-                          (resolved.LunchEnd - resolved.LunchStart);
-            if (netNorm < TimeSpan.Zero)
-                netNorm = TimeSpan.Zero;
+            var normStart = day.Date + resolved.ArrivalTime;
+            var normEnd = day.Date + resolved.DepartureTime;
 
-            var allDayCredited = new List<(DateTime s, DateTime e)>();
-            foreach (var iv in allDaySpecials)
-            {
-                if (netNorm > TimeSpan.Zero &&
-                    (iv.e - iv.s) > netNorm + TimeSpan.FromMinutes(1))
-                {
-                    allDayCredited.AddRange(SubtractIntervals(new[] { iv }, lunch));
-                }
-                else
-                {
-                    allDayCredited.Add(iv);
-                }
-            }
+            if (normEnd <= normStart)
+                return new List<(DateTime s, DateTime e)>();
 
-            return MergeIntervals(allDayCredited.Concat(timedSpecials));
+            var scheduledAbsence = paidAbsenceRaw
+                .Select(x => (
+                    s: x.s < normStart ? normStart : x.s,
+                    e: x.e > normEnd ? normEnd : x.e))
+                .Where(x => x.e > x.s);
+
+            return TakeUpToMinutes(SubtractIntervals(scheduledAbsence, lunch), 8 * 60);
         }
 
         private static List<(DateTime s, DateTime e)> MergeIntervals(IEnumerable<(DateTime s, DateTime e)> intervals)

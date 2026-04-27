@@ -54,6 +54,29 @@ namespace TeacherScheduleApp.Services
         private static (DateTime s, DateTime e) ClampTo(DateTime s, DateTime e, DateTime winS, DateTime winE)
             => (s < winS ? winS : s, e > winE ? winE : e);
 
+        private static List<(DateTime s, DateTime e)> TakeUpToMinutes(IEnumerable<(DateTime s, DateTime e)> intervals, int maxMinutes)
+        {
+            var left = Math.Max(0, maxMinutes);
+            var result = new List<(DateTime s, DateTime e)>();
+
+            foreach (var iv in MergeIv(intervals))
+            {
+                if (left <= 0)
+                    break;
+
+                var minutes = (int)(iv.e - iv.s).TotalMinutes;
+                var take = Math.Min(minutes, left);
+
+                if (take > 0)
+                {
+                    result.Add((iv.s, iv.s.AddMinutes(take)));
+                    left -= take;
+                }
+            }
+
+            return MergeIv(result);
+        }
+
         private static List<(DateTime s, DateTime e)> MergeIv(IEnumerable<(DateTime s, DateTime e)> iv)
         {
             var list = iv.Where(x => x.e > x.s).OrderBy(x => x.s).ToList();
@@ -115,6 +138,8 @@ namespace TeacherScheduleApp.Services
             var (arr, dep, lunchStart, lunchEnd) = GetWindow(day, employeeId);
             var winS = day.Date + arr;
             var winE = day.Date + dep;
+            var dayStart = day.Date;
+            var dayEnd = dayStart.AddDays(1);
 
             var evs = all
                 .Where(e => !e.IsDeleted && e.StartTime.Date == day.Date)
@@ -124,44 +149,35 @@ namespace TeacherScheduleApp.Services
                 ? new[] { (s: day.Date + lunchStart, e: day.Date + lunchEnd) }
                 : Enumerable.Empty<(DateTime s, DateTime e)>();
 
-            var allDaySpecialIv = MergeIv(
-                evs.Where(e => e.AllDay && SpecialNonPc.Contains(e.EventType))
-                   .Select(e => ClampTo(e.StartTime, e.EndTime, winS, winE))
+            var specialBlockersIv = MergeIv(
+                evs.Where(e => SpecialNonPc.Contains(e.EventType))
+                   .Select(e => ClampTo(e.StartTime, e.EndTime, dayStart, dayEnd))
                    .Where(x => x.e > x.s)
             );
 
-            var timedSpecialIv = MergeIv(
-                evs.Where(e => !e.AllDay && SpecialNonPc.Contains(e.EventType))
-                   .Select(e => ClampTo(e.StartTime, e.EndTime, winS, winE))
-                   .Where(x => x.e > x.s)
-            );
+            var baseResolved = SettingsService.GetResolvedDaySettingsIgnoringComputed(day, employeeId);
+            var baseWinS = day.Date + baseResolved.ArrivalTime;
+            var baseWinE = day.Date + baseResolved.DepartureTime;
+            var baseLunchIv = baseResolved.LunchEnd > baseResolved.LunchStart
+                ? new[] { (s: day.Date + baseResolved.LunchStart, e: day.Date + baseResolved.LunchEnd) }
+                : Enumerable.Empty<(DateTime s, DateTime e)>();
 
-            var netNorm = (dep - arr) - (lunchEnd - lunchStart);
-            if (netNorm < TimeSpan.Zero)
-                netNorm = TimeSpan.Zero;
+            var scheduledSpecialIv = baseWinE > baseWinS
+                ? SubtractIv(
+                    specialBlockersIv
+                        .Select(x => ClampTo(x.s, x.e, baseWinS, baseWinE))
+                        .Where(x => x.e > x.s),
+                    baseLunchIv)
+                : new List<(DateTime s, DateTime e)>();
 
-            var allDaySpecialCreditedIv = new List<(DateTime s, DateTime e)>();
-            foreach (var iv in allDaySpecialIv)
-            {
-                if (netNorm > TimeSpan.Zero &&
-                    (iv.e - iv.s) > netNorm + TimeSpan.FromMinutes(1))
-                {
-                    allDaySpecialCreditedIv.AddRange(SubtractIv(new[] { iv }, lunchIv));
-                }
-                else
-                {
-                    allDaySpecialCreditedIv.Add(iv);
-                }
-            }
-            var specialIv = MergeIv(allDaySpecialCreditedIv.Concat(timedSpecialIv));
+            var specialIv = TakeUpToMinutes(scheduledSpecialIv, (int)(DayNorm * 60));
 
             var workRawIv = MergeIv(
-                evs.Where(e => e.EventType.IsCreditedWorkTime())
+                evs.Where(e => e.EventType.IsCreditedWorkTime() || e.EventType == EventType.BusinessTrip)
                    .Select(e => ClampTo(e.StartTime, e.EndTime, winS, winE))
                    .Where(x => x.e > x.s)
             );
 
-            var specialBlockersIv = MergeIv(allDaySpecialIv.Concat(timedSpecialIv));
             var workIv = SubtractIv(workRawIv, specialBlockersIv);
 
             var creditedIv = MergeIv(specialIv.Concat(workIv));

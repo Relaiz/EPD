@@ -428,8 +428,7 @@
               "ViewState": "AQIAAOoSAAAAAAAAAAAQwBMTAAAAAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-06-28T20:58:20.899Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Document",
@@ -497,8 +496,7 @@
               "RelativeToolTip": "Models\\Event.cs",
               "ViewState": "AQIAADAAAAAAAAAAAAAgwF0AAAAlAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-04T20:23:47.719Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-04T20:23:47.719Z"
             },
             {
               "$type": "Document",
@@ -510,8 +508,7 @@
               "RelativeToolTip": "Data\\AppDbContext.cs",
               "ViewState": "AQIAAAAAAAAAAAAAAAAAAAQAAAAQAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-02-22T22:06:12.833Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-02-22T22:06:12.833Z"
             },
             {
               "$type": "Document",
@@ -523,8 +520,7 @@
               "RelativeToolTip": "Services\\EPDGenerator.cs",
               "ViewState": "AQIAAAYCAAAAAAAAAAAgwCoCAAANAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-03-16T17:26:00.322Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-03-16T17:26:00.322Z"
             },
             {
               "$type": "Document",

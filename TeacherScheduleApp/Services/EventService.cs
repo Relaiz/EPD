@@ -19,6 +19,7 @@ namespace TeacherScheduleApp.Services
     {
         public const int DefaultEmployeeId = 1;
         private const int QUANTUM_MIN = 5;
+        private const int MIN_BALANCE_EDGE_BLOCK_MIN = QUANTUM_MIN * 2;
 
         private bool _isBalancingNow;
         private static readonly AsyncLocal<bool> _suppressReactiveMessages = new();
@@ -3162,6 +3163,12 @@ namespace TeacherScheduleApp.Services
                  + GetTrimEndCapacityMinutes(day, employeeId);
         }
 
+        private static bool LeavesTinyBalanceEdgeBlock(int capacityMin, int takeMin)
+        {
+            int remainder = RoundDownToQuantum(capacityMin - takeMin);
+            return remainder > 0 && remainder < MIN_BALANCE_EDGE_BLOCK_MIN;
+        }
+
         private bool NeedsExternalBalanceTransfer(DateTime day, int extraMin, int employeeId = DefaultEmployeeId)
         {
             extraMin = RoundDownToQuantum(extraMin);
@@ -4136,31 +4143,51 @@ namespace TeacherScheduleApp.Services
             if (IsLockedEdgeDay(day, employeeId))
                 return 0;
 
-            double cut = 0;
+            var edgeOptions = new[]
+                {
+                    new
+                    {
+                        Edge = TransferEdge.End,
+                        Capacity = GetTrimEndCapacityMinutes(day, employeeId),
+                        Preferred = preferEnd[day]
+                    },
+                    new
+                    {
+                        Edge = TransferEdge.Start,
+                        Capacity = GetTrimStartCapacityMinutes(day, employeeId),
+                        Preferred = !preferEnd[day]
+                    }
+                }
+                .Where(x => x.Capacity >= QUANTUM_MIN)
+                .ToList();
 
-            if (preferEnd[day] && CanTrimEnd(day, employeeId))
+            if (edgeOptions.Count == 0)
+                return 0;
+
+            var safeOptions = edgeOptions
+                .Where(x => !LeavesTinyBalanceEdgeBlock(x.Capacity, QUANTUM_MIN))
+                .ToList();
+
+            var trimOrder = (safeOptions.Count > 0 ? safeOptions : edgeOptions)
+                .OrderByDescending(x => x.Capacity)
+                .ThenByDescending(x => x.Preferred)
+                .Select(x => x.Edge)
+                .ToList();
+
+            int cutMin = 0;
+
+            foreach (var edge in trimOrder)
             {
-                cut = TrimEndAuto(day, QUANTUM_MIN / 60.0, employeeId);
-                if (cut > 0)
-                    usedEdge = TransferEdge.End;
-            }
+                var cut = edge == TransferEdge.End
+                    ? TrimEndAuto(day, QUANTUM_MIN / 60.0, employeeId)
+                    : TrimStartAuto(day, QUANTUM_MIN / 60.0, employeeId);
 
-            int cutMin = RoundDownToQuantum(ToWholeMinutes(cut));
-
-            if (cutMin < QUANTUM_MIN && CanTrimStart(day, employeeId))
-            {
-                cut = TrimStartAuto(day, QUANTUM_MIN / 60.0, employeeId);
                 cutMin = RoundDownToQuantum(ToWholeMinutes(cut));
                 if (cutMin >= QUANTUM_MIN)
-                    usedEdge = TransferEdge.Start;
-            }
-
-            if (cutMin < QUANTUM_MIN && CanTrimEnd(day, employeeId))
-            {
-                cut = TrimEndAuto(day, QUANTUM_MIN / 60.0, employeeId);
-                cutMin = RoundDownToQuantum(ToWholeMinutes(cut));
-                if (cutMin >= QUANTUM_MIN)
-                    usedEdge = TransferEdge.End;
+                {
+                    usedEdge = edge;
+                    break;
+                }
             }
 
             if (cutMin >= QUANTUM_MIN)
