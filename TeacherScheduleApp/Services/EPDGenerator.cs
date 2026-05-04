@@ -73,7 +73,10 @@ namespace TeacherScheduleApp.Services
             if (lines.Length == 0)
                 throw new InvalidDataException($"Soubor je prázdný: {Path.GetFileName(teacherScheduleCsvPath)}");
 
-            var header = SplitCsvLine(lines[0]);
+            var (delimiter, headerIndex, header) = DetectCsvLayout(lines, usedEnc, teacherScheduleCsvPath);
+            if (headerIndex > 0)
+                lines = lines.Skip(headerIndex).ToArray();
+
             if (header.Length < CsvCols.MinCols)
                 throw new InvalidDataException(
                     $"Nedostatečný počet sloupců v hlavičce: nalezeno {header.Length}, vyžadováno ≥ {CsvCols.MinCols}. Soubor: {Path.GetFileName(teacherScheduleCsvPath)}");
@@ -105,7 +108,7 @@ namespace TeacherScheduleApp.Services
                 string[] p;
                 try
                 {
-                    p = SplitCsvLine(raw);
+                    p = SplitCsvLine(raw, delimiter);
                 }
                 catch
                 {
@@ -344,40 +347,22 @@ namespace TeacherScheduleApp.Services
 
             var bytes = File.ReadAllBytes(path);
 
-            var candidates = new List<Encoding>
-            {
-                new UTF8Encoding(false, true),
-                new UTF8Encoding(false, false),
-                Encoding.UTF8,
-                Encoding.Unicode,
-                Encoding.BigEndianUnicode,
-                Encoding.GetEncoding(1250),
-                Encoding.GetEncoding(1251),
-                Encoding.GetEncoding(28592),
-                Encoding.Latin1
-            };
+            var candidates = GetEncodingCandidates(bytes);
 
             string bestText = string.Empty;
-            Encoding bestEnc = Encoding.UTF8;
-            int bestBad = int.MaxValue;
+            Encoding bestEnc = candidates[0];
+            int bestScore = int.MinValue;
 
             foreach (var enc in candidates)
             {
-                try
-                {
-                    var text = enc.GetString(bytes);
-                    var bad = text.Count(ch => ch == '\uFFFD');
+                var text = enc.GetString(bytes);
+                var score = ScoreDecodedCsvText(text);
 
-                    if (bad < bestBad)
-                    {
-                        bestBad = bad;
-                        bestEnc = enc;
-                        bestText = text;
-                        if (bad == 0) break;
-                    }
-                }
-                catch
+                if (score > bestScore)
                 {
+                    bestScore = score;
+                    bestEnc = enc;
+                    bestText = text;
                 }
             }
 
@@ -391,7 +376,258 @@ namespace TeacherScheduleApp.Services
             return (lines, bestEnc);
         }
 
-        private static string[] SplitCsvLine(string line)
+        private static List<Encoding> GetEncodingCandidates(byte[] bytes)
+        {
+            if (StartsWith(bytes, Encoding.UTF8.GetPreamble()))
+                return new List<Encoding> { new UTF8Encoding(false, false) };
+
+            if (StartsWith(bytes, Encoding.Unicode.GetPreamble()))
+                return new List<Encoding> { Encoding.Unicode };
+
+            if (StartsWith(bytes, Encoding.BigEndianUnicode.GetPreamble()))
+                return new List<Encoding> { Encoding.BigEndianUnicode };
+
+            var candidates = new List<Encoding>();
+
+            if (LooksLikeUtf16LittleEndian(bytes))
+                candidates.Add(Encoding.Unicode);
+            else if (LooksLikeUtf16BigEndian(bytes))
+                candidates.Add(Encoding.BigEndianUnicode);
+
+            candidates.Add(new UTF8Encoding(false, false));
+            candidates.Add(Encoding.GetEncoding(1250));
+            candidates.Add(Encoding.GetEncoding(28592));
+            candidates.Add(Encoding.Latin1);
+            candidates.Add(Encoding.GetEncoding(1251));
+
+            return candidates
+                .GroupBy(e => e.WebName, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+        }
+
+        private static bool StartsWith(byte[] bytes, byte[] prefix)
+        {
+            if (prefix.Length == 0 || bytes.Length < prefix.Length)
+                return false;
+
+            for (int i = 0; i < prefix.Length; i++)
+            {
+                if (bytes[i] != prefix[i])
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static bool LooksLikeUtf16LittleEndian(byte[] bytes)
+        {
+            if (bytes.Length < 8)
+                return false;
+
+            int pairs = Math.Min(bytes.Length / 2, 256);
+            int zeroHighBytes = 0;
+
+            for (int i = 0; i < pairs; i++)
+            {
+                if (bytes[i * 2 + 1] == 0)
+                    zeroHighBytes++;
+            }
+
+            return zeroHighBytes >= pairs * 3 / 4;
+        }
+
+        private static bool LooksLikeUtf16BigEndian(byte[] bytes)
+        {
+            if (bytes.Length < 8)
+                return false;
+
+            int pairs = Math.Min(bytes.Length / 2, 256);
+            int zeroLowBytes = 0;
+
+            for (int i = 0; i < pairs; i++)
+            {
+                if (bytes[i * 2] == 0)
+                    zeroLowBytes++;
+            }
+
+            return zeroLowBytes >= pairs * 3 / 4;
+        }
+
+        private static int ScoreDecodedCsvText(string text)
+        {
+            var badChars = 0;
+            var controlChars = 0;
+
+            foreach (var ch in text)
+            {
+                if (ch == '\uFFFD')
+                    badChars++;
+                else if (char.IsControl(ch) && ch != '\r' && ch != '\n' && ch != '\t')
+                    controlChars++;
+            }
+
+            var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            var maxColumns = 0;
+
+            foreach (var line in lines.Take(25))
+            {
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                foreach (var delimiter in CandidateDelimiters)
+                    maxColumns = Math.Max(maxColumns, CountCsvColumns(line, delimiter));
+            }
+
+            return maxColumns * 1000 - badChars * 100 - controlChars * 10;
+        }
+
+        private static readonly char[] CandidateDelimiters = { ';', '\t', ',', '|' };
+
+        private static (char delimiter, int headerIndex, string[] header) DetectCsvLayout(
+            string[] lines,
+            Encoding usedEncoding,
+            string path)
+        {
+            char? directiveDelimiter = null;
+            var startIndex = 0;
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i]))
+                    continue;
+
+                if (TryReadSeparatorDirective(lines[i], out var sepDelimiter))
+                {
+                    directiveDelimiter = sepDelimiter;
+                    startIndex = i + 1;
+                }
+                else
+                {
+                    startIndex = i;
+                }
+
+                break;
+            }
+
+            var candidates = directiveDelimiter.HasValue
+                ? new[] { directiveDelimiter.Value }.Concat(CandidateDelimiters.Where(d => d != directiveDelimiter.Value)).ToArray()
+                : CandidateDelimiters;
+
+            var scanTo = Math.Min(lines.Length, startIndex + 50);
+            char bestDelimiter = candidates[0];
+            int bestHeaderIndex = startIndex;
+            string[] bestHeader = Array.Empty<string>();
+
+            for (int i = startIndex; i < scanTo; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i]))
+                    continue;
+
+                foreach (var delimiter in candidates)
+                {
+                    string[] columns;
+
+                    try
+                    {
+                        columns = SplitCsvLine(lines[i], delimiter);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (columns.Length > bestHeader.Length)
+                    {
+                        bestDelimiter = delimiter;
+                        bestHeaderIndex = i;
+                        bestHeader = columns;
+                    }
+
+                    if (columns.Length >= CsvCols.MinCols)
+                        return (delimiter, i, columns);
+                }
+            }
+
+            var preview = bestHeader.Length > 0
+                ? string.Join(" | ", bestHeader.Take(5))
+                : lines.FirstOrDefault(l => !string.IsNullOrWhiteSpace(l))?.Trim() ?? string.Empty;
+
+            if (preview.Length > 120)
+                preview = preview[..120] + "...";
+
+            throw new InvalidDataException(
+                $"Nedostatečný počet sloupců v hlavičce: nalezeno {bestHeader.Length}, vyžadováno ≥ {CsvCols.MinCols}. " +
+                $"Soubor: {Path.GetFileName(path)}. Kódování: {usedEncoding.WebName}, oddělovač: {DescribeDelimiter(bestDelimiter)}, " +
+                $"řádek: {bestHeaderIndex + 1}. Začátek řádku: \"{preview}\"");
+        }
+
+        private static bool TryReadSeparatorDirective(string line, out char delimiter)
+        {
+            delimiter = default;
+
+            var trimmed = line.Trim().Trim('\uFEFF').Trim('"');
+            if (!trimmed.StartsWith("sep=", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var value = trimmed[4..].Trim().Trim('"');
+            if (string.Equals(value, "\\t", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "tab", StringComparison.OrdinalIgnoreCase))
+            {
+                delimiter = '\t';
+                return true;
+            }
+
+            if (value.Length == 0)
+                return false;
+
+            delimiter = value[0];
+            return true;
+        }
+
+        private static string DescribeDelimiter(char delimiter)
+        {
+            return delimiter switch
+            {
+                '\t' => "TAB",
+                ';' => ";",
+                ',' => ",",
+                '|' => "|",
+                _ => delimiter.ToString()
+            };
+        }
+
+        private static int CountCsvColumns(string line, char delimiter)
+        {
+            try
+            {
+                return SplitCsvLine(line, delimiter).Length;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static char DetectDelimiter(string header)
+        {
+            return CandidateDelimiters
+                .Select(delimiter =>
+                {
+                    try
+                    {
+                        return (Delimiter: delimiter, Columns: SplitCsvLine(header, delimiter).Length);
+                    }
+                    catch
+                    {
+                        return (Delimiter: delimiter, Columns: 0);
+                    }
+                })
+                .OrderByDescending(x => x.Columns)
+                .First().Delimiter;
+        }
+
+        private static string[] SplitCsvLine(string line, char delimiter)
         {
             var list = new List<string>();
             var sb = new StringBuilder();
@@ -413,7 +649,7 @@ namespace TeacherScheduleApp.Services
                         inQuotes = !inQuotes;
                     }
                 }
-                else if (c == ';' && !inQuotes)
+                else if (c == delimiter && !inQuotes)
                 {
                     list.Add(sb.ToString());
                     sb.Clear();
@@ -426,8 +662,11 @@ namespace TeacherScheduleApp.Services
 
             list.Add(sb.ToString());
 
+            if (inQuotes)
+                throw new FormatException("Unclosed quoted CSV field.");
+
             for (int i = 0; i < list.Count; i++)
-                list[i] = list[i].Trim();
+                list[i] = list[i].Trim().Trim('\uFEFF');
 
             return list.ToArray();
         }

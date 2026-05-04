@@ -110,7 +110,6 @@ namespace TeacherScheduleApp.Controls
             if (ev.IsInactive && !IsSpecial(ev.EventType))
             {
                 border.Opacity = 0.45;
-                IsHitTestVisible = false;
             }
             grid.Children.Add(textPanel);
             border.Child = grid;

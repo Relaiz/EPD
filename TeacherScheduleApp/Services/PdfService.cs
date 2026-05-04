@@ -288,11 +288,11 @@ namespace TeacherScheduleApp.Services
                                         table.Cell().Border(1).Background("#F0F0F0").Text("");
                                     continue;
                                 }
+
                                 var dayEvents = monthEvents
                                     .Where(e => !e.IsDeleted)
                                     .Where(e => e.StartTime.Date <= date.Date && e.EndTime.Date >= date.Date)
                                     .ToList();
-                                var dm = calc.DailyMetrics(date, monthEvents, employeeId);
 
                                 var comp = monthPdfComp.TryGetValue(date.Date, out var c)
                                     ? c
@@ -301,8 +301,10 @@ namespace TeacherScheduleApp.Services
                                 int actualWorkedMin = GetActualWorkedMinutesForPdf(date, dayEvents);
                                 int specialPaidMin = GetPaidSpecialMinutesForPdf(date, dayEvents, employeeId);
 
-                                int extraMin = RoundDownToQuantum(ToWholeMinutes(dm.over));
-                                int realUnderMin = RoundDownToQuantum(ToWholeMinutes(dm.under));
+                                var pdfBalance = GetDailyPdfBalanceMinutes(date, dayEvents, employeeId);
+
+                                int extraMin = pdfBalance.ExtraMinutes;
+                                int realUnderMin = pdfBalance.RealUnderMinutes;
 
                                 extraMin = Math.Max(0, extraMin - comp.ExtraOffsetMinutes);
                                 realUnderMin = Math.Max(0, realUnderMin - comp.UnderOffsetMinutes);
@@ -543,8 +545,7 @@ namespace TeacherScheduleApp.Services
 
         private static (TimeSpan? start, TimeSpan? end) GetActualDayWindow(DateTime day, IEnumerable<Event> dayEvents, int employeeId)
         {
-            var credited = GetPaidSpecialCreditIntervalsForPdf(day, dayEvents, employeeId)
-                .Concat(GetEffectiveWorkIntervalsForPdf(day, dayEvents))
+            var credited = GetEffectiveWorkIntervalsForPdf(day, dayEvents)
                 .Where(x => x.e > x.s)
                 .OrderBy(x => x.s)
                 .ToList();
@@ -587,19 +588,27 @@ namespace TeacherScheduleApp.Services
                 .Where(e => !e.IsDeleted)
                 .ToList();
 
+            var paidAbsenceRaw = events
+                .Where(IsPaidSpecialForPdf)
+                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .ToList();
+
+            var paidAbsenceCredit = TakeUpToMinutes(paidAbsenceRaw, 8 * 60);
+            int paidAbsenceCreditMin = SumMinutes(paidAbsenceCredit);
+
+            if (paidAbsenceCreditMin >= 8 * 60)
+                return new List<(DateTime s, DateTime e)>();
+
             var work = events
                 .Where(IsWorkLike)
                 .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
                 .Where(x => x.HasValue)
-                .Select(x => x!.Value);
+                .Select(x => x!.Value)
+                .ToList();
 
-            var specialBlockers = events
-                .Where(IsPaidSpecialForPdf)
-                .Select(e => ClipToDay(day, e.StartTime, e.EndTime))
-                .Where(x => x.HasValue)
-                .Select(x => x!.Value);
-
-            return SubtractIntervals(work, specialBlockers);
+            return SubtractIntervals(work, paidAbsenceRaw);
         }
 
         private static List<(DateTime s, DateTime e)> GetPaidSpecialCreditIntervalsForPdf(
@@ -616,24 +625,7 @@ namespace TeacherScheduleApp.Services
                 .Where(x => x.HasValue)
                 .Select(x => x!.Value);
 
-            var resolved = SettingsService.GetResolvedDaySettingsIgnoringComputed(day, employeeId);
-            var lunch = resolved.LunchEnd > resolved.LunchStart
-                ? new[] { (s: day.Date + resolved.LunchStart, e: day.Date + resolved.LunchEnd) }
-                : Enumerable.Empty<(DateTime s, DateTime e)>();
-
-            var normStart = day.Date + resolved.ArrivalTime;
-            var normEnd = day.Date + resolved.DepartureTime;
-
-            if (normEnd <= normStart)
-                return new List<(DateTime s, DateTime e)>();
-
-            var scheduledAbsence = paidAbsenceRaw
-                .Select(x => (
-                    s: x.s < normStart ? normStart : x.s,
-                    e: x.e > normEnd ? normEnd : x.e))
-                .Where(x => x.e > x.s);
-
-            return TakeUpToMinutes(SubtractIntervals(scheduledAbsence, lunch), 8 * 60);
+            return TakeUpToMinutes(paidAbsenceRaw, 8 * 60);
         }
 
         private static List<(DateTime s, DateTime e)> MergeIntervals(IEnumerable<(DateTime s, DateTime e)> intervals)
@@ -691,5 +683,31 @@ namespace TeacherScheduleApp.Services
 
             return MergeIntervals(result);
         }
+
+        private static DailyPdfBalanceMinutes GetDailyPdfBalanceMinutes(
+            DateTime day,
+            IEnumerable<Event> dayEvents,
+            int employeeId)
+        {
+            const int expectedMin = 8 * 60;
+
+            int paidSpecialMin = GetPaidSpecialMinutesForPdf(day, dayEvents, employeeId);
+
+            if (paidSpecialMin >= expectedMin)
+                return new DailyPdfBalanceMinutes(0, 0);
+
+            int workedMin = GetActualWorkedMinutesForPdf(day, dayEvents);
+
+            int creditedMin = RoundDownToQuantum(paidSpecialMin + workedMin);
+
+            int extraMin = Math.Max(0, creditedMin - expectedMin);
+            int realUnderMin = Math.Max(0, expectedMin - creditedMin);
+
+            return new DailyPdfBalanceMinutes(
+                RoundDownToQuantum(extraMin),
+                RoundDownToQuantum(realUnderMin));
+        }
+
+        private sealed record DailyPdfBalanceMinutes(int ExtraMinutes, int RealUnderMinutes);
     }
 }

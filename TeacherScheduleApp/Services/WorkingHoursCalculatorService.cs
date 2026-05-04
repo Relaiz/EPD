@@ -135,7 +135,7 @@ namespace TeacherScheduleApp.Services
             if (!IsWorkday(day))
                 return (0, 0, 0, 0, 0, 0, 0);
 
-            var (arr, dep, lunchStart, lunchEnd) = GetWindow(day, employeeId);
+            var (arr, dep, _, _) = GetWindow(day, employeeId);
             var winS = day.Date + arr;
             var winE = day.Date + dep;
             var dayStart = day.Date;
@@ -145,32 +145,13 @@ namespace TeacherScheduleApp.Services
                 .Where(e => !e.IsDeleted && e.StartTime.Date == day.Date)
                 .ToList();
 
-            var lunchIv = lunchEnd > lunchStart
-                ? new[] { (s: day.Date + lunchStart, e: day.Date + lunchEnd) }
-                : Enumerable.Empty<(DateTime s, DateTime e)>();
-
             var specialBlockersIv = MergeIv(
                 evs.Where(e => SpecialNonPc.Contains(e.EventType))
                    .Select(e => ClampTo(e.StartTime, e.EndTime, dayStart, dayEnd))
                    .Where(x => x.e > x.s)
             );
 
-            var baseResolved = SettingsService.GetResolvedDaySettingsIgnoringComputed(day, employeeId);
-            var baseWinS = day.Date + baseResolved.ArrivalTime;
-            var baseWinE = day.Date + baseResolved.DepartureTime;
-            var baseLunchIv = baseResolved.LunchEnd > baseResolved.LunchStart
-                ? new[] { (s: day.Date + baseResolved.LunchStart, e: day.Date + baseResolved.LunchEnd) }
-                : Enumerable.Empty<(DateTime s, DateTime e)>();
-
-            var scheduledSpecialIv = baseWinE > baseWinS
-                ? SubtractIv(
-                    specialBlockersIv
-                        .Select(x => ClampTo(x.s, x.e, baseWinS, baseWinE))
-                        .Where(x => x.e > x.s),
-                    baseLunchIv)
-                : new List<(DateTime s, DateTime e)>();
-
-            var specialIv = TakeUpToMinutes(scheduledSpecialIv, (int)(DayNorm * 60));
+            var specialIv = TakeUpToMinutes(specialBlockersIv, (int)(DayNorm * 60));
 
             var workRawIv = MergeIv(
                 evs.Where(e => e.EventType.IsCreditedWorkTime() || e.EventType == EventType.BusinessTrip)

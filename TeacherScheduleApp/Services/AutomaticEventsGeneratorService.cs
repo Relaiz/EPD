@@ -16,7 +16,9 @@ namespace TeacherScheduleApp.Services
         private bool? _moveAllLunchesForAllDays = null;
         private readonly int _employeeId;
         private sealed record ManualSlice(Event Event, DateTime S, DateTime E);
+        private sealed record AutoWorkGap(DateTime S, DateTime E, bool FillFromEnd);
         private const int QUANTUM_MIN = 5;
+        private const int DAY_NORM_MIN = 8 * 60;
 
         public AutomaticEventsGeneratorService(
             EventService eventService,
@@ -41,10 +43,51 @@ namespace TeacherScheduleApp.Services
             => t == EventType.Lunch;
 
         private static bool IsSpecial(EventType t)
-            => !IsWorkLike(t) && !IsTeaching(t) && !IsLunch(t);
+            => !IsCreditedWorkTime(t) && !IsLunch(t);
 
         private static bool IsCreditedWorkTime(EventType t)
-            => t.IsCreditedWorkTime();
+            => t.IsCreditedWorkTime() || t == EventType.BusinessTrip;
+
+        private static int RoundDownToQuantum(int minutes)
+            => minutes - minutes % QUANTUM_MIN;
+
+        private int SumMergedMinutes(IEnumerable<(DateTime start, DateTime end)> intervals)
+        {
+            return MergeIntervals(intervals.ToList())
+                .Sum(x => Math.Max(0, (int)Math.Round((x.end - x.start).TotalMinutes)));
+        }
+
+        private int GetPaidSpecialCreditMinutes(List<ManualSlice> manual)
+        {
+            var paidAbsenceIntervals = manual
+                .Where(x => IsPaidAbsence(x.Event.EventType))
+                .Select(x => (start: x.S, end: x.E));
+
+            return Math.Min(DAY_NORM_MIN, SumMergedMinutes(paidAbsenceIntervals));
+        }
+
+        private int GetEffectiveWorkMinutes(List<ManualSlice> slices)
+        {
+            int paidAbsenceMin = GetPaidSpecialCreditMinutes(slices);
+
+            if (paidAbsenceMin >= DAY_NORM_MIN)
+                return 0;
+
+            var specialIntervals = slices
+                .Where(x => IsSpecial(x.Event.EventType))
+                .Select(x => (start: x.S, end: x.E))
+                .ToList();
+
+            var workIntervals = slices
+                .Where(x =>
+                    IsCreditedWorkTime(x.Event.EventType))
+                .Select(x => (start: x.S, end: x.E))
+                .ToList();
+
+            var activeWork = SubtractIntervals(workIntervals, specialIntervals);
+
+            return SumMergedMinutes(activeWork);
+        }
 
         public sealed record LunchPreparationResult(bool Ok, Event? Event, string? Error);
 
@@ -57,10 +100,10 @@ namespace TeacherScheduleApp.Services
 
         private static int GetTargetLunchCount(TimeSpan gross)
         {
-            if (gross >= TimeSpan.FromHours(12))
+            if (gross > TimeSpan.FromHours(12))
                 return 2;
 
-            if (gross >= TimeSpan.FromHours(8))
+            if (gross > TimeSpan.FromHours(4))
                 return 1;
 
             return 0;
@@ -301,6 +344,9 @@ namespace TeacherScheduleApp.Services
                 return;
             }
 
+            if (preserveUserSettings)
+                DropInvalidComputedSettingsForAutoOnlyDay(day);
+
             var resolved = preserveUserSettings
                 ? SettingsService.GetResolvedDaySettings(day, _employeeId)
                 : SettingsService.GetResolvedDaySettingsIgnoringComputed(day, _employeeId);
@@ -355,9 +401,12 @@ namespace TeacherScheduleApp.Services
             DateTime departure = lunchWindow.Departure;
 
             var lunchLen = GetLunchLength(resolved);
-            var gross = departure - arrival;
 
-            int targetLunchCount = GetStableTargetLunchCount(day, arrival, departure, resolved);
+            int paidSpecialMin = GetPaidSpecialCreditMinutes(manual);
+            int manualWorkMin = GetEffectiveWorkMinutes(manual);
+            int remainingAutoWorkMin = Math.Max(0, DAY_NORM_MIN - paidSpecialMin - manualWorkMin);
+            int targetLunchCount = GetManualWorkDrivenLunchCount(
+                TimeSpan.FromMinutes(manualWorkMin + remainingAutoWorkMin));
 
             bool fullSpecialDay = IsFullSpecialDayCore(
                 day,
@@ -461,46 +510,46 @@ namespace TeacherScheduleApp.Services
             busyCandidates.AddRange(lunches.Where(x => !x.IsManual).Select(x => (x.S, x.E)));
 
             var busy = MergeIntervals(busyCandidates);
-
-            var gaps = new List<(DateTime s, DateTime e)>();
-            var cursor = arrival;
-
-            foreach (var b in busy)
-            {
-                if (cursor >= departure)
-                    break;
-
-                var gapEnd = Min(b.start, departure);
-                if (gapEnd > cursor)
-                    gaps.Add((cursor, gapEnd));
-
-                cursor = Max(cursor, b.end);
-            }
-
-            if (cursor < departure)
-                gaps.Add((cursor, departure));
+            var gaps = BuildAutoWorkGaps(arrival, departure, busy);
 
             var firstLunchEnd = lunches.Any()
                 ? lunches.OrderBy(x => x.E).First().E
                 : DateTime.MinValue;
 
-            foreach (var (s, e) in gaps)
+            foreach (var gap in gaps)
             {
-                if ((e - s) <= TimeSpan.FromMinutes(1))
+                if (remainingAutoWorkMin <= 0)
+                    break;
+
+                if ((gap.E - gap.S) <= TimeSpan.FromMinutes(1))
                     continue;
+
+                int takeMinutes = Math.Min(
+                    remainingAutoWorkMin,
+                    Math.Max(0, (int)Math.Round((gap.E - gap.S).TotalMinutes)));
+
+                if (takeMinutes <= 1)
+                    continue;
+
+                var workStart = gap.FillFromEnd
+                    ? gap.E.AddMinutes(-takeMinutes)
+                    : gap.S;
+                var workEnd = workStart.AddMinutes(takeMinutes);
 
                 newEvents.Add(new Event
                 {
                     EmployeeId = _employeeId,
-                    Title = lunches.Any() && s >= firstLunchEnd
+                    Title = lunches.Any() && workStart >= firstLunchEnd
                             ? resolved.AutoEventNamePostLunch
                             : resolved.AutoEventNamePreLunch,
-                    StartTime = s,
-                    EndTime = e,
+                    StartTime = workStart,
+                    EndTime = workEnd,
                     EventType = EventType.Work,
                     IsAutoGenerated = true,
                     AutoGeneratedForDate = day
                 });
+
+                remainingAutoWorkMin -= takeMinutes;
             }
 
             var autoEventsToCreate = newEvents
@@ -510,7 +559,24 @@ namespace TeacherScheduleApp.Services
             if (autoEventsToCreate.Count > 0)
                 _eventService.CreateAutoEventsBulk(autoEventsToCreate);
 
+            _eventService.SplitWorkAroundExistingLunches(day, _employeeId);
+
             var dm0 = calc.DailyMetrics(day, _eventService.GetEventsForDay(_employeeId, day));
+
+            var missingAfterLunchSplitMin = GetCreditAwareMissingAutoWorkMinutes(day);
+
+            if (missingAfterLunchSplitMin >= QUANTUM_MIN)
+            {
+                FillAutoWorkGaps(
+                    day,
+                    arrival,
+                    departure,
+                    missingAfterLunchSplitMin,
+                    resolved);
+
+                dm0 = calc.DailyMetrics(day, _eventService.GetEventsForDay(_employeeId, day));
+            }
+
             var net0 = dm0.workInclBT;
 
             if (!preserveUserSettings && net0 > 12.0 + 1e-6)
@@ -523,6 +589,125 @@ namespace TeacherScheduleApp.Services
 
             if (!preserveUserSettings)
                 SaveDaySettingsFromEvents(day, forceOverwriteManual: true);
+        }
+
+        private int FillAutoWorkGaps(
+            DateTime day,
+            DateTime arrival,
+            DateTime departure,
+            int minutesToFill,
+            ResolvedDaySettings resolved)
+        {
+            var remaining = RoundDownToQuantum(minutesToFill);
+            if (remaining < QUANTUM_MIN || departure <= arrival)
+                return 0;
+
+            var dayEvents = _eventService.GetEventsForDay(_employeeId, day)
+                .Where(e => !e.IsDeleted)
+                .OrderBy(e => e.StartTime)
+                .ToList();
+
+            var firstLunchEnd = dayEvents
+                .Where(e => e.EventType == EventType.Lunch)
+                .OrderBy(e => e.EndTime)
+                .Select(e => e.EndTime)
+                .FirstOrDefault();
+
+            var busy = MergeIntervals(
+                dayEvents
+                    .Select(e => (
+                        start: e.StartTime < arrival ? arrival : e.StartTime,
+                        end: e.EndTime > departure ? departure : e.EndTime))
+                    .Where(x => x.end > x.start)
+                    .ToList());
+
+            var gaps = BuildAutoWorkGaps(arrival, departure, busy);
+            var toCreate = new List<Event>();
+
+            foreach (var gap in gaps)
+                FillGap(gap);
+
+            if (toCreate.Count > 0)
+                _eventService.CreateAutoEventsBulk(toCreate);
+
+            return minutesToFill - remaining;
+
+            void FillGap(AutoWorkGap gap)
+            {
+                if (gap.E <= gap.S || remaining < QUANTUM_MIN)
+                    return;
+
+                var available = RoundDownToQuantum((int)Math.Round((gap.E - gap.S).TotalMinutes));
+                var take = Math.Min(remaining, available);
+
+                if (take < QUANTUM_MIN)
+                    return;
+
+                var start = gap.FillFromEnd
+                    ? gap.E.AddMinutes(-take)
+                    : gap.S;
+
+                toCreate.Add(new Event
+                {
+                    EmployeeId = _employeeId,
+                    Title = firstLunchEnd != default && start >= firstLunchEnd
+                        ? resolved.AutoEventNamePostLunch
+                        : resolved.AutoEventNamePreLunch,
+                    StartTime = start,
+                    EndTime = start.AddMinutes(take),
+                    EventType = EventType.Work,
+                    IsAutoGenerated = true,
+                    AutoGeneratedForDate = day
+                });
+
+                remaining -= take;
+            }
+        }
+
+        private List<AutoWorkGap> BuildAutoWorkGaps(
+            DateTime arrival,
+            DateTime departure,
+            List<(DateTime start, DateTime end)> busy)
+        {
+            var chronological = new List<AutoWorkGap>();
+            var cursor = arrival;
+
+            foreach (var b in busy)
+            {
+                if (cursor >= departure)
+                    break;
+
+                var gapEnd = Min(b.start, departure);
+                if (gapEnd > cursor)
+                {
+                    var hasBusyAfter = busy.Any(x => x.start == gapEnd);
+                    chronological.Add(new AutoWorkGap(cursor, gapEnd, hasBusyAfter));
+                }
+
+                cursor = Max(cursor, b.end);
+            }
+
+            if (cursor < departure)
+            {
+                var hasBusyAfter = busy.Any(x => x.start == departure);
+                chronological.Add(new AutoWorkGap(cursor, departure, hasBusyAfter));
+            }
+
+            if (busy.Count <= 1 || chronological.Count <= 1)
+                return chronological;
+
+            return chronological
+                .Select((gap, index) => new
+                {
+                    gap,
+                    index,
+                    IsInner = busy.Any(b => b.end == gap.S) &&
+                              busy.Any(b => b.start == gap.E)
+                })
+                .OrderByDescending(x => x.IsInner)
+                .ThenBy(x => x.index)
+                .Select(x => x.gap)
+                .ToList();
         }
 
         private async Task<(DateTime start, DateTime end, bool wasCollision)> ResolveLunchPlacementAsync(
@@ -627,6 +812,35 @@ namespace TeacherScheduleApp.Services
             }
         }
 
+        private void DropInvalidComputedSettingsForAutoOnlyDay(DateTime day)
+        {
+            var settings = SettingsService.GetDaySettingsForDate(day, _employeeId);
+            if (settings == null || settings.IsManualOverride)
+                return;
+
+            var hasManualNonLunch = _eventService
+                .GetEventsForDay(_employeeId, day)
+                .Any(e =>
+                    !e.IsDeleted &&
+                    !e.IsAutoGenerated &&
+                    e.EventType != EventType.Lunch);
+
+            if (hasManualNonLunch)
+                return;
+
+            var baseResolved = SettingsService.GetResolvedDaySettingsIgnoringComputed(day, _employeeId);
+
+            bool outsideBaseWindow =
+                settings.ArrivalTime < baseResolved.ArrivalTime ||
+                settings.DepartureTime > baseResolved.DepartureTime ||
+                (settings.LunchEnd > settings.LunchStart &&
+                 (settings.LunchStart < baseResolved.ArrivalTime ||
+                  settings.LunchEnd > baseResolved.DepartureTime));
+
+            if (outsideBaseWindow)
+                SettingsService.DeleteComputedDaySettingsForDate(day, _employeeId);
+        }
+
         private void SaveDaySettingsFromEvents(DateTime day, bool forceOverwriteManual = false)
         {
             var evs = _eventService.GetEventsForDay(_employeeId, day)
@@ -637,13 +851,11 @@ namespace TeacherScheduleApp.Services
             var baseResolved = SettingsService.GetResolvedDaySettingsIgnoringComputed(day, _employeeId);
             var manualOverride = SettingsService.GetManualDaySettingsForDate(day, _employeeId);
 
-            bool IsWorkLike(Event e) => e.EventType == EventType.Work || e.EventType == EventType.BusinessTrip;
-            bool IsCreditedWorkTime(Event e) => IsWorkLike(e) || e.EventType == EventType.Teaching;
-            bool IsSpecial(Event e) => e.EventType != EventType.Lunch && !IsCreditedWorkTime(e);
             bool IsCreditedManual(Event e) =>
                 !e.IsDeleted &&
                 !e.IsAutoGenerated &&
-                (IsCreditedWorkTime(e) || IsSpecial(e));
+                e.EventType != EventType.Lunch &&
+                IsCreditedWorkTime(e.EventType);
 
             var manualCredited = evs.Where(IsCreditedManual).ToList();
 
@@ -656,6 +868,16 @@ namespace TeacherScheduleApp.Services
 
             var manualSlices = evs
                 .Where(e => !e.IsDeleted && !e.IsAutoGenerated)
+                .Select(e =>
+                {
+                    var c = ClipToDay(day, day.AddDays(1), e.StartTime, e.EndTime);
+                    return new ManualSlice(e, c.S, c.E);
+                })
+                .Where(x => x.E > x.S)
+                .ToList();
+
+            var allSlices = evs
+                .Where(e => !e.IsDeleted)
                 .Select(e =>
                 {
                     var c = ClipToDay(day, day.AddDays(1), e.StartTime, e.EndTime);
@@ -683,15 +905,15 @@ namespace TeacherScheduleApp.Services
 
             var baseArrival = day + baseResolved.ArrivalTime;
             var baseDeparture = day + baseResolved.DepartureTime;
-            var baseGross = baseDeparture - baseArrival;
-            bool hasCreditedWorkTime = manualSlices.Any(x => IsCreditedWorkTime(x.Event));
+            int workMinutesForLunch = GetEffectiveWorkMinutes(allSlices);
+            bool hasCreditedWorkTime = workMinutesForLunch > 0;
 
             int targetLunchCount =
                 manualOverride != null &&
                 manualOverride.LunchStart == manualOverride.LunchEnd &&
                 !hasCreditedWorkTime
                     ? 0
-                    : GetTargetLunchCount(baseGross);
+                    : GetManualWorkDrivenLunchCount(TimeSpan.FromMinutes(workMinutesForLunch));
 
             var lunchLen = GetLunchLength(baseResolved);
 
@@ -706,7 +928,7 @@ namespace TeacherScheduleApp.Services
             TimeSpan ls = TimeSpan.Zero;
             TimeSpan le = TimeSpan.Zero;
 
-            if (!isFullManualSpecialDay)
+            if (!isFullManualSpecialDay && targetLunchCount > 0)
             {
                 if (manualLunch != null)
                 {
@@ -923,7 +1145,7 @@ namespace TeacherScheduleApp.Services
                 IsAutoGenerated = false,
                 ImportBatchId = null,
                 IsDeleted = false,
-                HasCollision = source.HasCollision,
+                HasCollision = false,
                 AutoGeneratedForDate = null
             };
         }
@@ -1235,7 +1457,7 @@ namespace TeacherScheduleApp.Services
         }
 
         private static bool IsCreditedForLunchWindow(EventType t)
-            => IsCreditedWorkTime(t) || IsSpecial(t);
+            => IsCreditedWorkTime(t);
 
         private static (DateTime Arrival, DateTime Departure) GetLunchPolicyWindow(
             DateTime day,
@@ -1246,7 +1468,8 @@ namespace TeacherScheduleApp.Services
             DateTime departure = day + resolved.DepartureTime;
 
             var credited = manual
-                .Where(x => IsCreditedForLunchWindow(x.Event.EventType))
+                .Where(x =>
+                    IsCreditedForLunchWindow(x.Event.EventType))
                 .ToList();
 
             if (credited.Any())
@@ -1307,7 +1530,7 @@ namespace TeacherScheduleApp.Services
             return Math.Max(Math.Max(Math.Max(currentTarget, baseTarget), manualWorkTarget), eventWindowTarget);
         }
 
-        private static int GetEventWindowDrivenLunchCount(DateTime day, IEnumerable<Event> dayEvents)
+        private int GetEventWindowDrivenLunchCount(DateTime day, IEnumerable<Event> dayEvents)
         {
             var dayStart = day.Date;
             var dayEnd = dayStart.AddDays(1);
@@ -1326,8 +1549,59 @@ namespace TeacherScheduleApp.Services
             if (credited.Count == 0)
                 return 0;
 
-            return GetTargetLunchCount(
-                credited.Max(x => x.e) - credited.Min(x => x.s));
+            var worked = TimeSpan.FromTicks(
+                MergeIntervals(credited)
+                    .Sum(x => (x.end - x.start).Ticks));
+
+            return GetManualWorkDrivenLunchCount(worked);
+        }
+
+        private static bool IsPaidAbsence(EventType t) => t is EventType.DayOff
+            or EventType.Illness
+            or EventType.Vacation
+            or EventType.Ocr
+            or EventType.Doctor
+            or EventType.Holiday;
+
+        private List<ManualSlice> GetCurrentDaySlices(DateTime day)
+        {
+            var dayStart = day.Date;
+            var dayEnd = dayStart.AddDays(1);
+
+            static (DateTime S, DateTime E) ClipToDay(DateTime ds, DateTime de, DateTime s, DateTime e)
+            {
+                var cs = s < ds ? ds : s;
+                var ce = e > de ? de : e;
+                return ce > cs ? (cs, ce) : (cs, cs);
+            }
+
+            return _eventService
+                .GetEventsForDay(_employeeId, day)
+                .Where(e => !e.IsDeleted)
+                .Select(e =>
+                {
+                    var c = ClipToDay(dayStart, dayEnd, e.StartTime, e.EndTime);
+                    return new ManualSlice(e, c.S, c.E);
+                })
+                .Where(x => x.E > x.S)
+                .ToList();
+        }
+
+        private int GetCreditAwareMissingAutoWorkMinutes(DateTime day)
+        {
+            var slices = GetCurrentDaySlices(day);
+
+            int paidAbsenceMin = GetPaidSpecialCreditMinutes(slices);
+
+            if (paidAbsenceMin >= DAY_NORM_MIN)
+                return 0;
+
+            int workMin = GetEffectiveWorkMinutes(slices);
+
+            int creditedMin = Math.Min(DAY_NORM_MIN, paidAbsenceMin + workMin);
+            creditedMin = RoundDownToQuantum(creditedMin);
+
+            return RoundDownToQuantum(Math.Max(0, DAY_NORM_MIN - creditedMin));
         }
     }
 }

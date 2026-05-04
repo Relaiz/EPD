@@ -108,6 +108,9 @@ namespace TeacherScheduleApp.Controls
         {
             base.OnPointerPressed(e);
 
+            if (e.Handled)
+                return;
+
             var days = Math.Max(1, DaysCount);
             var hours = Math.Max(1, HoursCount);
 

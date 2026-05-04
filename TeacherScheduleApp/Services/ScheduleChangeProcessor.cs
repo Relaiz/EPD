@@ -121,12 +121,28 @@ namespace TeacherScheduleApp.Services
         private List<ChangedRange> BuildScopesForImport(ChangedRange changedRange)
         {
             var src = changedRange.Normalize();
-            var result = new List<ChangedRange>();
+            var result = new List<ChangedRange>
+            {
+                ExpandToWholeMonths(src)
+            };
 
             for (int year = src.Start!.Value.Year; year <= src.End!.Value.Year; year++)
                 result.AddRange(_eventService.GetUninitializedScopesForYear(year, _employeeId));
 
             return MergeScopes(result);
+        }
+
+        private static ChangedRange ExpandToWholeMonths(ChangedRange changedRange)
+        {
+            var src = changedRange.Normalize();
+            if (!src.HasValue)
+                return ChangedRange.Empty;
+
+            var start = new DateTime(src.Start!.Value.Year, src.Start.Value.Month, 1);
+            var endMonth = new DateTime(src.End!.Value.Year, src.End.Value.Month, 1);
+            var end = endMonth.AddMonths(1).AddDays(-1);
+
+            return new ChangedRange(start, end);
         }
 
         private static List<ChangedRange> MergeScopes(IEnumerable<ChangedRange> scopes)
