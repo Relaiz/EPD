@@ -38,4 +38,11 @@
 	    <DependentUpon>PdfPreviewWindow.axaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="native\ghostscript\**\*">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	    <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+	  </Content>
+	</ItemGroup>
 </Project>

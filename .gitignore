@@ -1,3 +1,9 @@
 TeacherScheduleApp/bin/Debug/net8.0/teacherapp.db
 ~WRL1670.tmp
 ~$zboinikovE_DigitalizaceEvidencePracovniDoby_RM_2026.docx
+TeacherScheduleApp-win-x64.zip
+TeacherScheduleApp/publish/
+TeacherScheduleApp/bin/
+TeacherScheduleApp/obj/
+TeacherScheduleApp/.vs/
+TeacherScheduleApp/native/ghostscript/

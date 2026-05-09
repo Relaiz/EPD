@@ -447,7 +447,8 @@ namespace TeacherScheduleApp.Services
             try
             {
                 GhostscriptVersionInfo version =
-                    GhostscriptVersionInfo.GetLastInstalledVersion()
+                    GetBundledGhostscriptVersion()
+                    ?? GhostscriptVersionInfo.GetLastInstalledVersion()
                     ?? throw new PdfRenderException("Ghostscript není nainstalován.");
 
                 using var rasterizer = new GhostscriptRasterizer();
@@ -472,6 +473,14 @@ namespace TeacherScheduleApp.Services
             {
                 throw new PdfRenderException("Chyba při renderování PDF na Windows.", ex);
             }
+        }
+
+        private static GhostscriptVersionInfo? GetBundledGhostscriptVersion()
+        {
+            var dllPath = Path.Combine(AppContext.BaseDirectory, "native", "ghostscript", "bin", "gsdll64.dll");
+            return File.Exists(dllPath)
+                ? new GhostscriptVersionInfo(dllPath)
+                : null;
         }
 
         private IReadOnlyList<Bitmap> RenderOnLinuxWithGsBinary(byte[] pdfBytes, int dpi)
